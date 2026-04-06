@@ -406,7 +406,7 @@ function selU(id){_sui=id;document.querySelectorAll('.user-chip').forEach(c=>c.c
 function doLogin(){const u=ST.usuarios.find(x=>x.id===_sui);if(!u){document.getElementById('lerr').textContent='Selecciona un usuario';return;}if(document.getElementById('lpass').value!==u.pass){document.getElementById('lerr').textContent='Contraseña incorrecta';return;}CU=u;document.getElementById('vlogin').style.display='none';document.getElementById('vapp').style.display='block';document.getElementById('sbuser').textContent=CU.nombre;document.getElementById('sbrole').textContent=CU.rol==='admin'?'Administrador':'Ruta '+(gR(CU.rutaId)||{nombre:''}).nombre;document.getElementById('mobusr').textContent=CU.nombre.split(' ')[0];mesSel=ISO.slice(0,7);buildNav();goto('dash');subAll();}
 function logout(){unsubs.forEach(f=>f());unsubs=[];CU=null;_sui=null;document.getElementById('vapp').style.display='none';document.getElementById('vlogin').style.display='flex';document.getElementById('lpass').value='';document.getElementById('lerr').textContent='';buildUsers();}
 
-function subAll(){setSync('conn');['rutas','clientes','prestamos','gastos','cierres'].forEach(col=>{const u=db.collection(col).orderBy('createdAt','asc').onSnapshot(snap=>{ST[col]=snap.docs.map(d=>({id:d.id,...d.data()}));setSync('online');refScreen();},err=>{console.error(col,err);setSync('offline');});unsubs.push(u);});const u2=db.collection('usuarios').onSnapshot(snap=>{ST.usuarios=snap.docs.map(d=>({id:d.id,...d.data()}));buildUsers();},err=>console.error(err));unsubs.push(u2);}
+function subAll(){setSync('conn');['rutas','clientes','prestamos','gastos','cierres'].forEach(col=>{const u=db.collection(col).onSnapshot(snap=>{ST[col]=snap.docs.map(d=>({id:d.id,...d.data()}));setSync('online');refScreen();},err=>{console.error(col,err);setSync('offline');});unsubs.push(u);});const u2=db.collection('usuarios').onSnapshot(snap=>{ST.usuarios=snap.docs.map(d=>({id:d.id,...d.data()}));buildUsers();},err=>console.error(err));unsubs.push(u2);}
 function refScreen(){const a=document.querySelector('.sc.active');if(a){const id=a.id.replace('sc-','');SCRS[id]&&SCRS[id]();}}
 
 const SCRS={dash:rDash,clientes:rCli,cobros:rCobros,recaudos:rRec,prestamos:rPre,gastos:rGastosSimple,'gastos-admin':rGastos,ganancias:rGan,cierre:rCierre,morosos:rMora,rutas:rRutas,usuarios:rUsrs,reportes:()=>{}};
@@ -718,7 +718,7 @@ const ws=XLSX.utils.aoa_to_sheet(data);ws['!cols']=data[0].map((_,i)=>({wch:Math
 
 // INIT ──────────────────────────────────────────
 buildUsers();setSync('conn');
-db.collection('usuarios').get().then(snap=>{ST.usuarios=snap.docs.map(d=>({id:d.id,...d.data()}));buildUsers();if(ST.usuarios.length===0){db.collection('usuarios').add({nombre:'Administrador',user:'admin',pass:'admin123',rol:'admin',rutaId:null,createdAt:Date.now()});}}).catch(()=>setSync('offline'));
+db.collection('usuarios').get().then(function(snap){ST.usuarios=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});buildUsers();if(ST.usuarios.length===0){db.collection('usuarios').add({nombre:'Administrador',user:'admin',pass:'admin123',rol:'admin',rutaId:null,createdAt:Date.now()}).then(function(){db.collection('usuarios').get().then(function(s2){ST.usuarios=s2.docs.map(function(d){return Object.assign({id:d.id},d.data());});buildUsers();});}); }}).catch(function(err){console.error('Error usuarios:',err);setSync('offline');ST.usuarios=[{id:'adm0',nombre:'Administrador',user:'admin',pass:'admin123',rol:'admin',rutaId:null}];buildUsers();});
 </script>
 </body>
 </html>
