@@ -9,6 +9,7 @@
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--blue-dark:#0D47A1;--blue:#1565C0;--blue-mid:#1976D2;--blue-light:#E3F2FD;--blue-lighter:#F0F7FF;--blue-border:#BBDEFB;--sidebar:#0D2B5E;--green:#2E7D32;--green-light:#E8F5E9;--red:#C62828;--red-light:#FFEBEE;--amber:#E65100;--amber-light:#FFF3E0;--bg:#F0F7FF;--white:#fff;--text:#0D2137;--text-muted:#5F8DC0;--border:#BBDEFB;--r-sm:6px;--r:10px;--r-lg:14px;--sw:200px;--th:52px}
 html,body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
+/* LOGIN */
 .login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1.5rem;background:var(--bg)}
 .login-card{background:var(--white);border-radius:var(--r-lg);padding:2rem;width:100%;max-width:400px;border:1px solid var(--border);box-shadow:0 4px 24px rgba(21,101,192,.08)}
 .brand{display:flex;align-items:center;gap:12px;margin-bottom:4px}
@@ -29,6 +30,7 @@ html,body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:
 .login-err{color:var(--red);font-size:12px;margin:6px 0;text-align:center;min-height:18px}
 .btn-login{width:100%;padding:11px;font-size:14px;font-weight:700;font-family:inherit;background:var(--blue);color:#fff;border:none;border-radius:var(--r-sm);cursor:pointer;margin-top:8px}
 .btn-login:hover{background:var(--blue-dark)}
+/* MOBILE TOPBAR */
 .mob-top{display:none;position:fixed;top:0;left:0;right:0;height:var(--th);background:var(--sidebar);z-index:200;align-items:center;padding:0 16px;gap:12px;border-bottom:1px solid rgba(255,255,255,.1)}
 .hbg{background:transparent;border:none;cursor:pointer;padding:6px;display:flex;flex-direction:column;gap:4px}
 .hbg span{display:block;width:20px;height:2px;background:#fff;border-radius:2px;transition:all .2s}
@@ -40,6 +42,7 @@ html,body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:
 .mob-uname{font-size:11px;color:rgba(255,255,255,.6);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sb-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:299}
 .sb-ov.show{display:block}
+/* LAYOUT */
 .layout{display:flex;min-height:100vh}
 .sidebar{width:var(--sw);background:var(--sidebar);flex-shrink:0;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;transition:transform .25s}
 .sbh{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.1)}
@@ -57,19 +60,23 @@ html,body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:
 .sbf{padding:12px 16px;border-top:1px solid rgba(255,255,255,.1);margin-top:auto}
 .sync-row{display:flex;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,.5);margin-bottom:8px}
 .sync-dot{width:7px;height:7px;border-radius:50%;background:#4CAF50;flex-shrink:0}
-.sync-dot.off{background:#F44336}.sync-dot.conn{background:#FF9800}
+.sync-dot.off{background:#F44336}
+.sync-dot.conn{background:#FF9800}
 .sb-out{display:flex;align-items:center;gap:7px;padding:7px 0;color:rgba(255,255,255,.5);font-size:12px;font-family:inherit;border:none;background:transparent;cursor:pointer;width:100%}
 .sb-out:hover{color:#fff}
+/* MAIN */
 .main{flex:1;padding:1.25rem;overflow:auto;background:var(--bg);min-width:0}
 .sc{display:none}.sc.active{display:block}
 .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;gap:8px}
 .topbar h2{font-size:17px;font-weight:700;color:var(--blue-dark)}
 .tb-date{font-size:12px;color:var(--text-muted);font-weight:600}
+/* METRICS */
 .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:1.25rem}
 .metric{background:var(--white);border-radius:var(--r);padding:12px 14px;border:1px solid var(--border)}
 .metric .lbl{font-size:10px;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
 .metric .val{font-size:20px;font-weight:700;color:var(--blue-dark)}
 .metric .sub{font-size:11px;margin-top:2px;color:var(--text-muted)}
+/* CARDS */
 .card{background:var(--white);border-radius:var(--r);padding:1.25rem;margin-bottom:1rem;border:1px solid var(--border)}
 .card h3{font-size:11px;font-weight:700;color:var(--blue-dark);margin-bottom:1rem;text-transform:uppercase;letter-spacing:.05em}
 .chr{display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem}
@@ -77,6 +84,7 @@ html,body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:
 .card-desc{font-size:12px;color:var(--text-muted);margin-bottom:1rem;line-height:1.5}
 .two-col{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1rem}
 .rep-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+/* BUTTONS */
 .btn-p{background:var(--blue);color:#fff;padding:8px 16px;font-size:13px;font-weight:700;border:none;border-radius:var(--r-sm);cursor:pointer;font-family:inherit;transition:background .15s;white-space:nowrap}
 .btn-p:hover{background:var(--blue-dark)}
 .btn-sm{padding:5px 12px!important;font-size:12px!important}
@@ -88,10 +96,13 @@ html,body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:
 .btn-c:hover{background:var(--blue-dark)}
 .btn-v{background:transparent;color:var(--blue);border:1px solid var(--border);padding:5px 11px;font-size:12px;font-weight:600;border-radius:var(--r-sm);cursor:pointer;font-family:inherit}
 .btn-v:hover{background:var(--blue-light)}
+.btn-base{background:var(--amber);color:#fff;padding:5px 12px;font-size:12px;font-weight:700;border:none;border-radius:var(--r-sm);cursor:pointer;font-family:inherit}
 .btn-del{background:transparent;color:var(--red);border:1px solid #FFCDD2;padding:3px 7px;font-size:11px;font-weight:700;border-radius:5px;cursor:pointer;font-family:inherit;flex-shrink:0}
+/* SECTION HEAD */
 .sec-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;gap:10px}
 .srch{flex:1}.srch input{width:100%;padding:8px 12px;font-size:13px;font-family:inherit;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--white);color:var(--text)}
 .srch input:focus{outline:none;border-color:var(--blue)}
+/* TABLE */
 .tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
 table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
 th{text-align:left;padding:7px 8px;font-size:10px;font-weight:700;color:var(--text-muted);border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
@@ -100,10 +111,10 @@ tr:last-child td{border-bottom:none}
 tr:hover td{background:var(--blue-lighter)}
 .tn{font-weight:600;color:var(--blue-dark)}
 .ts{font-size:11px;color:var(--text-muted);margin-top:1px}
+/* BADGES */
 .badge{display:inline-block;padding:2px 7px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
 .bg{background:#E8F5E9;color:#1B5E20}.ba{background:#FFF3E0;color:#E65100}.br{background:#FFEBEE;color:#C62828}.bb{background:#E3F2FD;color:#0D47A1}.bgr{background:#F5F5F5;color:#616161}
-.badge-nequi{background:#F3E5F5;color:#6A1B9A}
-.badge-ef{background:#E8F5E9;color:#1B5E20}
+/* PAY ROWS */
 .pr{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--blue-lighter)}
 .pr:last-child{border-bottom:none}
 .pn{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
@@ -111,14 +122,17 @@ tr:hover td{background:var(--blue-lighter)}
 .pname{font-size:13px;font-weight:600;color:var(--blue-dark);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .psub{font-size:11px;color:var(--text-muted)}
 .pmonto{font-size:13px;font-weight:700;color:var(--blue-dark);flex-shrink:0}
+/* PROGRESS */
 .pbar{height:5px;background:var(--blue-light);border-radius:3px;overflow:hidden;margin-top:4px}
 .pfill{height:100%;background:var(--blue);border-radius:3px}
+/* MISC */
 .alert-b{background:var(--amber-light);border:1px solid #FFCC80;border-radius:var(--r-sm);padding:10px 14px;margin-bottom:1rem;display:flex;align-items:center;gap:10px;font-size:13px;color:var(--amber);flex-wrap:wrap}
 .mes-sel{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1rem}
 .mes-btn{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;border:1px solid var(--border);background:var(--white);color:var(--text-muted);cursor:pointer;font-family:inherit}
 .mes-btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
 .gasto-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--blue-lighter)}
 .gasto-row:last-child{border-bottom:none}
+.cat-ic{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;font-weight:700}
 .fin-row{display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px}
 .fin-row span:first-child{color:var(--text-muted);font-weight:600}
 .fin-div{border-top:1px solid var(--border);margin:10px 0}
@@ -132,7 +146,6 @@ tr:hover td{background:var(--blue-lighter)}
 .prev-item{background:var(--blue-lighter);padding:10px 12px;border-radius:8px}
 .prev-item .lbl{font-size:10px;color:var(--text-muted);font-weight:700;text-transform:uppercase}
 .prev-item .val{font-size:14px;font-weight:700;color:var(--blue-dark);margin-top:3px}
-/* CIERRE */
 .cierre-hdr{background:var(--blue-light);border-radius:var(--r);padding:1.25rem;margin-bottom:1rem;border:1px solid var(--blue-border)}
 .cierre-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
 .ci-item .lbl{font-size:10px;color:var(--blue);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
@@ -142,26 +155,25 @@ tr:hover td{background:var(--blue-lighter)}
 .cierre-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--blue-lighter);gap:8px;flex-wrap:wrap}
 .cierre-row:last-child{border-bottom:none}
 .cierre-ok{background:#E8F5E9;border:1px solid #A5D6A7;border-radius:var(--r-sm);padding:12px 16px;font-size:13px;color:#1B5E20;font-weight:700}
-/* CUADRE */
-.cuadre-box{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:1.25rem;margin-top:1rem}
-.cuadre-box h3{font-size:11px;font-weight:700;color:var(--blue-dark);margin-bottom:1rem;text-transform:uppercase;letter-spacing:.05em}
-.cuadre-formula{background:var(--blue-lighter);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:1rem;font-size:13px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.cuadre-dif{border-radius:var(--r-sm);padding:10px 14px;font-size:13px;font-weight:700;margin-top:.75rem;text-align:center}
-.cuadre-ok{background:#E8F5E9;color:#1B5E20}
-.cuadre-dif-neg{background:#FFEBEE;color:#C62828}
-/* RUTA CARD */
 .ruta-card{background:var(--white);border-radius:var(--r);padding:1.25rem;margin-bottom:1rem;border:1px solid var(--border);border-left-width:4px}
 .ruta-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:1rem}
 .rs{background:var(--blue-lighter);padding:10px;border-radius:8px}
 .rs .lbl{font-size:10px;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em}
 .rs .val{font-size:14px;font-weight:700;color:var(--blue-dark);margin-top:2px}
 .rs.danger .lbl{color:var(--red)}.rs.danger .val{color:var(--red)}
+.flujo-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:1rem}
+.flujo-stat{padding:10px 12px;border-radius:8px}
+.flujo-stat .lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+.flujo-stat .val{font-size:16px;font-weight:700}
+.base-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--blue-lighter)}
+.base-row:last-child{border-bottom:none}
+.base-tipo{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
 .ruta-dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;flex-shrink:0}
 .gan-bw{display:flex;align-items:center;gap:6px}
 .gan-bt{flex:1;height:6px;background:var(--blue-light);border-radius:3px;overflow:hidden}
 .gan-bf{height:100%;border-radius:3px}
 .gan-pct{font-size:11px;font-weight:700;min-width:32px}
-/* MODAL */
+/* MODALS */
 .modal-ov{position:fixed;inset:0;background:rgba(13,43,94,.45);display:flex;align-items:flex-start;justify-content:center;z-index:500;padding:1rem;overflow-y:auto}
 .modal{background:var(--white);border-radius:var(--r-lg);padding:1.5rem;width:100%;max-width:500px;border:1px solid var(--border);margin:auto}
 .modal.mlg{max-width:560px}
@@ -174,25 +186,14 @@ tr:hover td{background:var(--blue-lighter)}
 .fg2 input:focus,.fg2 select:focus{outline:none;border-color:var(--blue)}
 .mfoot{display:flex;gap:8px;justify-content:flex-end;margin-top:1.25rem;border-top:1px solid var(--blue-lighter);padding-top:1rem}
 .empty{text-align:center;padding:2rem 1rem;color:var(--text-muted);font-size:13px;font-weight:500}
-/* COBRO MODAL ESPECIAL */
-.cobro-info{background:var(--blue-light);border-radius:var(--r-sm);padding:12px;margin-bottom:1rem;border:1px solid var(--blue-border)}
-.cobro-info .ci-name{font-size:15px;font-weight:700;color:var(--blue-dark);margin-bottom:4px}
-.cobro-info .ci-detail{font-size:12px;color:var(--blue-mid)}
-.mp-selector{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
-.mp-opt{padding:10px;border-radius:var(--r-sm);border:2px solid var(--border);cursor:pointer;text-align:center;transition:all .15s;background:var(--white)}
-.mp-opt.sel-ef{border-color:var(--green);background:#E8F5E9}
-.mp-opt.sel-nq{border-color:#6A1B9A;background:#F3E5F5}
-.mp-opt .mp-icon{font-size:18px;margin-bottom:3px}
-.mp-opt .mp-label{font-size:12px;font-weight:700}
+/* TOAST */
 .toast{position:fixed;bottom:20px;right:16px;background:var(--blue-dark);color:#fff;padding:11px 18px;border-radius:var(--r-sm);font-size:13px;font-weight:600;z-index:9999;opacity:0;transform:translateY(10px);transition:all .3s;pointer-events:none;max-width:300px}
 .toast.show{opacity:1;transform:translateY(0)}
-.toast.ok{background:var(--green)}.toast.err{background:var(--red)}
-/* MOROSOS RUTA */
-.mora-ruta-card{background:var(--white);border-radius:var(--r);padding:1.25rem;margin-bottom:1rem;border:1px solid #FFCDD2;border-left:4px solid var(--red)}
-.mora-ruta-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;gap:8px}
+.toast.ok{background:var(--green)}
+.toast.err{background:var(--red)}
 /* RESPONSIVE */
-@media(max-width:900px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.ruta-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.cierre-grid{grid-template-columns:1fr 1fr}.two-col{grid-template-columns:1fr}.rep-grid{grid-template-columns:1fr 1fr}}
-@media(max-width:640px){.mob-top{display:flex}.layout{padding-top:var(--th)}.sidebar{position:fixed;top:0;left:0;height:100vh;z-index:300;transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}.main{padding:1rem}.metrics{grid-template-columns:1fr 1fr;gap:8px}.two-col{grid-template-columns:1fr}.rep-grid{grid-template-columns:1fr}.fr{grid-template-columns:1fr}.fr3{grid-template-columns:1fr 1fr}.stats3{grid-template-columns:1fr 1fr}.prev-box{grid-template-columns:1fr 1fr}.cierre-grid{grid-template-columns:1fr 1fr}.ruta-stats{grid-template-columns:1fr 1fr}.modal-ov{align-items:flex-end;padding:.75rem .5rem}.modal{border-radius:var(--r-lg) var(--r-lg) 0 0;max-width:100%;margin:0}.sec-head{flex-wrap:wrap}.mp-selector{grid-template-columns:1fr 1fr}}
+@media(max-width:900px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.ruta-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.cierre-grid{grid-template-columns:1fr 1fr}.two-col{grid-template-columns:1fr}.rep-grid{grid-template-columns:1fr 1fr}.flujo-stats{grid-template-columns:1fr 1fr}}
+@media(max-width:640px){.mob-top{display:flex}.layout{padding-top:var(--th)}.sidebar{position:fixed;top:0;left:0;height:100vh;z-index:300;transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}.main{padding:1rem}.metrics{grid-template-columns:1fr 1fr;gap:8px}.two-col{grid-template-columns:1fr}.rep-grid{grid-template-columns:1fr}.fr{grid-template-columns:1fr}.fr3{grid-template-columns:1fr 1fr}.stats3{grid-template-columns:1fr 1fr}.prev-box{grid-template-columns:1fr 1fr}.cierre-grid{grid-template-columns:1fr 1fr}.ruta-stats{grid-template-columns:1fr 1fr}.flujo-stats{grid-template-columns:1fr}.modal-ov{align-items:flex-end;padding:.75rem .5rem}.modal{border-radius:var(--r-lg) var(--r-lg) 0 0;max-width:100%;margin:0}.sec-head{flex-wrap:wrap}.tw{overflow-x:auto}.table{min-width:400px}}
 </style>
 </head>
 <body>
@@ -235,146 +236,62 @@ tr:hover td{background:var(--blue-lighter)}
       </div>
     </aside>
     <main class="main">
-      <!-- DASHBOARD -->
       <div class="sc" id="sc-dash"><div class="topbar"><h2 id="dtitle">Resumen</h2><span class="tb-date" id="dfecha"></span></div><div id="dalert"></div><div class="metrics" id="dmet"></div><div class="two-col"><div class="card"><h3>Cobros de hoy</h3><div id="dcobros"></div></div><div class="card"><h3>Alertas de mora</h3><div id="dmora"></div></div></div></div>
-      <!-- CLIENTES -->
       <div class="sc" id="sc-clientes"><div class="sec-head"><div class="srch"><input type="text" placeholder="Buscar cliente..." id="scli" oninput="rCli()"></div><button class="btn-p btn-sm" onclick="oM('m-cli')">+ Nuevo</button></div><div class="card"><div class="tw"><table><thead><tr><th style="width:35%">Nombre</th><th style="width:22%">Teléfono</th><th style="width:20%">Ruta</th><th style="width:23%"></th></tr></thead><tbody id="tbcli"></tbody></table></div></div></div>
-      <!-- COBROS -->
       <div class="sc" id="sc-cobros"><div class="topbar"><h2>Cobros del día</h2></div><div class="metrics" id="cmet"></div><div class="card"><div id="clista"></div></div></div>
-      <!-- RECAUDOS -->
-      <div class="sc" id="sc-recaudos"><div class="topbar"><h2>Recaudos</h2></div><div class="metrics" id="rmet"></div><div class="card"><h3>Pagos registrados</h3><div class="tw"><table><thead><tr><th style="width:20%">Fecha</th><th style="width:28%">Cliente</th><th style="width:18%">Monto</th><th style="width:14%">Método</th><th style="width:20%">Estado</th></tr></thead><tbody id="tbrec"></tbody></table></div></div></div>
-      <!-- PRÉSTAMOS -->
+      <div class="sc" id="sc-recaudos"><div class="topbar"><h2>Recaudos</h2></div><div class="metrics" id="rmet"></div><div class="card"><h3>Pagos registrados</h3><div class="tw"><table><thead><tr><th style="width:22%">Fecha</th><th style="width:30%">Cliente</th><th style="width:20%">Monto</th><th style="width:28%">Estado</th></tr></thead><tbody id="tbrec"></tbody></table></div></div></div>
       <div class="sc" id="sc-prestamos"><div class="sec-head"><div class="srch"><input type="text" placeholder="Buscar préstamo..." id="spre" oninput="rPre()"></div><button class="btn-p btn-sm" onclick="oMPre()">+ Nuevo</button></div><div class="card"><div class="tw"><table><thead><tr><th style="width:26%">Cliente</th><th style="width:18%">Capital</th><th style="width:18%">Cuota</th><th style="width:18%">Progreso</th><th style="width:20%">Estado</th></tr></thead><tbody id="tbpre"></tbody></table></div></div></div>
-      <!-- GASTOS COBRADOR (simplificado) -->
-      <div class="sc" id="sc-gastos">
-        <div class="topbar"><h2 id="gtitle">Mis gastos del día</h2></div>
-        <div class="card">
-          <div class="chr"><h3>Registrar gasto</h3><button class="btn-p btn-sm" onclick="oM('m-gas')">+ Agregar gasto</button></div>
-          <div id="glista-simple"></div>
-        </div>
-        <div class="card"><h3>Resumen</h3><div id="gres-simple"></div></div>
-      </div>
-      <!-- GASTOS ADMIN -->
-      <div class="sc" id="sc-gastos-admin"><div class="topbar"><h2>Gastos del negocio</h2></div><div class="mes-sel" id="msel"></div><div class="metrics" id="gmet"></div><div class="two-col"><div><div class="card"><div class="chr"><h3>Gastos del mes</h3><button class="btn-p btn-sm" onclick="oM('m-gas-admin')">+ Agregar</button></div><div id="glista"></div></div></div><div><div class="card"><h3>Resumen financiero</h3><div id="gres"></div></div><div class="card"><h3>Por categoría</h3><div id="gcats"></div></div></div></div></div>
-      <!-- GANANCIAS -->
+      <div class="sc" id="sc-gastos"><div class="topbar"><h2 id="gtitle">Gastos</h2></div><div class="mes-sel" id="msel"></div><div class="metrics" id="gmet"></div><div class="two-col"><div><div class="card"><div class="chr"><h3>Gastos del mes</h3><button class="btn-p btn-sm" onclick="oM('m-gas')">+ Agregar</button></div><div id="glista"></div></div></div><div><div class="card"><h3>Resumen financiero</h3><div id="gres"></div></div><div class="card"><h3>Por categoría</h3><div id="gcats"></div></div></div></div></div>
       <div class="sc" id="sc-ganancias"><div class="topbar"><h2>Ganancias mensuales</h2></div><div class="metrics" id="gnmet"></div><div class="card"><h3>Historial por mes</h3><div id="gntab"></div></div><div class="two-col" style="margin-top:1rem" id="gnrutas"></div></div>
-      <!-- CIERRE -->
+      <div class="sc" id="sc-flujo"><div class="topbar"><h2>Flujo de caja por ruta</h2></div><div class="mes-sel" id="fmsel"></div><div id="flujoC"></div></div>
       <div class="sc" id="sc-cierre"><div class="topbar"><h2>Cierre del día</h2><span class="tb-date" id="cfecha"></span></div><div id="cierreC"></div></div>
-      <!-- MOROSOS -->
-      <div class="sc" id="sc-morosos"><div class="topbar"><h2>Clientes morosos</h2></div><div class="metrics" id="mmet"></div><div id="mlista"></div></div>
-      <!-- RUTAS -->
+      <div class="sc" id="sc-morosos"><div class="topbar"><h2>Clientes morosos</h2></div><div class="metrics" id="mmet"></div><div class="card"><h3>Detalle</h3><div id="mlista"></div></div></div>
       <div class="sc" id="sc-rutas"><div class="topbar"><h2>Rutas</h2><button class="btn-p btn-sm" onclick="oM('m-ruta')">+ Nueva ruta</button></div><div id="rlista"></div></div>
-      <!-- USUARIOS -->
       <div class="sc" id="sc-usuarios"><div class="topbar"><h2>Usuarios</h2><button class="btn-p btn-sm" onclick="prepMU()">+ Nuevo</button></div><div class="card"><div class="tw"><table><thead><tr><th style="width:28%">Nombre</th><th style="width:22%">Usuario</th><th style="width:18%">Rol</th><th style="width:20%">Ruta</th><th style="width:12%"></th></tr></thead><tbody id="tbusr"></tbody></table></div></div></div>
-      <!-- REPORTES -->
-      <div class="sc" id="sc-reportes"><div class="topbar"><h2>Exportar reportes</h2></div><div class="rep-grid"><div class="card"><h3>Cartera</h3><p class="card-desc">Todos los préstamos activos.</p><button class="btn-xl btn-sm" onclick="exp('cartera')">Descargar Excel</button></div><div class="card"><h3>Cobros del día</h3><p class="card-desc">Cuotas por ruta de hoy.</p><button class="btn-xl btn-sm" onclick="exp('cobros')">Descargar Excel</button></div><div class="card"><h3>Ganancias</h3><p class="card-desc">Resumen financiero mensual.</p><button class="btn-xl btn-sm" onclick="exp('ganancias')">Descargar Excel</button></div><div class="card"><h3>Morosos</h3><p class="card-desc">Cuotas vencidas en mora.</p><button class="btn-xl btn-sm" onclick="exp('morosos')">Descargar Excel</button></div></div><div id="expmsg" style="margin-top:1rem"></div></div>
+      <div class="sc" id="sc-reportes"><div class="topbar"><h2>Exportar reportes</h2></div><div class="rep-grid"><div class="card"><h3>Cartera</h3><p class="card-desc">Todos los préstamos activos.</p><button class="btn-xl btn-sm" onclick="exp('cartera')">Descargar Excel</button></div><div class="card"><h3>Cobros del día</h3><p class="card-desc">Cuotas por ruta de hoy.</p><button class="btn-xl btn-sm" onclick="exp('cobros')">Descargar Excel</button></div><div class="card"><h3>Flujo de caja</h3><p class="card-desc">Entradas y salidas por ruta.</p><button class="btn-xl btn-sm" onclick="exp('flujo')">Descargar Excel</button></div><div class="card"><h3>Ganancias</h3><p class="card-desc">Resumen financiero mensual.</p><button class="btn-xl btn-sm" onclick="exp('ganancias')">Descargar Excel</button></div><div class="card"><h3>Morosos</h3><p class="card-desc">Cuotas vencidas en mora.</p><button class="btn-xl btn-sm" onclick="exp('morosos')">Descargar Excel</button></div></div><div id="expmsg" style="margin-top:1rem"></div></div>
     </main>
   </div>
 </div>
 
 <!-- MODALES -->
-<!-- GASTO COBRADOR (simplificado: solo concepto y valor) -->
-<div id="m-gas" class="modal-ov" style="display:none" onclick="cM('m-gas')"><div class="modal" onclick="event.stopPropagation()">
-  <h3>Registrar gasto</h3>
-  <div class="fg2"><label>Concepto</label><input id="gd" type="text" placeholder="Ej: Gasolina, parqueadero..."></div>
-  <div class="fg2"><label>Valor ($)</label><input id="gm" type="number" placeholder="50000"></div>
-  <div class="mfoot"><button class="btn-g btn-sm" onclick="cM('m-gas')">Cancelar</button><button class="btn-p btn-sm" onclick="saveGasto()">Guardar</button></div>
-</div></div>
-
-<!-- GASTO ADMIN (completo) -->
-<div id="m-gas-admin" class="modal-ov" style="display:none" onclick="cM('m-gas-admin')"><div class="modal" onclick="event.stopPropagation()">
-  <h3>Registrar gasto</h3>
-  <div class="fr"><div class="fg2"><label>Descripción</label><input id="gda" type="text"></div><div class="fg2"><label>Monto ($)</label><input id="gma" type="number"></div></div>
-  <div class="fr"><div class="fg2"><label>Categoría</label><select id="gcata"><option value="transporte">Transporte</option><option value="nomina">Nómina cobrador</option><option value="oficina">Oficina</option><option value="comunicaciones">Comunicaciones</option><option value="otros">Otros</option></select></div><div class="fg2"><label>Fecha</label><input id="gfeca" type="date"></div></div>
-  <div class="fr"><div class="fg2"><label>Ruta</label><select id="gruta"></select></div><div class="fg2"><label>Referencia</label><input id="grefa" type="text"></div></div>
-  <div class="mfoot"><button class="btn-g btn-sm" onclick="cM('m-gas-admin')">Cancelar</button><button class="btn-p btn-sm" onclick="saveGastoAdmin()">Guardar</button></div>
-</div></div>
-
-<!-- CLIENTE -->
-<div id="m-cli" class="modal-ov" style="display:none" onclick="cM('m-cli')"><div class="modal" onclick="event.stopPropagation()">
-  <h3>Registrar cliente</h3>
-  <div class="fr"><div class="fg2"><label>Nombre completo</label><input id="cnom" type="text"></div><div class="fg2"><label>Cédula</label><input id="cced" type="text"></div></div>
-  <div class="fr"><div class="fg2"><label>Teléfono</label><input id="ctel" type="text"></div><div class="fg2"><label>Ciudad</label><input id="cciu" type="text" value="Bogotá"></div></div>
-  <div class="fr"><div class="fg2"><label>Dirección</label><input id="cdir" type="text"></div><div class="fg2"><label>Ruta</label><select id="crut"></select></div></div>
-  <div class="fg2"><label>Notas</label><input id="cnotas" type="text" placeholder="Ocupación, referencia..."></div>
-  <div class="mfoot"><button class="btn-g btn-sm" onclick="cM('m-cli')">Cancelar</button><button class="btn-p btn-sm" onclick="saveCli()">Guardar</button></div>
-</div></div>
-
-<!-- PRÉSTAMO -->
-<div id="m-pre" class="modal-ov" style="display:none" onclick="cM('m-pre')"><div class="modal" onclick="event.stopPropagation()">
-  <h3>Nuevo préstamo</h3>
-  <div class="fr"><div class="fg2"><label>Cliente</label><select id="pcli"></select></div><div class="fg2"><label>Capital ($)</label><input id="pcap" type="number" oninput="calcPrev()"></div></div>
-  <div class="fr fr3"><div class="fg2"><label>Interés (%)</label><input id="pint" type="number" value="20" oninput="calcPrev()"></div><div class="fg2"><label>Plazo (días)</label><input id="pdia" type="number" value="30" oninput="calcPrev()"></div><div class="fg2"><label>Fecha inicio</label><input id="pfec" type="date"></div></div>
-  <div id="pprev"></div>
-  <div class="mfoot"><button class="btn-g btn-sm" onclick="cM('m-pre')">Cancelar</button><button class="btn-p btn-sm" onclick="savePre()">Crear</button></div>
-</div></div>
-
-<!-- RUTA -->
-<div id="m-ruta" class="modal-ov" style="display:none" onclick="cM('m-ruta')"><div class="modal" onclick="event.stopPropagation()">
-  <h3>Nueva ruta</h3>
-  <div class="fr"><div class="fg2"><label>Nombre</label><input id="rnom" type="text"></div><div class="fg2"><label>Cobrador</label><input id="rcob" type="text"></div></div>
-  <div class="fg2"><label>Zona</label><input id="rzon" type="text"></div>
-  <div class="fg2" style="margin-top:10px"><label>Color</label><select id="rcol"><option value="#1565C0">Azul</option><option value="#2E7D32">Verde</option><option value="#C62828">Rojo</option><option value="#E65100">Naranja</option><option value="#6A1B9A">Morado</option></select></div>
-  <div class="mfoot"><button class="btn-g btn-sm" onclick="cM('m-ruta')">Cancelar</button><button class="btn-p btn-sm" onclick="saveRuta()">Crear ruta</button></div>
-</div></div>
-
-<!-- USUARIO -->
-<div id="m-usr" class="modal-ov" style="display:none" onclick="cM('m-usr')"><div class="modal" onclick="event.stopPropagation()">
-  <h3 id="utitle">Nuevo usuario</h3>
-  <div class="fr"><div class="fg2"><label>Nombre</label><input id="unom" type="text"></div><div class="fg2"><label>Usuario</label><input id="uusr" type="text"></div></div>
-  <div class="fr"><div class="fg2"><label>Contraseña</label><input id="upas" type="password"></div><div class="fg2"><label>Rol</label><select id="urol" onchange="togRut()"><option value="admin">Administrador</option><option value="ruta">Cobrador</option></select></div></div>
-  <div class="fg2" id="uwrap"><label>Ruta asignada</label><select id="urut"></select></div>
-  <div class="mfoot"><button class="btn-g btn-sm" onclick="cM('m-usr')">Cancelar</button><button class="btn-p btn-sm" onclick="saveUsr()">Guardar</button></div>
-</div></div>
-
-<!-- COBRO MODAL — método pago + modificar cuota -->
-<div id="m-cobro" class="modal-ov" style="display:none" onclick="cM('m-cobro')"><div class="modal" onclick="event.stopPropagation()">
-  <h3>Registrar cobro</h3>
-  <div class="cobro-info">
-    <div class="ci-name" id="cobro-cli-name">Cliente</div>
-    <div class="ci-detail" id="cobro-cli-detail">Cuota #1 · Valor pactado: $0</div>
-  </div>
-  <div class="fg2">
-    <label>Método de pago</label>
-    <div class="mp-selector">
-      <div class="mp-opt" id="mp-ef" onclick="selMP('efectivo')">
-        <div class="mp-icon">💵</div>
-        <div class="mp-label" style="color:var(--green)">Efectivo</div>
-      </div>
-      <div class="mp-opt" id="mp-nq" onclick="selMP('nequi')">
-        <div class="mp-icon">📱</div>
-        <div class="mp-label" style="color:#6A1B9A">Nequi</div>
-      </div>
-    </div>
-  </div>
-  <div class="fg2">
-    <label>Valor a cobrar ($) <span style="font-size:10px;color:var(--text-muted);font-weight:400">— no puede ser menor al pactado</span></label>
-    <input id="cobro-valor" type="number" oninput="validarCobro()">
-    <div id="cobro-warn" style="font-size:11px;color:var(--red);margin-top:4px;display:none">El valor no puede ser inferior a la cuota pactada</div>
-  </div>
-  <div class="mfoot"><button class="btn-g btn-sm" onclick="cM('m-cobro')">Cancelar</button><button class="btn-p btn-sm" id="btn-cobrar-ok" onclick="confirmarCobro()">Confirmar cobro</button></div>
-</div></div>
-
-<!-- DETALLE -->
+<div id="m-gas" class="modal-ov" style="display:none" onclick="cM('m-gas')"><div class="modal" onclick="event.stopPropagation()"><h3>Registrar gasto</h3><div class="fr"><div class="fg2"><label>Descripción</label><input id="gd" type="text"></div><div class="fg2"><label>Monto ($)</label><input id="gm" type="number"></div></div><div class="fr"><div class="fg2"><label>Categoría</label><select id="gcat"><option value="transporte">Transporte</option><option value="nomina">Nómina cobrador</option><option value="oficina">Oficina</option><option value="comunicaciones">Comunicaciones</option><option value="otros">Otros</option></select></div><div class="fg2"><label>Fecha</label><input id="gfec" type="date"></div></div><div class="fr"><div class="fg2"><label>Ruta</label><select id="grut"></select></div><div class="fg2"><label>Referencia</label><input id="gref" type="text"></div></div><div class="mfoot"><button class="btn-g btn-sm" onclick="cM('m-gas')">Cancelar</button><button class="btn-p btn-sm" onclick="saveGasto()">Guardar</button></div></div></div>
+<div id="m-cli" class="modal-ov" style="display:none" onclick="cM('m-cli')"><div class="modal" onclick="event.stopPropagation()"><h3>Registrar cliente</h3><div class="fr"><div class="fg2"><label>Nombre completo</label><input id="cnom" type="text"></div><div class="fg2"><label>Cédula</label><input id="cced" type="text"></div></div><div class="fr"><div class="fg2"><label>Teléfono</label><input id="ctel" type="text"></div><div class="fg2"><label>Ciudad</label><input id="cciu" type="text" value="Bogotá"></div></div><div class="fr"><div class="fg2"><label>Dirección</label><input id="cdir" type="text"></div><div class="fg2"><label>Ruta</label><select id="crut"></select></div></div><div class="fg2"><label>Notas</label><input id="cnotas" type="text" placeholder="Ocupación, referencia..."></div><div class="mfoot"><button class="btn-g btn-sm" onclick="cM('m-cli')">Cancelar</button><button class="btn-p btn-sm" onclick="saveCli()">Guardar</button></div></div></div>
+<div id="m-pre" class="modal-ov" style="display:none" onclick="cM('m-pre')"><div class="modal" onclick="event.stopPropagation()"><h3>Nuevo préstamo</h3><div class="fr"><div class="fg2"><label>Cliente</label><select id="pcli"></select></div><div class="fg2"><label>Capital ($)</label><input id="pcap" type="number" oninput="calcPrev()"></div></div><div class="fr fr3"><div class="fg2"><label>Interés (%)</label><input id="pint" type="number" value="20" oninput="calcPrev()"></div><div class="fg2"><label>Plazo (días)</label><input id="pdia" type="number" value="30" oninput="calcPrev()"></div><div class="fg2"><label>Fecha inicio</label><input id="pfec" type="date"></div></div><div id="pprev"></div><div class="mfoot"><button class="btn-g btn-sm" onclick="cM('m-pre')">Cancelar</button><button class="btn-p btn-sm" onclick="savePre()">Crear</button></div></div></div>
+<div id="m-ruta" class="modal-ov" style="display:none" onclick="cM('m-ruta')"><div class="modal" onclick="event.stopPropagation()"><h3>Nueva ruta</h3><div class="fr"><div class="fg2"><label>Nombre</label><input id="rnom" type="text"></div><div class="fg2"><label>Cobrador</label><input id="rcob" type="text"></div></div><div class="fg2"><label>Zona</label><input id="rzon" type="text"></div><div class="fg2" style="margin-top:10px"><label>Color</label><select id="rcol"><option value="#1565C0">Azul</option><option value="#2E7D32">Verde</option><option value="#C62828">Rojo</option><option value="#E65100">Naranja</option><option value="#6A1B9A">Morado</option></select></div><div class="mfoot"><button class="btn-g btn-sm" onclick="cM('m-ruta')">Cancelar</button><button class="btn-p btn-sm" onclick="saveRuta()">Crear ruta</button></div></div></div>
+<div id="m-base" class="modal-ov" style="display:none" onclick="cM('m-base')"><div class="modal" onclick="event.stopPropagation()"><h3>Registrar base de capital</h3><p style="font-size:13px;color:var(--text-muted);margin-bottom:1rem;line-height:1.5">Registra capital, abonos o retiros en cualquier fecha.</p><div class="fr"><div class="fg2"><label>Monto ($)</label><input id="bmon" type="number"></div><div class="fg2"><label>Fecha</label><input id="bfec" type="date"></div></div><div class="fr"><div class="fg2"><label>Ruta</label><select id="brut"></select></div><div class="fg2"><label>Tipo</label><select id="btipo"><option value="base">Base / Capital inicial</option><option value="abono">Abono de capital</option><option value="retiro">Retiro de capital</option></select></div></div><div class="fg2"><label>Descripción</label><input id="bdesc" type="text" placeholder="Ej: Capital enero..."></div><div class="mfoot"><button class="btn-g btn-sm" onclick="cM('m-base')">Cancelar</button><button class="btn-p btn-sm" onclick="saveBase()">Guardar</button></div></div></div>
+<div id="m-usr" class="modal-ov" style="display:none" onclick="cM('m-usr')"><div class="modal" onclick="event.stopPropagation()"><h3 id="utitle">Nuevo usuario</h3><div class="fr"><div class="fg2"><label>Nombre</label><input id="unom" type="text"></div><div class="fg2"><label>Usuario</label><input id="uusr" type="text"></div></div><div class="fr"><div class="fg2"><label>Contraseña</label><input id="upas" type="password"></div><div class="fg2"><label>Rol</label><select id="urol" onchange="togRut()"><option value="admin">Administrador</option><option value="ruta">Cobrador</option></select></div></div><div class="fg2" id="uwrap"><label>Ruta asignada</label><select id="urut"></select></div><div class="mfoot"><button class="btn-g btn-sm" onclick="cM('m-usr')">Cancelar</button><button class="btn-p btn-sm" onclick="saveUsr()">Guardar</button></div></div></div>
 <div id="m-det" class="modal-ov" style="display:none" onclick="cM('m-det')"><div class="modal mlg" onclick="event.stopPropagation()"><div id="detC"></div><div class="mfoot"><button class="btn-g btn-sm" onclick="cM('m-det')">Cerrar</button></div></div></div>
-
 <div id="toast" class="toast"></div>
 
+<!-- FIREBASE COMPAT SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<!-- XLSX -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
 <script>
-firebase.initializeApp({apiKey:"AIzaSyAimlF93zHOjxrS9mbaq2NTp9rSNP9Nnms",authDomain:"control-credito.firebaseapp.com",projectId:"control-credito",storageBucket:"control-credito.firebasestorage.app",messagingSenderId:"585926324259",appId:"1:585926324259:web:fd27831c3c6faf803d4196"});
-const db=firebase.firestore();
-const HOY=new Date(),ISO=HOY.toISOString().slice(0,10);
+// ── Firebase ──────────────────────────────────
+firebase.initializeApp({
+  apiKey:"AIzaSyAimlF93zHOjxrS9mbaq2NTp9rSNP9Nnms",
+  authDomain:"control-credito.firebaseapp.com",
+  projectId:"control-credito",
+  storageBucket:"control-credito.firebasestorage.app",
+  messagingSenderId:"585926324259",
+  appId:"1:585926324259:web:fd27831c3c6faf803d4196"
+});
+const db = firebase.firestore();
+
+// ── Constantes ────────────────────────────────
+const HOY=new Date(), ISO=HOY.toISOString().slice(0,10);
 const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const CATS={transporte:{label:'Transporte',color:'#1565C0',bg:'#E3F2FD'},nomina:{label:'Nómina',color:'#2E7D32',bg:'#E8F5E9'},oficina:{label:'Oficina',color:'#6A1B9A',bg:'#F3E5F5'},comunicaciones:{label:'Comun.',color:'#E65100',bg:'#FBE9E7'},otros:{label:'Otros',color:'#616161',bg:'#F5F5F5'}};
-let CU=null,mesSel=ISO.slice(0,7);
-let ST={usuarios:[],rutas:[],clientes:[],prestamos:[],gastos:[],cierres:[]};
-let unsubs=[];
-// cobro pendiente
-let _cobroPID=null,_cobroN=null,_cuotaMinima=0,_mpSel='efectivo';
 
+// ── Estado ────────────────────────────────────
+let CU=null, mesSel=ISO.slice(0,7), fMes=ISO.slice(0,7);
+let ST={usuarios:[],rutas:[],clientes:[],prestamos:[],gastos:[],cierres:[],bases:[]};
+let unsubs=[];
+
+// ── Helpers ───────────────────────────────────
 const fm=n=>'$'+Math.round(n).toLocaleString('es-CO');
 const fd=d=>{try{return new Date(d).toLocaleDateString('es-CO',{day:'2-digit',month:'2-digit',year:'numeric'});}catch(e){return d||'';}};
 const gR=id=>ST.rutas.find(r=>r.id===id);
@@ -382,7 +299,8 @@ const gC=id=>ST.clientes.find(c=>c.id===id);
 const gP=id=>ST.prestamos.find(p=>p.id===id);
 const myP=()=>{if(!CU||CU.rol==='admin')return ST.prestamos;const ids=ST.clientes.filter(c=>c.rutaId===CU.rutaId).map(c=>c.id);return ST.prestamos.filter(p=>ids.includes(p.clienteId));};
 const myC=()=>{if(!CU||CU.rol==='admin')return ST.clientes;return ST.clientes.filter(c=>c.rutaId===CU.rutaId);};
-const myG=mes=>{let g=ST.gastos.filter(g=>g.fecha&&g.fecha.slice(0,7)===mes);if(CU&&CU.rol==='ruta')g=g.filter(g=>g.rutaId===CU.rutaId&&g.tipo==='simple');return g;};
+const myG=mes=>{let g=ST.gastos.filter(g=>g.fecha&&g.fecha.slice(0,7)===mes);if(CU&&CU.rol==='ruta')g=g.filter(g=>g.rutaId===CU.rutaId||!g.rutaId);return g;};
+const myB=mes=>{let b=ST.bases.filter(b=>b.fecha&&b.fecha.slice(0,7)===mes);if(CU&&CU.rol==='ruta')b=b.filter(b=>b.rutaId===CU.rutaId||!b.rutaId);return b;};
 
 function pI(p){
   const tot=p.capital*(1+p.interes/100),c=tot/p.dias,ini=new Date(p.fechaInicio),pagos=p.pagos||{};
@@ -391,30 +309,35 @@ function pI(p){
   let est='activo';if(pag>=p.dias)est='completado';else if(venc.length>=3)est='moroso';else if(venc.length>0)est='atraso';
   return{tot,c,pag,venc,prog:(pag/p.dias)*100,est};
 }
-function getMeses(){const s=new Set();ST.prestamos.forEach(p=>{if(!p.fechaInicio)return;const ini=new Date(p.fechaInicio);for(let i=0;i<p.dias;i++){const d=new Date(ini);d.setDate(d.getDate()+i);s.add(d.toISOString().slice(0,7));}});ST.gastos.forEach(g=>g.fecha&&s.add(g.fecha.slice(0,7)));s.add(ISO.slice(0,7));return[...s].sort().reverse();}
-function getIng(mes){let t=0;myP().forEach(p=>{const i=pI(p),ini=new Date(p.fechaInicio),pg=p.pagos||{};for(let n=1;n<=p.dias;n++){const d=new Date(ini);d.setDate(d.getDate()+n-1);if(d.toISOString().slice(0,7)===mes&&pg[n])t+=pg[n].valor||i.c;}});return t;}
-function getGas(mes){return ST.gastos.filter(g=>g.fecha&&g.fecha.slice(0,7)===mes&&g.tipo!=='simple').reduce((s,g)=>s+(g.monto||0),0);}
+function getMeses(){const s=new Set();ST.prestamos.forEach(p=>{if(!p.fechaInicio)return;const ini=new Date(p.fechaInicio);for(let i=0;i<p.dias;i++){const d=new Date(ini);d.setDate(d.getDate()+i);s.add(d.toISOString().slice(0,7));}});ST.gastos.forEach(g=>g.fecha&&s.add(g.fecha.slice(0,7)));ST.bases.forEach(b=>b.fecha&&s.add(b.fecha.slice(0,7)));s.add(ISO.slice(0,7));return[...s].sort().reverse();}
+function getIng(mes,rutaId){let t=0;let pres=rutaId?ST.prestamos.filter(p=>{const c=gC(p.clienteId);return c&&c.rutaId===rutaId;}):myP();pres.forEach(p=>{const i=pI(p),ini=new Date(p.fechaInicio),pagos=p.pagos||{};for(let n=1;n<=p.dias;n++){const d=new Date(ini);d.setDate(d.getDate()+n-1);if(d.toISOString().slice(0,7)===mes&&pagos[n])t+=i.c;}});return t;}
+function getGas(mes,rutaId){let g=ST.gastos.filter(g=>g.fecha&&g.fecha.slice(0,7)===mes);if(rutaId)g=g.filter(g=>g.rutaId===rutaId);return g.reduce((s,g)=>s+(g.monto||0),0);}
+function getBases(mes,rutaId){let b=ST.bases.filter(b=>b.fecha&&b.fecha.slice(0,7)===mes);if(rutaId)b=b.filter(b=>b.rutaId===rutaId);const ent=b.filter(b=>b.tipo!=='retiro').reduce((s,b)=>s+(b.monto||0),0);const sal=b.filter(b=>b.tipo==='retiro').reduce((s,b)=>s+(b.monto||0),0);return{ent,sal,neto:ent-sal};}
 
+// ── Toast ─────────────────────────────────────
 function toast(msg,type=''){const el=document.getElementById('toast');el.textContent=msg;el.className='toast show'+(type?' '+type:'');setTimeout(()=>el.className='toast',3200);}
 function setSync(s){const dot=document.getElementById('sdot'),txt=document.getElementById('stxt');if(!dot)return;dot.className='sync-dot'+(s==='online'?'':s==='offline'?' off':' conn');txt.textContent=s==='online'?'Sincronizado':s==='offline'?'Sin conexión':'Conectando...';}
+
+// ── Sidebar móvil ─────────────────────────────
 function toggleSB(){const sb=document.getElementById('sidebar'),btn=document.getElementById('hbg'),ov=document.getElementById('sbov'),op=sb.classList.toggle('open');btn.classList.toggle('open',op);ov.classList.toggle('show',op);}
 function closeSB(){document.getElementById('sidebar').classList.remove('open');document.getElementById('hbg').classList.remove('open');document.getElementById('sbov').classList.remove('show');}
 
+// ── Login ─────────────────────────────────────
 function buildUsers(){const us=ST.usuarios.length>0?ST.usuarios:[{id:'admin',nombre:'Administrador',rol:'admin',rutaId:null}];document.getElementById('lu').innerHTML=us.map(u=>`<div class="user-chip" id="ch-${u.id}" onclick="selU('${u.id}')"><div class="un">${u.nombre.split(' ')[0]}</div><div class="ur">${u.rol==='admin'?'Admin':'Ruta '+(gR(u.rutaId)||{nombre:''}).nombre}</div></div>`).join('');}
 let _sui=null;
 function selU(id){_sui=id;document.querySelectorAll('.user-chip').forEach(c=>c.classList.remove('sel'));const el=document.getElementById('ch-'+id);if(el)el.classList.add('sel');document.getElementById('lpass').focus();document.getElementById('lerr').textContent='';}
-function doLogin(){const u=ST.usuarios.find(x=>x.id===_sui);if(!u){document.getElementById('lerr').textContent='Selecciona un usuario';return;}if(document.getElementById('lpass').value!==u.pass){document.getElementById('lerr').textContent='Contraseña incorrecta';return;}CU=u;document.getElementById('vlogin').style.display='none';document.getElementById('vapp').style.display='block';document.getElementById('sbuser').textContent=CU.nombre;document.getElementById('sbrole').textContent=CU.rol==='admin'?'Administrador':'Ruta '+(gR(CU.rutaId)||{nombre:''}).nombre;document.getElementById('mobusr').textContent=CU.nombre.split(' ')[0];mesSel=ISO.slice(0,7);buildNav();goto('dash');subAll();}
+function doLogin(){const u=ST.usuarios.find(x=>x.id===_sui);if(!u){document.getElementById('lerr').textContent='Selecciona un usuario';return;}if(document.getElementById('lpass').value!==u.pass){document.getElementById('lerr').textContent='Contraseña incorrecta';return;}CU=u;document.getElementById('vlogin').style.display='none';document.getElementById('vapp').style.display='block';document.getElementById('sbuser').textContent=CU.nombre;document.getElementById('sbrole').textContent=CU.rol==='admin'?'Administrador':'Ruta '+(gR(CU.rutaId)||{nombre:''}).nombre;document.getElementById('mobusr').textContent=CU.nombre.split(' ')[0];mesSel=fMes=ISO.slice(0,7);buildNav();goto('dash');subAll();}
 function logout(){unsubs.forEach(f=>f());unsubs=[];CU=null;_sui=null;document.getElementById('vapp').style.display='none';document.getElementById('vlogin').style.display='flex';document.getElementById('lpass').value='';document.getElementById('lerr').textContent='';buildUsers();}
 
-function subAll(){setSync('conn');['rutas','clientes','prestamos','gastos','cierres'].forEach(col=>{const u=db.collection(col).onSnapshot(snap=>{ST[col]=snap.docs.map(d=>({id:d.id,...d.data()}));setSync('online');refScreen();},err=>{console.error(col,err);setSync('offline');});unsubs.push(u);});const u2=db.collection('usuarios').onSnapshot(snap=>{ST.usuarios=snap.docs.map(d=>({id:d.id,...d.data()}));buildUsers();},err=>console.error(err));unsubs.push(u2);}
+// ── Firebase listeners ────────────────────────
+function subAll(){setSync('conn');['rutas','clientes','prestamos','gastos','cierres','bases'].forEach(col=>{const u=db.collection(col).orderBy('createdAt','asc').onSnapshot(snap=>{ST[col]=snap.docs.map(d=>({id:d.id,...d.data()}));setSync('online');refScreen();},err=>{console.error(col,err);setSync('offline');});unsubs.push(u);});const u2=db.collection('usuarios').onSnapshot(snap=>{ST.usuarios=snap.docs.map(d=>({id:d.id,...d.data()}));buildUsers();},err=>console.error(err));unsubs.push(u2);}
 function refScreen(){const a=document.querySelector('.sc.active');if(a){const id=a.id.replace('sc-','');SCRS[id]&&SCRS[id]();}}
 
-const SCRS={dash:rDash,clientes:rCli,cobros:rCobros,recaudos:rRec,prestamos:rPre,gastos:rGastosSimple,'gastos-admin':rGastos,ganancias:rGan,cierre:rCierre,morosos:rMora,rutas:rRutas,usuarios:rUsrs,reportes:()=>{}};
-const IC={home:'<rect x="1" y="1" width="6" height="6" rx="1" fill="currentColor"/><rect x="9" y="1" width="6" height="6" rx="1" fill="currentColor" opacity=".7"/><rect x="1" y="9" width="6" height="6" rx="1" fill="currentColor" opacity=".7"/><rect x="9" y="9" width="6" height="6" rx="1" fill="currentColor" opacity=".5"/>',cobros:'<circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 4v4l3 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',warn:'<path d="M8 1L1 14h14L8 1z" stroke="currentColor" stroke-width="1.5"/><path d="M8 6v4M8 11v1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',cli:'<circle cx="6" cy="5" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M1 14c0-3 2-5 5-5s5 2 5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',pre:'<rect x="1" y="3" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M1 7h14" stroke="currentColor" stroke-width="1.5"/>',rec:'<path d="M2 12V5l5-3 5 3v7l-5 3-5-3z" stroke="currentColor" stroke-width="1.5"/>',ruta:'<circle cx="4" cy="4" r="2" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="2" stroke="currentColor" stroke-width="1.5"/><path d="M4 6v3a3 3 0 003 3h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',usr:'<circle cx="5" cy="5" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M1 14c0-3 2-5 4-5M10 8h5M12.5 5.5v5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',gas:'<path d="M3 13V7M7 13V4M11 13V9M15 13V2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',gan:'<path d="M1 12l4-4 4 3 6-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',cierre:'<rect x="2" y="1" width="12" height="14" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M5 6h6M5 9h4M5 12h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',exp:'<path d="M3 3h10v10H3zM3 7h10M7 3v10" stroke="currentColor" stroke-width="1.5"/>'};
-
-const ANAV=[{s:'General',i:[{id:'dash',l:'Inicio',ic:IC.home},{id:'cobros',l:'Cobros del día',ic:IC.cobros},{id:'morosos',l:'Morosos',ic:IC.warn}]},{s:'Gestión',i:[{id:'clientes',l:'Clientes',ic:IC.cli},{id:'prestamos',l:'Préstamos',ic:IC.pre},{id:'recaudos',l:'Recaudos',ic:IC.rec},{id:'rutas',l:'Rutas',ic:IC.ruta},{id:'usuarios',l:'Usuarios',ic:IC.usr}]},{s:'Finanzas',i:[{id:'gastos-admin',l:'Gastos',ic:IC.gas},{id:'ganancias',l:'Ganancias',ic:IC.gan},{id:'cierre',l:'Cierre del día',ic:IC.cierre},{id:'reportes',l:'Exportar Excel',ic:IC.exp}]}];
-const RNAV=[{s:'Mi ruta',i:[{id:'dash',l:'Inicio',ic:IC.home},{id:'cobros',l:'Cobros del día',ic:IC.cobros},{id:'morosos',l:'Morosos de mi ruta',ic:IC.warn},{id:'clientes',l:'Mis clientes',ic:IC.cli},{id:'prestamos',l:'Préstamos',ic:IC.pre},{id:'recaudos',l:'Recaudos',ic:IC.rec},{id:'gastos',l:'Mis gastos',ic:IC.gas},{id:'cierre',l:'Cierre del día',ic:IC.cierre}]}];
-
+// ── Navegación ────────────────────────────────
+const SCRS={dash:rDash,clientes:rCli,cobros:rCobros,recaudos:rRec,prestamos:rPre,gastos:rGastos,ganancias:rGan,flujo:rFlujo,cierre:rCierre,morosos:rMora,rutas:rRutas,usuarios:rUsrs,reportes:()=>{}};
+const IC={home:'<rect x="1" y="1" width="6" height="6" rx="1" fill="currentColor"/><rect x="9" y="1" width="6" height="6" rx="1" fill="currentColor" opacity=".7"/><rect x="1" y="9" width="6" height="6" rx="1" fill="currentColor" opacity=".7"/><rect x="9" y="9" width="6" height="6" rx="1" fill="currentColor" opacity=".5"/>',cobros:'<circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 4v4l3 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',warn:'<path d="M8 1L1 14h14L8 1z" stroke="currentColor" stroke-width="1.5"/><path d="M8 6v4M8 11v1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',cli:'<circle cx="6" cy="5" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M1 14c0-3 2-5 5-5s5 2 5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',pre:'<rect x="1" y="3" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M1 7h14" stroke="currentColor" stroke-width="1.5"/>',rec:'<path d="M2 12V5l5-3 5 3v7l-5 3-5-3z" stroke="currentColor" stroke-width="1.5"/>',ruta:'<circle cx="4" cy="4" r="2" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="2" stroke="currentColor" stroke-width="1.5"/><path d="M4 6v3a3 3 0 003 3h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',usr:'<circle cx="5" cy="5" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M1 14c0-3 2-5 4-5M10 8h5M12.5 5.5v5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',gas:'<path d="M3 13V7M7 13V4M11 13V9M15 13V2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',gan:'<path d="M1 12l4-4 4 3 6-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',flujo:'<path d="M1 8h14M11 4l4 4-4 4M5 4L1 8l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',cierre:'<rect x="2" y="1" width="12" height="14" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M5 6h6M5 9h4M5 12h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',exp:'<path d="M3 3h10v10H3zM3 7h10M7 3v10" stroke="currentColor" stroke-width="1.5"/>'};
+const ANAV=[{s:'General',i:[{id:'dash',l:'Inicio',ic:IC.home},{id:'cobros',l:'Cobros del día',ic:IC.cobros},{id:'morosos',l:'Morosos',ic:IC.warn}]},{s:'Gestión',i:[{id:'clientes',l:'Clientes',ic:IC.cli},{id:'prestamos',l:'Préstamos',ic:IC.pre},{id:'recaudos',l:'Recaudos',ic:IC.rec},{id:'rutas',l:'Rutas',ic:IC.ruta},{id:'usuarios',l:'Usuarios',ic:IC.usr}]},{s:'Finanzas',i:[{id:'gastos',l:'Gastos',ic:IC.gas},{id:'ganancias',l:'Ganancias',ic:IC.gan},{id:'flujo',l:'Flujo de caja',ic:IC.flujo},{id:'cierre',l:'Cierre del día',ic:IC.cierre},{id:'reportes',l:'Exportar Excel',ic:IC.exp}]}];
+const RNAV=[{s:'Mi ruta',i:[{id:'dash',l:'Inicio',ic:IC.home},{id:'cobros',l:'Cobros del día',ic:IC.cobros},{id:'clientes',l:'Mis clientes',ic:IC.cli},{id:'prestamos',l:'Préstamos',ic:IC.pre},{id:'recaudos',l:'Recaudos',ic:IC.rec},{id:'gastos',l:'Mis gastos',ic:IC.gas},{id:'cierre',l:'Cierre del día',ic:IC.cierre}]}];
 function buildNav(){const nav=CU.rol==='admin'?ANAV:RNAV;let h='';nav.forEach(s=>{h+=`<div class="nav-sec">${s.s}</div>`;s.i.forEach(it=>{h+=`<button class="ni" id="ni-${it.id}" onclick="goto('${it.id}')"><svg viewBox="0 0 16 16" fill="none">${it.ic}</svg>${it.l}</button>`;});});document.getElementById('sbnav').innerHTML=h;}
 function goto(id){document.querySelectorAll('.sc').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.ni').forEach(b=>b.classList.remove('active'));const sc=document.getElementById('sc-'+id),btn=document.getElementById('ni-'+id);if(sc)sc.classList.add('active');if(btn)btn.classList.add('active');SCRS[id]&&SCRS[id]();closeSB();}
 
@@ -428,297 +351,83 @@ function rDash(){
   const gm=getIng(ISO.slice(0,7))-getGas(ISO.slice(0,7));
   document.getElementById('dmet').innerHTML=`<div class="metric"><div class="lbl">Capital en calle</div><div class="val">${fm(cap)}</div></div><div class="metric"><div class="lbl">Total a recaudar</div><div class="val">${fm(esp)}</div></div><div class="metric"><div class="lbl">Cobros pend. hoy</div><div class="val">${pend}</div></div><div class="metric"><div class="lbl">Ganancia del mes</div><div class="val ${gm>=0?'gan-pos':'gan-neg'}">${fm(gm)}</div></div>`;
   document.getElementById('dalert').innerHTML=mora>0?`<div class="alert-b">⚠ <strong>${mora} cliente(s) en mora.</strong>${isA?`<button class="btn-c" onclick="goto('morosos')">Ver</button>`:''}</div>`:'';
-  let ch='';pres.forEach(p=>{const c=gC(p.clienteId);if(!c)return;const i=pI(p),ini=new Date(p.fechaInicio),pg=p.pagos||{};for(let n=1;n<=p.dias;n++){const d=new Date(ini);d.setDate(d.getDate()+n-1);if(d.toISOString().slice(0,10)===ISO){const paid=pg[n];ch+=`<div class="pr"><div class="pn ${paid?'pok':'phoy'}">${n}</div><div style="flex:1;min-width:0"><div class="pname">${c.nombre}</div><div class="psub">Cuota ${n}/${p.dias} · Pactada: ${fm(i.c)}</div></div><div class="pmonto">${paid?fm(paid.valor||i.c):fm(i.c)}</div>${paid?`<span class="badge ${paid.metodo==='nequi'?'badge-nequi':'badge-ef'}">${paid.metodo||'ef'}</span>`:`<button class="btn-c" onclick="abrirCobro('${p.id}',${n},${i.c},'${c.nombre}')">Cobrar</button>`}</div>`;}}}); 
+  let ch='';pres.forEach(p=>{const c=gC(p.clienteId);if(!c)return;const i=pI(p),ini=new Date(p.fechaInicio),pg=p.pagos||{};for(let n=1;n<=p.dias;n++){const d=new Date(ini);d.setDate(d.getDate()+n-1);if(d.toISOString().slice(0,10)===ISO){const paid=pg[n];ch+=`<div class="pr"><div class="pn ${paid?'pok':'phoy'}">${n}</div><div style="flex:1;min-width:0"><div class="pname">${c.nombre}</div><div class="psub">Cuota ${n}/${p.dias}</div></div><div class="pmonto">${fm(i.c)}</div>${!paid?`<button class="btn-c" onclick="cobrar('${p.id}',${n})">Cobrar</button>`:'<span class="badge bg">OK</span>'}</div>`;}}});
   document.getElementById('dcobros').innerHTML=ch||'<div class="empty">Sin cobros para hoy</div>';
-  let mh='';pres.forEach(p=>{const i=pI(p);if(!i.venc.length)return;const c=gC(p.clienteId);if(!c)return;const rv=gR(c.rutaId);mh+=`<div class="pr"><div style="flex:1;min-width:0"><div class="pname">${c.nombre} <span class="badge ${i.venc.length>=5?'br':'ba'}">${i.venc.length} vencidas</span></div><div class="psub">${fm(i.venc.length*i.c)} mora${rv?' · Ruta '+rv.nombre:''}</div></div></div>`;});
+  let mh='';pres.forEach(p=>{const i=pI(p);if(!i.venc.length)return;const c=gC(p.clienteId);if(!c)return;const r2=gR(c.rutaId);mh+=`<div class="pr"><div style="flex:1;min-width:0"><div class="pname">${c.nombre} <span class="badge ${i.venc.length>=5?'br':'ba'}">${i.venc.length} vencidas</span></div><div class="psub">${fm(i.venc.length*i.c)} mora${r2?' · Ruta '+r2.nombre:''}</div></div></div>`;});
   document.getElementById('dmora').innerHTML=mh||'<div class="empty">Sin alertas de mora</div>';
 }
 
 function rCli(){const q=(document.getElementById('scli')||{}).value||'';const list=myC().filter(c=>c.nombre.toLowerCase().includes(q.toLowerCase())||(c.cedula||'').includes(q));document.getElementById('tbcli').innerHTML=list.map(c=>{const r=gR(c.rutaId),ps=myP().filter(p=>p.clienteId===c.id),act=ps.filter(p=>['activo','atraso','moroso'].includes(pI(p).est)).length;return`<tr><td><div class="tn">${c.nombre}</div><div class="ts">${c.cedula||''}</div></td><td>${c.tel||''}</td><td>${r?`<span class="ruta-dot" style="background:${r.color}"></span>${r.nombre}`:'—'}</td><td><span class="badge ${act>0?'bb':'bg'}">${act>0?act+' activos':'Al día'}</span> <button class="btn-v" onclick="verCli('${c.id}')">Ver</button></td></tr>`;}).join('')||'<tr><td colspan="4"><div class="empty">Sin clientes</div></td></tr>';}
 
-function rCobros(){const pres=myP();let ph=0,pc=0,th=0,tc=0,html='';pres.forEach(p=>{const c=gC(p.clienteId);if(!c)return;const i=pI(p),r=gR(c.rutaId),ini=new Date(p.fechaInicio),pg=p.pagos||{};for(let n=1;n<=p.dias;n++){const d=new Date(ini);d.setDate(d.getDate()+n-1);if(d.toISOString().slice(0,10)===ISO){const paid=pg[n];const valorCob=paid?paid.valor||i.c:0;th+=i.c;if(paid){pc++;tc+=valorCob;}else ph++;html+=`<div class="pr"><div class="pn ${paid?'pok':'phoy'}">${n}</div><div style="flex:1;min-width:0"><div class="pname">${c.nombre}</div><div class="psub">Cuota ${n}/${p.dias}${r?' · '+r.nombre:''} · Pactada: ${fm(i.c)}</div></div><div class="pmonto">${paid?fm(valorCob):fm(i.c)}</div>${paid?`<span class="badge ${paid.metodo==='nequi'?'badge-nequi':'badge-ef'}">${paid.metodo==='nequi'?'Nequi':'Efectivo'}</span>`:`<button class="btn-c" onclick="abrirCobro('${p.id}',${n},${i.c},'${c.nombre}')">Cobrar</button>`}</div>`;}}});
+function rCobros(){const pres=myP();let ph=0,pc=0,th=0,tc=0,html='';pres.forEach(p=>{const c=gC(p.clienteId);if(!c)return;const i=pI(p),r=gR(c.rutaId),ini=new Date(p.fechaInicio),pg=p.pagos||{};for(let n=1;n<=p.dias;n++){const d=new Date(ini);d.setDate(d.getDate()+n-1);if(d.toISOString().slice(0,10)===ISO){const paid=pg[n];th+=i.c;if(paid){pc++;tc+=i.c;}else ph++;html+=`<div class="pr"><div class="pn ${paid?'pok':'phoy'}">${n}</div><div style="flex:1;min-width:0"><div class="pname">${c.nombre}</div><div class="psub">Cuota ${n}/${p.dias}${r?' · '+r.nombre:''}</div></div><div class="pmonto">${fm(i.c)}</div>${paid?'<span class="badge bg">OK</span>':`<button class="btn-c" onclick="cobrar('${p.id}',${n})">Cobrar</button>`}</div>`;}}});
 document.getElementById('cmet').innerHTML=`<div class="metric"><div class="lbl">Por cobrar hoy</div><div class="val">${fm(th)}</div></div><div class="metric"><div class="lbl">Cobrado</div><div class="val">${fm(tc)}</div></div><div class="metric"><div class="lbl">Pendientes</div><div class="val">${ph}</div></div><div class="metric"><div class="lbl">Completados</div><div class="val">${pc}</div></div>`;
 document.getElementById('clista').innerHTML=html||'<div class="empty">Sin cobros para hoy</div>';}
 
-function rRec(){const pres=myP();let tot=0,cnt=0,pend=0;const rows=[];pres.forEach(p=>{const c=gC(p.clienteId);if(!c)return;const i=pI(p),ini=new Date(p.fechaInicio);for(let n=1;n<=p.dias;n++){const d=new Date(ini);d.setDate(d.getDate()+n-1);const pg=(p.pagos||{})[n];if(d<=HOY)rows.push({fecha:d,cli:c.nombre,monto:pg?pg.valor||i.c:i.c,metodo:pg?pg.metodo||'efectivo':null,cuota:n+'/'+p.dias,paid:!!pg});}});rows.sort((a,b)=>b.fecha-a.fecha);rows.forEach(r=>{if(r.paid){tot+=r.monto;cnt++;}else pend++;});
+function rRec(){const pres=myP();let tot=0,cnt=0,pend=0;const rows=[];pres.forEach(p=>{const c=gC(p.clienteId);if(!c)return;const i=pI(p),ini=new Date(p.fechaInicio);for(let n=1;n<=p.dias;n++){const d=new Date(ini);d.setDate(d.getDate()+n-1);if(d<=HOY)rows.push({fecha:d,cli:c.nombre,monto:i.c,cuota:n+'/'+p.dias,paid:!!(p.pagos||{})[n]});}});rows.sort((a,b)=>b.fecha-a.fecha);rows.forEach(r=>{if(r.paid){tot+=r.monto;cnt++;}else pend++;});
 document.getElementById('rmet').innerHTML=`<div class="metric"><div class="lbl">Total recaudado</div><div class="val">${fm(tot)}</div></div><div class="metric"><div class="lbl">Pagos</div><div class="val">${cnt}</div></div><div class="metric"><div class="lbl">Pendientes</div><div class="val">${pend}</div></div><div class="metric"><div class="lbl">Mora estimada</div><div class="val">${fm(pend*(tot/(cnt||1)/30))}</div></div>`;
-document.getElementById('tbrec').innerHTML=rows.slice(0,60).map(r=>`<tr><td>${fd(r.fecha)}</td><td>${r.cli}</td><td>${fm(r.monto)}</td><td>${r.paid?`<span class="badge ${r.metodo==='nequi'?'badge-nequi':'badge-ef'}">${r.metodo==='nequi'?'Nequi':'Efectivo'}</span>`:'—'}</td><td><span class="badge ${r.paid?'bg':'ba'}">${r.paid?'Pagado':'Pendiente'}</span></td></tr>`).join('')||'<tr><td colspan="5"><div class="empty">Sin registros</div></td></tr>';}
+document.getElementById('tbrec').innerHTML=rows.slice(0,60).map(r=>`<tr><td>${fd(r.fecha)}</td><td>${r.cli}</td><td>${fm(r.monto)}</td><td><span class="badge ${r.paid?'bg':'ba'}">${r.paid?'Pagado':'Pendiente'}</span></td></tr>`).join('')||'<tr><td colspan="4"><div class="empty">Sin registros</div></td></tr>';}
 
 function rPre(){const q=(document.getElementById('spre')||{}).value||'';const list=myP().filter(p=>{const c=gC(p.clienteId);return c&&c.nombre.toLowerCase().includes(q.toLowerCase());});const B={completado:'bg',moroso:'br',atraso:'ba',activo:'bb'},T={completado:'Completado',moroso:'Moroso',atraso:'Atraso',activo:'Activo'};document.getElementById('tbpre').innerHTML=list.map(p=>{const c=gC(p.clienteId);if(!c)return'';const i=pI(p);return`<tr><td><div class="tn">${c.nombre}</div></td><td>${fm(p.capital)}</td><td>${fm(i.c)}</td><td><div class="pbar"><div class="pfill" style="width:${i.prog.toFixed(0)}%"></div></div><div class="ts">${i.pag}/${p.dias}</div></td><td><span class="badge ${B[i.est]}">${T[i.est]}</span></td></tr>`;}).join('')||'<tr><td colspan="5"><div class="empty">Sin préstamos</div></td></tr>';}
 
-// GASTOS SIMPLIFICADO COBRADOR
-function rGastosSimple(){
-  document.getElementById('gtitle').textContent=`Mis gastos del día — ${fd(new Date(ISO))}`;
-  const gastos=ST.gastos.filter(g=>g.tipo==='simple'&&g.fecha===ISO&&g.rutaId===CU.rutaId);
-  const total=gastos.reduce((s,g)=>s+(g.monto||0),0);
-  document.getElementById('glista-simple').innerHTML=gastos.length===0?'<div class="empty">Sin gastos registrados hoy</div>':gastos.map(g=>`<div class="gasto-row"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;color:var(--blue-dark)">${g.desc}</div><div class="ts">${fd(g.fecha)}</div></div><div style="font-size:14px;font-weight:700;color:var(--red);flex-shrink:0">${fm(g.monto)}</div><button class="btn-del" onclick="delGasto('${g.id}')">✕</button></div>`).join('');
-  document.getElementById('gres-simple').innerHTML=`<div class="fin-row"><span>Gastos del día</span><span class="gan-neg">${fm(total)}</span></div>`;
-}
-
 function buildMS(elId,sel,fn){const meses=getMeses();if(!meses.includes(sel))sel=meses[0]||ISO.slice(0,7);document.getElementById(elId).innerHTML=meses.slice(0,8).map(m=>`<button class="mes-btn ${m===sel?'active':''}" onclick="${fn}('${m}')">${MESES[parseInt(m.slice(5,7))-1]} ${m.slice(0,4)}</button>`).join('');return sel;}
+
+function rGastos(){mesSel=buildMS('msel',mesSel,'setMG');const g=myG(mesSel),ing=getIng(mesSel),gast=getGas(mesSel),gan=ing-gast;document.getElementById('gtitle').textContent=CU.rol==='ruta'?`Gastos — Ruta ${gR(CU.rutaId)?.nombre||''}`:'Gastos del negocio';document.getElementById('gmet').innerHTML=`<div class="metric"><div class="lbl">Total gastos</div><div class="val">${fm(gast)}</div></div><div class="metric"><div class="lbl">Ingresos</div><div class="val">${fm(ing)}</div></div><div class="metric"><div class="lbl">Ganancia neta</div><div class="val ${gan>=0?'gan-pos':'gan-neg'}">${fm(gan)}</div></div><div class="metric"><div class="lbl">Margen</div><div class="val ${gan>=0?'gan-pos':'gan-neg'}">${ing>0?Math.round((gan/ing)*100):0}%</div></div>`;document.getElementById('glista').innerHTML=g.length===0?'<div class="empty">Sin gastos este mes</div>':g.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')).map(g2=>{const cat=CATS[g2.cat]||CATS.otros,r=gR(g2.rutaId);return`<div class="gasto-row"><div class="cat-ic" style="background:${cat.bg};color:${cat.color}">${cat.label.slice(0,2)}</div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--blue-dark)">${g2.desc}</div><div class="ts">${fd(g2.fecha)}${r?' · Ruta '+r.nombre:' · General'}${g2.ref?' · '+g2.ref:''}</div></div><div style="font-size:13px;font-weight:700;color:var(--red);flex-shrink:0">${fm(g2.monto)}</div><button class="btn-del" onclick="delGasto('${g2.id}')">✕</button></div>`;}).join('');const pc={};g.forEach(g2=>{pc[g2.cat]=(pc[g2.cat]||0)+g2.monto;});const mx=Math.max(...Object.values(pc),1);document.getElementById('gcats').innerHTML=Object.entries(pc).sort((a,b)=>b[1]-a[1]).map(([k,v])=>{const cat=CATS[k]||CATS.otros;return`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="font-weight:600">${cat.label}</span><span style="font-weight:700;color:var(--red)">${fm(v)}</span></div><div class="pbar"><div class="pfill" style="background:${cat.color};width:${Math.round((v/mx)*100)}%"></div></div></div>`;}).join('')||'<div class="empty">Sin datos</div>';const pct=ing>0?Math.min(100,Math.round((gan/ing)*100)):0;const bases=myB(mesSel);const {ent,sal,neto}=getBases(mesSel);document.getElementById('gres').innerHTML=`<div class="fin-row"><span>Ingresos cobrados</span><span class="gan-pos">${fm(ing)}</span></div><div class="fin-row"><span>Total gastos</span><span class="gan-neg">− ${fm(gast)}</span></div><div class="fin-div"></div><div class="fin-tot"><span>Ganancia neta</span><span class="${gan>=0?'gan-pos':'gan-neg'}" style="font-size:16px">${fm(gan)}</span></div><div style="margin:12px 0 4px;display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--text-muted);font-weight:600">Margen</span><span class="${gan>=0?'gan-pos':'gan-neg'}">${ing>0?Math.round((gan/ing)*100):0}%</span></div><div class="pbar"><div class="pfill" style="background:var(--green);width:${Math.max(0,pct)}%"></div></div><div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Base / Capital</span><button class="btn-base" onclick="oM('m-base')">+ Agregar base</button></div>${bases.length===0?'<div style="font-size:12px;color:var(--text-muted)">Sin registros de base este mes</div>':bases.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')).map(b=>{const r=gR(b.rutaId),es=b.tipo==='retiro';return`<div class="base-row"><div class="base-tipo" style="background:${es?'#FFEBEE':'#E8F5E9'};color:${es?'#C62828':'#2E7D32'}">${es?'−':b.tipo==='abono'?'+':'B'}</div><div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:var(--blue-dark)">${b.desc||b.tipo}</div><div class="ts">${fd(b.fecha)}${r?' · '+r.nombre:''}</div></div><div style="font-size:13px;font-weight:700;color:${es?'var(--red)':'var(--green)'}">${es?'−':'+'}${fm(b.monto)}</div><button class="btn-del" onclick="delBase('${b.id}')">✕</button></div>`;}).join('')}<div style="margin-top:8px;padding:8px 10px;background:var(--blue-lighter);border-radius:6px;font-size:12px;display:flex;justify-content:space-between"><span style="color:var(--text-muted)">Neto base</span><span style="font-weight:700;color:${neto>=0?'var(--green)':'var(--red)'}">${neto>=0?'+':''}${fm(neto)}</span></div></div>`;}
 function setMG(m){mesSel=m;rGastos();}
 
-function rGastos(){mesSel=buildMS('msel',mesSel,'setMG');const g=ST.gastos.filter(g=>g.fecha&&g.fecha.slice(0,7)===mesSel&&g.tipo!=='simple');const ing=getIng(mesSel),gast=getGas(mesSel),gan=ing-gast;document.getElementById('gmet').innerHTML=`<div class="metric"><div class="lbl">Total gastos</div><div class="val">${fm(gast)}</div></div><div class="metric"><div class="lbl">Ingresos</div><div class="val">${fm(ing)}</div></div><div class="metric"><div class="lbl">Ganancia neta</div><div class="val ${gan>=0?'gan-pos':'gan-neg'}">${fm(gan)}</div></div><div class="metric"><div class="lbl">Margen</div><div class="val ${gan>=0?'gan-pos':'gan-neg'}">${ing>0?Math.round((gan/ing)*100):0}%</div></div>`;document.getElementById('glista').innerHTML=g.length===0?'<div class="empty">Sin gastos este mes</div>':g.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')).map(g2=>{const cat=CATS[g2.cat]||CATS.otros,r=gR(g2.rutaId);return`<div class="gasto-row"><div style="width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;font-weight:700;background:${cat.bg};color:${cat.color}">${cat.label.slice(0,2)}</div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--blue-dark)">${g2.desc}</div><div class="ts">${fd(g2.fecha)}${r?' · Ruta '+r.nombre:' · General'}${g2.ref?' · '+g2.ref:''}</div></div><div style="font-size:13px;font-weight:700;color:var(--red);flex-shrink:0">${fm(g2.monto)}</div><button class="btn-del" onclick="delGasto('${g2.id}')">✕</button></div>`;}).join('');const pc={};g.forEach(g2=>{pc[g2.cat]=(pc[g2.cat]||0)+g2.monto;});const mx=Math.max(...Object.values(pc),1);document.getElementById('gcats').innerHTML=Object.entries(pc).sort((a,b)=>b[1]-a[1]).map(([k,v])=>{const cat=CATS[k]||CATS.otros;return`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="font-weight:600">${cat.label}</span><span style="font-weight:700;color:var(--red)">${fm(v)}</span></div><div class="pbar"><div class="pfill" style="background:${cat.color};width:${Math.round((v/mx)*100)}%"></div></div></div>`;}).join('')||'<div class="empty">Sin datos</div>';const pct=ing>0?Math.min(100,Math.round((gan/ing)*100)):0;document.getElementById('gres').innerHTML=`<div class="fin-row"><span>Ingresos cobrados</span><span class="gan-pos">${fm(ing)}</span></div><div class="fin-row"><span>Total gastos</span><span class="gan-neg">− ${fm(gast)}</span></div><div class="fin-div"></div><div class="fin-tot"><span>Ganancia neta</span><span class="${gan>=0?'gan-pos':'gan-neg'}" style="font-size:16px">${fm(gan)}</span></div><div style="margin:12px 0 4px;display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--text-muted);font-weight:600">Margen</span><span class="${gan>=0?'gan-pos':'gan-neg'}">${ing>0?Math.round((gan/ing)*100):0}%</span></div><div class="pbar"><div class="pfill" style="background:var(--green);width:${Math.max(0,pct)}%"></div></div>`;}
+function rGan(){const meses=getMeses();let tI=0,tG=0,mejM=null,mejG=-Infinity;const rows=meses.map(m=>{const ing=getIng(m),gas=getGas(m),gan=ing-gas;tI+=ing;tG+=gas;if(gan>mejG){mejG=gan;mejM=m;}return{m,ing,gas,gan};});const tGan=tI-tG;document.getElementById('gnmet').innerHTML=`<div class="metric"><div class="lbl">Ingresos totales</div><div class="val">${fm(tI)}</div></div><div class="metric"><div class="lbl">Gastos totales</div><div class="val">${fm(tG)}</div></div><div class="metric"><div class="lbl">Ganancia acumulada</div><div class="val ${tGan>=0?'gan-pos':'gan-neg'}">${fm(tGan)}</div></div><div class="metric"><div class="lbl">Mejor mes</div><div class="val" style="font-size:14px">${mejM?MESES[parseInt(mejM.slice(5,7))-1]+' '+mejM.slice(0,4):'—'}</div><div class="sub gan-pos">${mejM?fm(mejG):''}</div></div>`;document.getElementById('gntab').innerHTML=`<table><thead><tr><th style="width:18%">Mes</th><th>Ingresos</th><th>Gastos</th><th>Ganancia</th><th>Margen</th></tr></thead><tbody>`+rows.map(r=>{const pct=r.ing>0?Math.round((r.gan/r.ing)*100):0;return`<tr><td class="tn">${MESES[parseInt(r.m.slice(5,7))-1]}<div class="ts">${r.m.slice(0,4)}</div></td><td class="gan-pos">${fm(r.ing)}</td><td class="gan-neg">${fm(r.gas)}</td><td class="${r.gan>=0?'gan-pos':'gan-neg'}" style="font-weight:700">${fm(r.gan)}</td><td><div class="gan-bw"><div class="gan-bt"><div class="gan-bf" style="background:${r.gan>=0?'var(--green)':'var(--red)'};width:${Math.abs(pct)}%"></div></div><span class="gan-pct ${r.gan>=0?'gan-pos':'gan-neg'}">${pct}%</span></div></td></tr>`;}).join('')+'</tbody></table>';if(CU.rol==='admin'){let rH='';ST.rutas.forEach(ruta=>{const cIds=ST.clientes.filter(c=>c.rutaId===ruta.id).map(c=>c.id);const ing=meses.reduce((s,m)=>{let t=0;ST.prestamos.filter(p=>cIds.includes(p.clienteId)).forEach(p=>{const i=pI(p),ini=new Date(p.fechaInicio),pg=p.pagos||{};for(let n=1;n<=p.dias;n++){const d=new Date(ini);d.setDate(d.getDate()+n-1);if(d.toISOString().slice(0,7)===m&&pg[n])t+=i.c;}});return s+t;},0);const gas=ST.gastos.filter(g=>g.rutaId===ruta.id).reduce((s,g)=>s+(g.monto||0),0),gan=ing-gas;rH+=`<div class="ruta-card" style="border-left-color:${ruta.color}"><div style="font-size:15px;font-weight:700;color:${ruta.color};margin-bottom:4px">Ruta ${ruta.nombre}</div><div class="ruta-stats"><div class="rs"><div class="lbl">Ingresos</div><div class="val gan-pos">${fm(ing)}</div></div><div class="rs danger"><div class="lbl">Gastos</div><div class="val">${fm(gas)}</div></div><div class="rs" style="grid-column:span 2"><div class="lbl">Ganancia acumulada</div><div class="val ${gan>=0?'gan-pos':'gan-neg'}" style="font-size:17px">${fm(gan)}</div></div></div></div>`;});document.getElementById('gnrutas').innerHTML=rH;}else document.getElementById('gnrutas').innerHTML='';}
 
-function rGan(){const meses=getMeses();let tI=0,tG=0,mejM=null,mejG=-Infinity;const rows=meses.map(m=>{const ing=getIng(m),gas=getGas(m),gan=ing-gas;tI+=ing;tG+=gas;if(gan>mejG){mejG=gan;mejM=m;}return{m,ing,gas,gan};});const tGan=tI-tG;document.getElementById('gnmet').innerHTML=`<div class="metric"><div class="lbl">Ingresos totales</div><div class="val">${fm(tI)}</div></div><div class="metric"><div class="lbl">Gastos totales</div><div class="val">${fm(tG)}</div></div><div class="metric"><div class="lbl">Ganancia acumulada</div><div class="val ${tGan>=0?'gan-pos':'gan-neg'}">${fm(tGan)}</div></div><div class="metric"><div class="lbl">Mejor mes</div><div class="val" style="font-size:14px">${mejM?MESES[parseInt(mejM.slice(5,7))-1]+' '+mejM.slice(0,4):'—'}</div><div class="sub gan-pos">${mejM?fm(mejG):''}</div></div>`;document.getElementById('gntab').innerHTML=`<table><thead><tr><th style="width:18%">Mes</th><th>Ingresos</th><th>Gastos</th><th>Ganancia</th><th>Margen</th></tr></thead><tbody>`+rows.map(r=>{const pct=r.ing>0?Math.round((r.gan/r.ing)*100):0;return`<tr><td class="tn">${MESES[parseInt(r.m.slice(5,7))-1]}<div class="ts">${r.m.slice(0,4)}</div></td><td class="gan-pos">${fm(r.ing)}</td><td class="gan-neg">${fm(r.gas)}</td><td class="${r.gan>=0?'gan-pos':'gan-neg'}" style="font-weight:700">${fm(r.gan)}</td><td><div class="gan-bw"><div class="gan-bt"><div class="gan-bf" style="background:${r.gan>=0?'var(--green)':'var(--red)'};width:${Math.abs(pct)}%"></div></div><span class="gan-pct ${r.gan>=0?'gan-pos':'gan-neg'}">${pct}%</span></div></td></tr>`;}).join('')+'</tbody></table>';if(CU.rol==='admin'){let rH='';ST.rutas.forEach(ruta=>{const cIds=ST.clientes.filter(c=>c.rutaId===ruta.id).map(c=>c.id);const ing=getMeses().reduce((s,m)=>{let t=0;ST.prestamos.filter(p=>cIds.includes(p.clienteId)).forEach(p=>{const i=pI(p),ini=new Date(p.fechaInicio),pg=p.pagos||{};for(let n=1;n<=p.dias;n++){const d=new Date(ini);d.setDate(d.getDate()+n-1);if(d.toISOString().slice(0,7)===m&&pg[n])t+=pg[n].valor||i.c;}});return s+t;},0);const gas=ST.gastos.filter(g=>g.rutaId===ruta.id&&g.tipo!=='simple').reduce((s,g)=>s+(g.monto||0),0),gan=ing-gas;rH+=`<div class="ruta-card" style="border-left-color:${ruta.color}"><div style="font-size:15px;font-weight:700;color:${ruta.color};margin-bottom:4px">Ruta ${ruta.nombre}</div><div class="ruta-stats"><div class="rs"><div class="lbl">Ingresos</div><div class="val gan-pos">${fm(ing)}</div></div><div class="rs danger"><div class="lbl">Gastos</div><div class="val">${fm(gas)}</div></div><div class="rs" style="grid-column:span 2"><div class="lbl">Ganancia acumulada</div><div class="val ${gan>=0?'gan-pos':'gan-neg'}" style="font-size:17px">${fm(gan)}</div></div></div></div>`;});document.getElementById('gnrutas').innerHTML=rH;}else document.getElementById('gnrutas').innerHTML='';}
+function rFlujo(){fMes=buildMS('fmsel',fMes,'setMF');const rutas=CU.rol==='admin'?ST.rutas:ST.rutas.filter(r=>r.id===CU.rutaId);let html='';rutas.forEach(ruta=>{const cIds=ST.clientes.filter(c=>c.rutaId===ruta.id).map(c=>c.id);const pres=ST.prestamos.filter(p=>cIds.includes(p.clienteId));const ingD={};pres.forEach(p=>{const i=pI(p),ini=new Date(p.fechaInicio),pg=p.pagos||{};for(let n=1;n<=p.dias;n++){const d=new Date(ini);d.setDate(d.getDate()+n-1);const iso=d.toISOString().slice(0,10);if(iso.slice(0,7)===fMes&&pg[n])ingD[iso]=(ingD[iso]||0)+i.c;}});const gasD={};ST.gastos.filter(g=>g.rutaId===ruta.id&&g.fecha&&g.fecha.slice(0,7)===fMes).forEach(g=>{gasD[g.fecha]=(gasD[g.fecha]||0)+(g.monto||0);});const basD={};ST.bases.filter(b=>b.rutaId===ruta.id&&b.fecha&&b.fecha.slice(0,7)===fMes).forEach(b=>{if(b.tipo==='retiro')basD[b.fecha]=(basD[b.fecha]||0)-(b.monto||0);else basD[b.fecha]=(basD[b.fecha]||0)+(b.monto||0);});const[yr,mo]=fMes.split('-').map(Number);const ult=new Date(yr,mo,0).getDate();const tI=Object.values(ingD).reduce((s,v)=>s+v,0),tG=Object.values(gasD).reduce((s,v)=>s+v,0),tB=Object.values(basD).reduce((s,v)=>s+v,0),tN=tI-tG+tB;let saldo=0;const dias=[];for(let d=1;d<=ult;d++){const iso=`${fMes}-${String(d).padStart(2,'0')}`;if(ingD[iso]||gasD[iso]||basD[iso])dias.push(iso);}const filas=dias.map(d=>{const ing=(ingD[d]||0),gas=(gasD[d]||0),base=(basD[d]||0);saldo+=ing-gas+base;return`<tr><td>${fd(d)}</td><td class="gan-pos" style="font-weight:${ing?700:400}">${ing?fm(ing):'—'}</td><td class="gan-neg" style="font-weight:${gas?700:400}">${gas?fm(gas):'—'}</td><td style="font-weight:${base?700:400};color:${base>0?'var(--green)':base<0?'var(--red)':'var(--text-muted)'}">${base?fm(Math.abs(base)):' —'}</td><td style="font-weight:700;color:${saldo>=0?'var(--green)':'var(--red)'}">${fm(saldo)}</td></tr>`;}).join('');html+=`<div class="ruta-card" style="border-left-color:${ruta.color}"><div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:8px;margin-bottom:1rem"><div><div style="font-size:15px;font-weight:700;color:${ruta.color}">Ruta ${ruta.nombre}</div><div class="ts">${ruta.cobrador} · ${MESES[mo-1]} ${yr}</div></div><span style="background:${ruta.color};color:#fff;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700">${cIds.length} clientes</span></div><div class="flujo-stats"><div class="flujo-stat" style="background:#E8F5E9"><div class="lbl" style="color:#2E7D32">Ingresos cobrados</div><div class="val gan-pos">${fm(tI)}</div></div><div class="flujo-stat" style="background:#FFEBEE"><div class="lbl" style="color:#C62828">Gastos del mes</div><div class="val gan-neg">${fm(tG)}</div></div><div class="flujo-stat" style="background:var(--blue-lighter)"><div class="lbl" style="color:var(--blue)">Flujo neto</div><div class="val ${tN>=0?'gan-pos':'gan-neg'}" style="font-size:18px">${fm(tN)}</div></div></div>${dias.length>0?`<div class="tw"><table><thead><tr><th style="width:20%">Fecha</th><th>Ingresos</th><th>Gastos</th><th>Base</th><th>Saldo acum.</th></tr></thead><tbody>${filas}</tbody><tfoot><tr style="background:var(--blue-lighter)"><td style="font-weight:700;padding:8px">TOTAL</td><td class="gan-pos" style="font-weight:700;padding:8px">${fm(tI)}</td><td class="gan-neg" style="font-weight:700;padding:8px">${fm(tG)}</td><td style="font-weight:700;color:var(--blue);padding:8px">${fm(tB)}</td><td style="font-weight:700;color:${tN>=0?'var(--green)':'var(--red)'};padding:8px">${fm(tN)}</td></tr></tfoot></table></div>`:'<div class="empty">Sin movimientos este mes</div>'}</div>`;});if(!rutas.length)html='<div class="empty">Sin rutas configuradas</div>';document.getElementById('flujoC').innerHTML=html;}
+function setMF(m){fMes=m;rFlujo();}
 
-// CIERRE CON CUADRE ────────────────────────────
-function rCierre(){
-  const pres=myP(),ruta=CU.rol==='ruta'?gR(CU.rutaId):null;
-  const ckey=(CU.rutaId||'admin')+'_'+ISO,yaC=ST.cierres.find(c=>c.id===ckey||c.ckey===ckey);
-  document.getElementById('cfecha').textContent=HOY.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  let cobH=0,cobrados=0,pendH=0,totEfec=0,totNequi=0;const det=[];
-  pres.forEach(p=>{const c=gC(p.clienteId);if(!c)return;const i=pI(p),ini=new Date(p.fechaInicio),pg=p.pagos||{};
-    for(let n=1;n<=p.dias;n++){const d=new Date(ini);d.setDate(d.getDate()+n-1);if(d.toISOString().slice(0,10)===ISO){cobH++;if(pg[n]){cobrados++;const val=pg[n].valor||i.c,met=pg[n].metodo||'efectivo';if(met==='nequi')totNequi+=val;else totEfec+=val;det.push({cli:c.nombre,cuota:n,tot:p.dias,monto:val,metodo:met,cuotaBase:i.c,estado:'Cobrado'});}else{pendH++;det.push({cli:c.nombre,cuota:n,tot:p.dias,monto:i.c,cuotaBase:i.c,metodo:null,estado:'Pendiente'});}}
-    }
-  });
-  const gasHoy=ST.gastos.filter(g=>g.fecha===ISO&&(g.rutaId===CU.rutaId||g.tipo==='simple'&&g.rutaId===CU.rutaId)).reduce((s,g)=>s+(g.monto||0),0);
-  const totCob=totEfec+totNequi;
-  // Préstamos colocados hoy (capital entregado)
-  const prestHoy=pres.filter(p=>p.fechaInicio===ISO).reduce((s,p)=>s+p.capital,0);
-  // Saldo fórmula: Recaudo - Préstamos - Gastos
-  const saldoFormula=totCob-prestHoy-gasHoy;
+function rCierre(){const pres=myP(),ruta=CU.rol==='ruta'?gR(CU.rutaId):null,ckey=(CU.rutaId||'admin')+'_'+ISO,yaC=ST.cierres.find(c=>c.id===ckey||c.ckey===ckey);document.getElementById('cfecha').textContent=HOY.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long',year:'numeric'});let cobH=0,totH=0,cobrados=0,pendH=0;const det=[];pres.forEach(p=>{const c=gC(p.clienteId);if(!c)return;const i=pI(p),ini=new Date(p.fechaInicio),pg=p.pagos||{};for(let n=1;n<=p.dias;n++){const d=new Date(ini);d.setDate(d.getDate()+n-1);if(d.toISOString().slice(0,10)===ISO){totH+=i.c;cobH++;if(pg[n]){cobrados++;det.push({cli:c.nombre,cuota:n,tot:p.dias,monto:i.c,estado:'Cobrado'});}else{pendH++;det.push({cli:c.nombre,cuota:n,tot:p.dias,monto:i.c,estado:'Pendiente'});}}}});const totCob=det.filter(d=>d.estado==='Cobrado').reduce((s,d)=>s+d.monto,0),gasHoy=myG(ISO.slice(0,7)).filter(g=>g.fecha===ISO).reduce((s,g)=>s+(g.monto||0),0);let html=`<div class="cierre-hdr"><div class="cierre-grid"><div class="ci-item"><div class="lbl">Programadas</div><div class="val">${cobH}</div></div><div class="ci-item"><div class="lbl">Cobrados</div><div class="val">${cobrados}</div></div><div class="ci-item"><div class="lbl">Total cobrado</div><div class="val">${fm(totCob)}</div></div><div class="ci-item"><div class="lbl">Gastos hoy</div><div class="val gan-neg">${fm(gasHoy)}</div></div></div><div class="cierre-gan"><span>Ganancia neta del día</span><span style="font-size:20px;font-weight:700" class="${totCob-gasHoy>=0?'gan-pos':'gan-neg'}">${fm(totCob-gasHoy)}</span></div></div><div class="card"><h3>Detalle cobros${ruta?' — Ruta '+ruta.nombre:''}</h3>`;if(!det.length)html+='<div class="empty">Sin cobros hoy</div>';else det.forEach(d=>{html+=`<div class="cierre-row"><div><div class="tn">${d.cli}</div><div class="ts">Cuota ${d.cuota}/${d.tot}</div></div><div style="font-weight:700">${fm(d.monto)}</div><span class="badge ${d.estado==='Cobrado'?'bg':'ba'}">${d.estado}</span></div>`;});html+='</div>';if(yaC)html+=`<div class="cierre-ok">✓ Cierre registrado — ${fd(yaC.fecha)} a las ${yaC.hora}${yaC.nota?' · '+yaC.nota:''}</div>`;else html+=`<div style="display:flex;gap:10px;align-items:flex-end;margin-top:1rem;flex-wrap:wrap"><div style="flex:1;min-width:200px"><label style="font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px">Notas</label><input id="cnota" type="text" placeholder="Observaciones del día..." style="width:100%;padding:9px 12px;font-size:13px;border:1px solid var(--border);border-radius:6px;font-family:inherit"></div><button class="btn-p" onclick="saveCierre('${ckey}',${totCob},${cobrados},${pendH})">Registrar cierre</button></div>`;document.getElementById('cierreC').innerHTML=html;}
 
-  let html=`<div class="cierre-hdr">
-    <div class="cierre-grid">
-      <div class="ci-item"><div class="lbl">Cuotas programadas</div><div class="val">${cobH}</div></div>
-      <div class="ci-item"><div class="lbl">Cobros realizados</div><div class="val">${cobrados}</div></div>
-      <div class="ci-item"><div class="lbl">Total efectivo</div><div class="val">${fm(totEfec)}</div></div>
-      <div class="ci-item"><div class="lbl">Total Nequi</div><div class="val" style="color:#6A1B9A">${fm(totNequi)}</div></div>
-    </div>
-    <div class="cierre-gan">
-      <span>Total recaudado</span>
-      <span style="font-size:20px;font-weight:700;color:var(--blue-dark)">${fm(totCob)}</span>
-    </div>
-  </div>
+function rMora(){const pres=myP();let tm=0,tc2=0,tcu=0;let html='';pres.forEach(p=>{const i=pI(p);if(!i.venc.length)return;const c=gC(p.clienteId);if(!c)return;const r=gR(c.rutaId),mm=i.venc.length*i.c;tm++;tcu+=i.venc.length;tc2+=mm;html+=`<div class="pr"><div style="flex:1;min-width:0"><div class="pname">${c.nombre} <span class="badge ${i.venc.length>=5?'br':'ba'}">${i.venc.length} vencidas</span></div><div class="psub">${fm(mm)} mora · ${c.tel||''}${r?' · Ruta '+r.nombre:''}</div></div><button class="btn-v" onclick="verPre('${p.id}')">Ver</button></div>`;});document.getElementById('mmet').innerHTML=`<div class="metric"><div class="lbl">En mora</div><div class="val">${tm}</div></div><div class="metric"><div class="lbl">Cuotas vencidas</div><div class="val">${tcu}</div></div><div class="metric"><div class="lbl">Monto mora</div><div class="val">${fm(tc2)}</div></div><div class="metric"><div class="lbl">Prom. días mora</div><div class="val">${tm>0?Math.round(tcu/tm):0}</div></div>`;document.getElementById('mlista').innerHTML=html||'<div class="empty">Sin clientes en mora</div>';}
 
-  <div class="card"><h3>Detalle cobros${ruta?' — Ruta '+ruta.nombre:''}</h3>`;
-  if(!det.length)html+='<div class="empty">Sin cobros hoy</div>';
-  else det.forEach(d=>{html+=`<div class="cierre-row"><div><div class="tn">${d.cli}</div><div class="ts">Cuota ${d.cuota}/${d.tot} · Pactada: ${fm(d.cuotaBase)}</div></div><div style="font-weight:700">${fm(d.monto)}</div>${d.metodo?`<span class="badge ${d.metodo==='nequi'?'badge-nequi':'badge-ef'}">${d.metodo==='nequi'?'Nequi':'Efectivo'}</span>`:'<span class="badge ba">Pendiente</span>'}</div>`;});
-  html+=`</div>
-
-  <div class="cuadre-box">
-    <h3>Cuadre de caja</h3>
-    <div class="cuadre-formula">
-      <span style="font-weight:700;color:var(--blue-dark)">Recaudo</span>
-      <span style="color:var(--text-muted)">${fm(totCob)}</span>
-      <span style="color:var(--text-muted)">−</span>
-      <span style="font-weight:700;color:var(--blue-dark)">Préstamos colocados</span>
-      <span style="color:var(--text-muted)">${fm(prestHoy)}</span>
-      <span style="color:var(--text-muted)">−</span>
-      <span style="font-weight:700;color:var(--blue-dark)">Gastos</span>
-      <span style="color:var(--text-muted)">${fm(gasHoy)}</span>
-      <span style="color:var(--text-muted)">=</span>
-      <span style="font-weight:700;font-size:15px;color:var(--blue-dark)">${fm(saldoFormula)}</span>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1rem">
-      <div><label style="font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px">Efectivo reportado ($)</label><input id="cierre-ef" type="number" placeholder="0" style="width:100%;padding:9px 12px;font-size:13px;border:1px solid var(--border);border-radius:6px;font-family:inherit" oninput="calcCuadre()"></div>
-      <div><label style="font-size:11px;font-weight:700;color:#6A1B9A;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px">Nequi reportado ($)</label><input id="cierre-nq" type="number" placeholder="0" style="width:100%;padding:9px 12px;font-size:13px;border:1px solid #E1BEE7;border-radius:6px;font-family:inherit" oninput="calcCuadre()"></div>
-    </div>
-    <div id="cuadre-resultado"></div>`;
-
-  html+=`<div style="margin-top:1rem;display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
-      <div style="flex:1;min-width:200px"><label style="font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px">Notas del cierre</label><input id="cnota" type="text" placeholder="Observaciones del día..." style="width:100%;padding:9px 12px;font-size:13px;border:1px solid var(--border);border-radius:6px;font-family:inherit"></div>
-      <button class="btn-p" onclick="saveCierre('${ckey}',${totCob},${cobrados},${pendH},${totEfec},${totNequi},${prestHoy},${gasHoy})">Registrar cierre</button>
-    </div>`;
-  html+='</div>';
-
-  if(yaC)html=`<div class="cierre-ok">✓ Cierre registrado — ${fd(yaC.fecha)} a las ${yaC.hora}<br><small style="font-weight:400">Recaudado: ${fm(yaC.totalCobrado||0)} · Efectivo: ${fm(yaC.efectivo||0)} · Nequi: ${fm(yaC.nequi||0)} · Diferencia: ${fm(yaC.diferencia||0)}</small></div>`+html.split('<div class="cuadre-box">')[0];
-
-  document.getElementById('cierreC').innerHTML=html;
-  // Guardar referencia para calcCuadre
-  window._cierreSaldoFormula=saldoFormula;
-  window._cierreTotEfec=totEfec;
-  window._cierreTotNequi=totNequi;
-}
-
-function calcCuadre(){
-  const ef=parseFloat(document.getElementById('cierre-ef')?.value)||0;
-  const nq=parseFloat(document.getElementById('cierre-nq')?.value)||0;
-  const totalReportado=ef+nq;
-  const saldo=window._cierreSaldoFormula||0;
-  const dif=totalReportado-saldo;
-  const el=document.getElementById('cuadre-resultado');
-  if(!el)return;
-  el.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:.5rem">
-    <div class="stat-m"><div class="lbl">Saldo esperado</div><div class="val">${fm(saldo)}</div></div>
-    <div class="stat-m"><div class="lbl">Lo que reportas</div><div class="val">${fm(totalReportado)}</div></div>
-    <div class="stat-m"><div class="lbl" style="color:${Math.abs(dif)<100?'var(--green)':'var(--red)'}">Diferencia</div><div class="val ${Math.abs(dif)<100?'gan-pos':'gan-neg'}">${dif>=0?'+':''}${fm(dif)}</div></div>
-  </div>
-  <div class="cuadre-dif ${Math.abs(dif)<100?'cuadre-ok':'cuadre-dif-neg'}">${Math.abs(dif)<100?'✓ Cuadre correcto':'⚠ Hay diferencia de '+fm(Math.abs(dif))+(dif>0?' (sobran)':' (faltan)')}</div>`;
-}
-
-// MOROSOS CON SECCIÓN POR RUTA ────────────────
-function rMora(){
-  const pres=CU.rol==='admin'?ST.prestamos:myP();
-  let tm=0,tc2=0,tcu=0;
-
-  if(CU.rol==='admin'){
-    // Agrupar por ruta
-    let html='';
-    ST.rutas.forEach(ruta=>{
-      const cIds=ST.clientes.filter(c=>c.rutaId===ruta.id).map(c=>c.id);
-      const moraRuta=[];
-      pres.filter(p=>cIds.includes(p.clienteId)).forEach(p=>{const i=pI(p);if(!i.venc.length)return;const c=gC(p.clienteId);if(!c)return;moraRuta.push({p,i,c});tm++;tcu+=i.venc.length;tc2+=i.venc.length*i.c;});
-      if(!moraRuta.length)return;
-      html+=`<div class="mora-ruta-card"><div class="mora-ruta-header"><div><div style="font-size:15px;font-weight:700;color:${ruta.color}">${ruta.nombre}</div><div class="ts">${ruta.cobrador}</div></div><span class="badge br">${moraRuta.length} morosos</span></div>`;
-      moraRuta.forEach(({p,i,c})=>{const mm=i.venc.length*i.c;html+=`<div class="pr"><div style="flex:1;min-width:0"><div class="pname">${c.nombre} <span class="badge ${i.venc.length>=5?'br':'ba'}">${i.venc.length} vencidas</span></div><div class="psub">${fm(mm)} mora · ${c.tel||''}</div></div><button class="btn-v" onclick="verPre('${p.id}')">Ver</button></div>`;});
-      html+='</div>';
-    });
-    // Sin ruta
-    const sinRuta=[];pres.filter(p=>{const c=gC(p.clienteId);return c&&!c.rutaId;}).forEach(p=>{const i=pI(p);if(!i.venc.length)return;const c=gC(p.clienteId);if(!c)return;sinRuta.push({p,i,c});tm++;tcu+=i.venc.length;tc2+=i.venc.length*i.c;});
-    if(sinRuta.length){html+=`<div class="mora-ruta-card" style="border-left-color:var(--text-muted)"><div class="mora-ruta-header"><div><div style="font-size:15px;font-weight:700;color:var(--text-muted)">Sin ruta asignada</div></div><span class="badge br">${sinRuta.length} morosos</span></div>`;sinRuta.forEach(({p,i,c})=>{const mm=i.venc.length*i.c;html+=`<div class="pr"><div style="flex:1;min-width:0"><div class="pname">${c.nombre} <span class="badge ${i.venc.length>=5?'br':'ba'}">${i.venc.length} vencidas</span></div><div class="psub">${fm(mm)} mora · ${c.tel||''}</div></div><button class="btn-v" onclick="verPre('${p.id}')">Ver</button></div>`;});html+='</div>';}
-    document.getElementById('mmet').innerHTML=`<div class="metric"><div class="lbl">En mora</div><div class="val">${tm}</div></div><div class="metric"><div class="lbl">Cuotas vencidas</div><div class="val">${tcu}</div></div><div class="metric"><div class="lbl">Monto mora</div><div class="val">${fm(tc2)}</div></div><div class="metric"><div class="lbl">Prom. días mora</div><div class="val">${tm>0?Math.round(tcu/tm):0}</div></div>`;
-    document.getElementById('mlista').innerHTML=html||'<div class="empty">Sin clientes en mora</div>';
-  } else {
-    // Vista cobrador: solo su ruta
-    let html='';const ruta=gR(CU.rutaId);
-    pres.forEach(p=>{const i=pI(p);if(!i.venc.length)return;const c=gC(p.clienteId);if(!c)return;const mm=i.venc.length*i.c;tm++;tcu+=i.venc.length;tc2+=mm;html+=`<div class="pr"><div style="flex:1;min-width:0"><div class="pname">${c.nombre} <span class="badge ${i.venc.length>=5?'br':'ba'}">${i.venc.length} vencidas</span></div><div class="psub">${fm(mm)} mora · ${c.tel||''}</div></div><button class="btn-v" onclick="verPre('${p.id}')">Ver</button></div>`;});
-    document.getElementById('mmet').innerHTML=`<div class="metric"><div class="lbl">En mora</div><div class="val">${tm}</div></div><div class="metric"><div class="lbl">Cuotas vencidas</div><div class="val">${tcu}</div></div><div class="metric"><div class="lbl">Monto mora</div><div class="val">${fm(tc2)}</div></div><div class="metric"><div class="lbl">Prom. días mora</div><div class="val">${tm>0?Math.round(tcu/tm):0}</div></div>`;
-    document.getElementById('mlista').innerHTML=(ruta?`<div style="font-size:14px;font-weight:700;color:var(--blue-dark);margin-bottom:1rem">Ruta ${ruta.nombre}</div>`:'')+( html||'<div class="empty">Sin clientes en mora en tu ruta</div>');
-  }
-}
-
-function rRutas(){document.getElementById('rlista').innerHTML=ST.rutas.map(r=>{const clis=ST.clientes.filter(c=>c.rutaId===r.id);let ch=0,th=0;clis.forEach(c=>{ST.prestamos.filter(p=>p.clienteId===c.id).forEach(p=>{const i=pI(p),ini=new Date(p.fechaInicio),pg=p.pagos||{};for(let n=1;n<=p.dias;n++){const d=new Date(ini);d.setDate(d.getDate()+n-1);if(d.toISOString().slice(0,10)===ISO){const paid=pg[n];if(paid)th+=paid.valor||i.c;else{th+=i.c;if(!paid)ch++;}}});});const gas=ST.gastos.filter(g=>g.rutaId===r.id&&g.fecha&&g.fecha.slice(0,7)===ISO.slice(0,7)&&g.tipo!=='simple').reduce((s,g)=>s+(g.monto||0),0);const mora=clis.filter(c=>ST.prestamos.filter(p=>p.clienteId===c.id).some(p=>pI(p).est==='moroso')).length;const u=ST.usuarios.find(u=>u.rutaId===r.id);return`<div class="ruta-card" style="border-left-color:${r.color}"><div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:8px"><div><div style="font-size:15px;font-weight:700;color:${r.color}">${r.nombre}</div><div class="ts">${r.cobrador} · ${r.zona||''}</div>${u?`<div class="ts">Usuario: <strong>${u.user}</strong></div>`:''}</div><span style="background:${r.color};color:#fff;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700">${clis.length} clientes</span></div><div class="ruta-stats"><div class="rs"><div class="lbl">Clientes</div><div class="val">${clis.length}</div></div><div class="rs"><div class="lbl">Cobros pend.</div><div class="val">${ch}</div></div><div class="rs"><div class="lbl">Total hoy</div><div class="val">${fm(th)}</div></div><div class="rs danger"><div class="lbl">Morosos</div><div class="val">${mora}</div></div></div></div>`;}}).join('')||'<div class="empty">Sin rutas</div>';}
+function rRutas(){document.getElementById('rlista').innerHTML=ST.rutas.map(r=>{const clis=ST.clientes.filter(c=>c.rutaId===r.id);let ch=0,th=0;clis.forEach(c=>{ST.prestamos.filter(p=>p.clienteId===c.id).forEach(p=>{const i=pI(p),ini=new Date(p.fechaInicio),pg=p.pagos||{};for(let n=1;n<=p.dias;n++){const d=new Date(ini);d.setDate(d.getDate()+n-1);if(d.toISOString().slice(0,10)===ISO){th+=i.c;if(!pg[n])ch++;}}});});const gas=ST.gastos.filter(g=>g.rutaId===r.id&&g.fecha&&g.fecha.slice(0,7)===ISO.slice(0,7)).reduce((s,g)=>s+(g.monto||0),0);const u=ST.usuarios.find(u=>u.rutaId===r.id);return`<div class="ruta-card" style="border-left-color:${r.color}"><div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:8px"><div><div style="font-size:15px;font-weight:700;color:${r.color}">${r.nombre}</div><div class="ts">${r.cobrador} · ${r.zona||''}</div>${u?`<div class="ts">Usuario: <strong>${u.user}</strong></div>`:''}</div><span style="background:${r.color};color:#fff;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700">${clis.length} clientes</span></div><div class="ruta-stats"><div class="rs"><div class="lbl">Clientes</div><div class="val">${clis.length}</div></div><div class="rs"><div class="lbl">Cobros pend.</div><div class="val">${ch}</div></div><div class="rs"><div class="lbl">Total hoy</div><div class="val">${fm(th)}</div></div><div class="rs danger"><div class="lbl">Gastos mes</div><div class="val">${fm(gas)}</div></div></div></div>`;}).join('')||'<div class="empty">Sin rutas</div>';}
 
 function rUsrs(){document.getElementById('tbusr').innerHTML=ST.usuarios.map(u=>{const r=gR(u.rutaId);return`<tr><td class="tn">${u.nombre}</td><td><code style="font-size:12px;background:var(--blue-lighter);padding:2px 6px;border-radius:4px;color:var(--blue-dark)">${u.user}</code></td><td><span class="badge ${u.rol==='admin'?'bb':'bg'}">${u.rol==='admin'?'Admin':'Cobrador'}</span></td><td>${r?`<span class="ruta-dot" style="background:${r.color}"></span>${r.nombre}`:'—'}</td><td><button class="btn-v" onclick="prepMU('${u.id}')">Editar</button></td></tr>`;}).join('')||'<tr><td colspan="5"><div class="empty">Sin usuarios</div></td></tr>';}
 
-// COBRO MODAL ──────────────────────────────────
-function abrirCobro(pid,n,cuota,nomCli){
-  _cobroPID=pid;_cobroN=n;_cuotaMinima=cuota;_mpSel='efectivo';
-  const p=gP(pid);if(!p)return;
-  document.getElementById('cobro-cli-name').textContent=nomCli;
-  document.getElementById('cobro-cli-detail').textContent=`Cuota #${n} de ${p.dias} · Valor pactado: ${fm(cuota)}`;
-  document.getElementById('cobro-valor').value=Math.round(cuota);
-  document.getElementById('cobro-warn').style.display='none';
-  selMP('efectivo');
-  document.getElementById('m-cobro').style.display='flex';
-}
-function selMP(mp){
-  _mpSel=mp;
-  document.getElementById('mp-ef').className='mp-opt'+(mp==='efectivo'?' sel-ef':'');
-  document.getElementById('mp-nq').className='mp-opt'+(mp==='nequi'?' sel-nq':'');
-}
-function validarCobro(){
-  const val=parseFloat(document.getElementById('cobro-valor').value)||0;
-  const warn=document.getElementById('cobro-warn'),btn=document.getElementById('btn-cobrar-ok');
-  if(val<_cuotaMinima&&val>0){warn.style.display='block';btn.disabled=true;btn.style.opacity='.5';}
-  else{warn.style.display='none';btn.disabled=false;btn.style.opacity='';}
-}
-function confirmarCobro(){
-  const val=parseFloat(document.getElementById('cobro-valor').value)||0;
-  if(val<_cuotaMinima){toast('El valor no puede ser menor a la cuota pactada','err');return;}
-  const p=gP(_cobroPID);if(!p)return;
-  const pg={...(p.pagos||{})};
-  pg[_cobroN]={valor:val,metodo:_mpSel,fecha:ISO};
-  db.collection('prestamos').doc(_cobroPID).update({pagos:pg,updatedAt:Date.now()})
-    .then(()=>{cM('m-cobro');toast(`Cuota ${_cobroN} registrada — ${fm(val)} (${_mpSel})`,'ok');})
-    .catch(e=>{toast('Error al registrar','err');console.error(e);});
-}
-
-// GUARDAR ──────────────────────────────────────
-function saveCierre(ckey,tc,co,pe,ef,nq,prest,gas){
-  const nota=document.getElementById('cnota')?.value||'';
-  const efRep=parseFloat(document.getElementById('cierre-ef')?.value)||0;
-  const nqRep=parseFloat(document.getElementById('cierre-nq')?.value)||0;
-  const saldo=window._cierreSaldoFormula||0;
-  const dif=(efRep+nqRep)-saldo;
-  db.collection('cierres').doc(ckey).set({ckey,fecha:ISO,hora:new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),totalCobrado:tc,cobrados:co,pendientes:pe,efectivo:ef,nequi:nq,prestamosHoy:prest,gastosHoy:gas,saldoFormula:saldo,efectivoReportado:efRep,nequiReportado:nqRep,diferencia:dif,nota,user:CU.nombre,createdAt:Date.now()})
-    .then(()=>{toast('Cierre registrado','ok');rCierre();}).catch(e=>{toast('Error','err');console.error(e);});
-}
-
-function saveCli(){
-  const nom=document.getElementById('cnom').value.trim();if(!nom){toast('El nombre es obligatorio','err');return;}
-  db.collection('clientes').add({nombre:nom,cedula:document.getElementById('cced').value,tel:document.getElementById('ctel').value,ciudad:document.getElementById('cciu').value,dir:document.getElementById('cdir').value,notas:document.getElementById('cnotas').value,rutaId:document.getElementById('crut').value||null,createdAt:Date.now()})
-    .then(()=>{cM('m-cli');toast('Cliente guardado','ok');}).catch(e=>{toast('Error','err');console.error(e);});
-}
-function savePre(){
-  const cid=document.getElementById('pcli').value,cap=parseFloat(document.getElementById('pcap').value),int=parseFloat(document.getElementById('pint').value),dias=parseInt(document.getElementById('pdia').value),fec=document.getElementById('pfec').value;
-  if(!cid||!cap||!dias||!fec){toast('Complete todos los campos','err');return;}
-  db.collection('prestamos').add({clienteId:cid,capital:cap,interes:int,dias,fechaInicio:fec,pagos:{},createdAt:Date.now()})
-    .then(()=>{cM('m-pre');toast('Préstamo creado','ok');}).catch(e=>{toast('Error','err');console.error(e);});
-}
-// Gasto simplificado cobrador
-function saveGasto(){
-  const desc=document.getElementById('gd').value.trim(),mon=parseFloat(document.getElementById('gm').value);
-  if(!desc||!mon){toast('Complete concepto y valor','err');return;}
-  db.collection('gastos').add({desc,monto:mon,tipo:'simple',fecha:ISO,rutaId:CU.rutaId||null,createdAt:Date.now()})
-    .then(()=>{cM('m-gas');toast('Gasto guardado','ok');}).catch(e=>{toast('Error','err');console.error(e);});
-}
-// Gasto admin completo
-function saveGastoAdmin(){
-  const desc=document.getElementById('gda').value.trim(),mon=parseFloat(document.getElementById('gma').value);
-  if(!desc||!mon){toast('Complete descripción y monto','err');return;}
-  db.collection('gastos').add({desc,monto:mon,cat:document.getElementById('gcata').value,fecha:document.getElementById('gfeca').value,rutaId:document.getElementById('gruta').value||null,ref:document.getElementById('grefa').value,tipo:'admin',createdAt:Date.now()})
-    .then(()=>{cM('m-gas-admin');toast('Gasto guardado','ok');}).catch(e=>{toast('Error','err');console.error(e);});
-}
+// ── ACCIONES ──────────────────────────────────
+function cobrar(pid,n){const p=gP(pid);if(!p)return;const pg={...(p.pagos||{})};pg[n]=ISO;db.collection('prestamos').doc(pid).update({pagos:pg,updatedAt:Date.now()}).then(()=>toast(`Cuota ${n} registrada`,'ok')).catch(e=>{toast('Error','err');console.error(e);});}
+function saveCierre(ckey,tc,co,pe){const nota=document.getElementById('cnota')?.value||'';db.collection('cierres').doc(ckey).set({ckey,fecha:ISO,hora:new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),totalCobrado:tc,cobrados:co,pendientes:pe,nota,user:CU.nombre,createdAt:Date.now()}).then(()=>{toast('Cierre registrado','ok');rCierre();}).catch(e=>{toast('Error','err');console.error(e);});}
+function saveCli(){const nom=document.getElementById('cnom').value.trim();if(!nom){toast('El nombre es obligatorio','err');return;}db.collection('clientes').add({nombre:nom,cedula:document.getElementById('cced').value,tel:document.getElementById('ctel').value,ciudad:document.getElementById('cciu').value,dir:document.getElementById('cdir').value,notas:document.getElementById('cnotas').value,rutaId:document.getElementById('crut').value||null,createdAt:Date.now()}).then(()=>{cM('m-cli');toast('Cliente guardado','ok');}).catch(e=>{toast('Error','err');console.error(e);});}
+function savePre(){const cid=document.getElementById('pcli').value,cap=parseFloat(document.getElementById('pcap').value),int=parseFloat(document.getElementById('pint').value),dias=parseInt(document.getElementById('pdia').value),fec=document.getElementById('pfec').value;if(!cid||!cap||!dias||!fec){toast('Complete todos los campos','err');return;}db.collection('prestamos').add({clienteId:cid,capital:cap,interes:int,dias,fechaInicio:fec,pagos:{},createdAt:Date.now()}).then(()=>{cM('m-pre');toast('Préstamo creado','ok');}).catch(e=>{toast('Error','err');console.error(e);});}
+function saveGasto(){const desc=document.getElementById('gd').value.trim(),mon=parseFloat(document.getElementById('gm').value);if(!desc||!mon){toast('Complete descripción y monto','err');return;}db.collection('gastos').add({desc,monto:mon,cat:document.getElementById('gcat').value,fecha:document.getElementById('gfec').value,rutaId:document.getElementById('grut').value||null,ref:document.getElementById('gref').value,createdAt:Date.now()}).then(()=>{cM('m-gas');toast('Gasto guardado','ok');}).catch(e=>{toast('Error','err');console.error(e);});}
 function delGasto(id){if(!confirm('¿Eliminar?'))return;db.collection('gastos').doc(id).delete().then(()=>toast('Eliminado')).catch(e=>toast('Error','err'));}
-function saveRuta(){
-  const nom=document.getElementById('rnom').value.trim();if(!nom){toast('Nombre requerido','err');return;}
-  db.collection('rutas').add({nombre:nom,cobrador:document.getElementById('rcob').value,zona:document.getElementById('rzon').value,color:document.getElementById('rcol').value,createdAt:Date.now()})
-    .then(()=>{cM('m-ruta');toast('Ruta creada','ok');}).catch(e=>{toast('Error','err');console.error(e);});
-}
+function saveBase(){const mon=parseFloat(document.getElementById('bmon').value),fec=document.getElementById('bfec').value;if(!mon||!fec){toast('Complete monto y fecha','err');return;}db.collection('bases').add({monto:mon,fecha:fec,tipo:document.getElementById('btipo').value,rutaId:document.getElementById('brut').value||null,desc:document.getElementById('bdesc').value,createdAt:Date.now()}).then(()=>{cM('m-base');toast('Base registrada','ok');}).catch(e=>{toast('Error','err');console.error(e);});}
+function delBase(id){if(!confirm('¿Eliminar?'))return;db.collection('bases').doc(id).delete().then(()=>toast('Eliminado')).catch(e=>toast('Error','err'));}
+function saveRuta(){const nom=document.getElementById('rnom').value.trim();if(!nom){toast('Nombre requerido','err');return;}db.collection('rutas').add({nombre:nom,cobrador:document.getElementById('rcob').value,zona:document.getElementById('rzon').value,color:document.getElementById('rcol').value,createdAt:Date.now()}).then(()=>{cM('m-ruta');toast('Ruta creada','ok');}).catch(e=>{toast('Error','err');console.error(e);});}
 function togRut(){document.getElementById('uwrap').style.display=document.getElementById('urol').value==='ruta'?'block':'none';}
-function prepMU(eid){
-  document.getElementById('urut').innerHTML=ST.rutas.map(r=>`<option value="${r.id}">${r.nombre}</option>`).join('');
-  document.getElementById('utitle').textContent=eid?'Editar usuario':'Nuevo usuario';
-  if(eid){const u=ST.usuarios.find(x=>x.id===eid);document.getElementById('unom').value=u.nombre;document.getElementById('uusr').value=u.user;document.getElementById('upas').value=u.pass;document.getElementById('urol').value=u.rol;if(u.rutaId)document.getElementById('urut').value=u.rutaId;document.getElementById('urol').dataset.eid=eid;}
-  else{['unom','uusr','upas'].forEach(f=>document.getElementById(f).value='');document.getElementById('urol').value='ruta';document.getElementById('urol').dataset.eid='';}
-  togRut();document.getElementById('m-usr').style.display='flex';
-}
-function saveUsr(){
-  const nom=document.getElementById('unom').value.trim(),usr=document.getElementById('uusr').value.trim(),pas=document.getElementById('upas').value,rol=document.getElementById('urol').value,rid=rol==='ruta'?(document.getElementById('urut').value||null):null;
-  if(!nom||!usr||!pas){toast('Complete todos los campos','err');return;}
-  const eid=document.getElementById('urol').dataset.eid||'';
-  if(eid){db.collection('usuarios').doc(eid).update({nombre:nom,user:usr,pass:pas,rol,rutaId:rid,updatedAt:Date.now()}).then(()=>{cM('m-usr');toast('Usuario guardado','ok');});}
-  else{if(ST.usuarios.find(u=>u.user===usr)){toast('Usuario ya existe','err');return;}db.collection('usuarios').add({nombre:nom,user:usr,pass:pas,rol,rutaId:rid,createdAt:Date.now()}).then(()=>{cM('m-usr');toast('Usuario creado','ok');});}
-}
+function prepMU(eid){document.getElementById('urut').innerHTML=ST.rutas.map(r=>`<option value="${r.id}">${r.nombre}</option>`).join('');document.getElementById('utitle').textContent=eid?'Editar usuario':'Nuevo usuario';if(eid){const u=ST.usuarios.find(x=>x.id===eid);document.getElementById('unom').value=u.nombre;document.getElementById('uusr').value=u.user;document.getElementById('upas').value=u.pass;document.getElementById('urol').value=u.rol;if(u.rutaId)document.getElementById('urut').value=u.rutaId;document.getElementById('urol').dataset.eid=eid;}else{['unom','uusr','upas'].forEach(f=>document.getElementById(f).value='');document.getElementById('urol').value='ruta';document.getElementById('urol').dataset.eid='';}togRut();document.getElementById('m-usr').style.display='flex';}
+function saveUsr(){const nom=document.getElementById('unom').value.trim(),usr=document.getElementById('uusr').value.trim(),pas=document.getElementById('upas').value,rol=document.getElementById('urol').value,rid=rol==='ruta'?(document.getElementById('urut').value||null):null;if(!nom||!usr||!pas){toast('Complete todos los campos','err');return;}const eid=document.getElementById('urol').dataset.eid||'';if(eid){db.collection('usuarios').doc(eid).update({nombre:nom,user:usr,pass:pas,rol,rutaId:rid,updatedAt:Date.now()}).then(()=>{cM('m-usr');toast('Usuario guardado','ok');});}else{if(ST.usuarios.find(u=>u.user===usr)){toast('Usuario ya existe','err');return;}db.collection('usuarios').add({nombre:nom,user:usr,pass:pas,rol,rutaId:rid,createdAt:Date.now()}).then(()=>{cM('m-usr');toast('Usuario creado','ok');});}}
 
-// MODALES ──────────────────────────────────────
+// ── MODALES ───────────────────────────────────
 function oM(id){
-  if(id==='m-gas'){['gd','gm'].forEach(f=>document.getElementById(f).value='');}
-  if(id==='m-gas-admin'){document.getElementById('gfeca').value=ISO;document.getElementById('gruta').innerHTML='<option value="">General</option>'+ST.rutas.map(r=>`<option value="${r.id}">${r.nombre}</option>`).join('');['gda','gma','grefa'].forEach(f=>document.getElementById(f).value='');}
-  if(id==='m-cli'){
-    // AJUSTE 4: poner ruta por defecto según usuario
-    document.getElementById('crut').innerHTML='<option value="">Sin ruta</option>'+ST.rutas.map(r=>`<option value="${r.id}">${r.nombre}</option>`).join('');
-    ['cnom','cced','ctel','cdir','cnotas'].forEach(f=>document.getElementById(f).value='');
-    document.getElementById('cciu').value='Bogotá';
-    // Si es cobrador, pre-seleccionar su ruta; si es admin, seleccionar primera ruta
-    if(CU.rol==='ruta'&&CU.rutaId) document.getElementById('crut').value=CU.rutaId;
-    else if(ST.rutas.length>0) document.getElementById('crut').value=ST.rutas[0].id;
-  }
+  if(id==='m-gas'){document.getElementById('gfec').value=ISO;document.getElementById('grut').innerHTML='<option value="">General</option>'+ST.rutas.map(r=>`<option value="${r.id}">${r.nombre}</option>`).join('');['gd','gref'].forEach(f=>document.getElementById(f).value='');document.getElementById('gm').value='';if(CU.rol==='ruta')document.getElementById('grut').value=CU.rutaId||'';}
+  if(id==='m-cli'){document.getElementById('crut').innerHTML='<option value="">Sin ruta</option>'+ST.rutas.map(r=>`<option value="${r.id}">${r.nombre}</option>`).join('');['cnom','cced','ctel','cdir','cnotas'].forEach(f=>document.getElementById(f).value='');document.getElementById('cciu').value='Bogotá';if(CU.rol==='ruta')document.getElementById('crut').value=CU.rutaId||'';}
+  if(id==='m-base'){document.getElementById('bfec').value=ISO;document.getElementById('brut').innerHTML='<option value="">General</option>'+ST.rutas.map(r=>`<option value="${r.id}">${r.nombre}</option>`).join('');['bmon','bdesc'].forEach(f=>document.getElementById(f).value='');if(CU.rol==='ruta')document.getElementById('brut').value=CU.rutaId||'';}
   document.getElementById(id).style.display='flex';
 }
-function oMPre(){
-  const s=document.getElementById('pcli');s.innerHTML='<option value="">Seleccionar...</option>'+myC().map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
-  document.getElementById('pcap').value='';document.getElementById('pint').value='20';document.getElementById('pdia').value='30';document.getElementById('pfec').value=ISO;document.getElementById('pprev').innerHTML='';oM('m-pre');
-}
+function oMPre(){const s=document.getElementById('pcli');s.innerHTML='<option value="">Seleccionar...</option>'+myC().map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');document.getElementById('pcap').value='';document.getElementById('pint').value='20';document.getElementById('pdia').value='30';document.getElementById('pfec').value=ISO;document.getElementById('pprev').innerHTML='';oM('m-pre');}
 function cM(id){document.getElementById(id).style.display='none';}
-function calcPrev(){
-  const cap=parseFloat(document.getElementById('pcap').value)||0,int=parseFloat(document.getElementById('pint').value)||0,dias=parseInt(document.getElementById('pdia').value)||0;
-  if(!cap||!dias)return;const tot=cap*(1+int/100),c=tot/dias;
-  document.getElementById('pprev').innerHTML=`<div class="prev-box"><div class="prev-item"><div class="lbl">Total a pagar</div><div class="val">${fm(tot)}</div></div><div class="prev-item"><div class="lbl">Cuota diaria</div><div class="val">${fm(c)}</div></div><div class="prev-item"><div class="lbl">Interés total</div><div class="val">${fm(tot-cap)}</div></div></div>`;
-}
+function calcPrev(){const cap=parseFloat(document.getElementById('pcap').value)||0,int=parseFloat(document.getElementById('pint').value)||0,dias=parseInt(document.getElementById('pdia').value)||0;if(!cap||!dias)return;const tot=cap*(1+int/100),c=tot/dias;document.getElementById('pprev').innerHTML=`<div class="prev-box"><div class="prev-item"><div class="lbl">Total a pagar</div><div class="val">${fm(tot)}</div></div><div class="prev-item"><div class="lbl">Cuota diaria</div><div class="val">${fm(c)}</div></div><div class="prev-item"><div class="lbl">Interés total</div><div class="val">${fm(tot-cap)}</div></div></div>`;}
 
-// DETALLE ──────────────────────────────────────
+// ── DETALLE ───────────────────────────────────
 function verCli(id){const c=gC(id);if(!c)return;const ps=myP().filter(p=>p.clienteId===id),r=gR(c.rutaId);const B={completado:'bg',moroso:'br',atraso:'ba',activo:'bb'},T={completado:'Completado',moroso:'Moroso',atraso:'Atraso',activo:'Activo'};let ph=ps.map(p=>{const i=pI(p);return`<div class="pr"><div style="flex:1"><div class="pname" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${fm(p.capital)} — ${p.dias} días <span class="badge ${B[i.est]}">${T[i.est]}</span></div><div class="psub">Desde ${fd(p.fechaInicio)} · Cuota: ${fm(i.c)}/día · Vencidas: ${i.venc.length}</div></div><button class="btn-v" onclick="verPre('${p.id}')">Ver cuotas</button></div>`;}).join('');document.getElementById('detC').innerHTML=`<h3>${c.nombre}</h3><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:1rem;font-size:13px"><div><span style="color:var(--text-muted);font-weight:600">Cédula:</span> ${c.cedula||'—'}</div><div><span style="color:var(--text-muted);font-weight:600">Tel:</span> ${c.tel||'—'}</div><div><span style="color:var(--text-muted);font-weight:600">Ciudad:</span> ${c.ciudad||'—'}</div><div><span style="color:var(--text-muted);font-weight:600">Ruta:</span> ${r?r.nombre:'Sin ruta'}</div></div><h3 style="margin-bottom:8px">Préstamos (${ps.length})</h3>${ph||'<div class="empty">Sin préstamos</div>'}`;document.getElementById('m-det').style.display='flex';}
+function verPre(id){const p=gP(id);if(!p)return;const c=gC(p.clienteId),i=pI(p),ini=new Date(p.fechaInicio),pg=p.pagos||{};let ph='';for(let n=1;n<=p.dias;n++){const d=new Date(ini);d.setDate(d.getDate()+n-1);const iso=d.toISOString().slice(0,10);let cls='ppend',ico='○';if(pg[n]){cls='pok';ico='✓';}else if(iso<ISO){cls='pvenc';ico='!';}else if(iso===ISO){cls='phoy';ico='◉';}ph+=`<div class="pr"><div class="pn ${cls}" style="font-size:11px">${ico}</div><div style="flex:1;min-width:0"><span style="font-size:13px;font-weight:600">Cuota ${n}</span><span class="ts" style="margin-left:6px">${fd(d)}</span></div><div style="font-size:13px;font-weight:700;color:var(--blue-dark)">${fm(i.c)}</div>${!pg[n]&&iso<=ISO?`<button class="btn-c" onclick="cobrar('${p.id}',${n});verPre('${p.id}')">Cobrar</button>`:pg[n]?'<span class="badge bg" style="font-size:10px">OK</span>':''}</div>`;}const B={completado:'bg',moroso:'br',atraso:'ba',activo:'bb'},T={completado:'Completado',moroso:'Moroso',atraso:'Atraso',activo:'Activo'};document.getElementById('detC').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:1rem;flex-wrap:wrap;gap:8px"><div><h3 style="margin-bottom:4px">${c?.nombre||''}</h3><div class="ts">Inicio: ${fd(p.fechaInicio)}</div></div><span class="badge ${B[i.est]}">${T[i.est]}</span></div><div class="stats3"><div class="stat-m"><div class="lbl">Capital</div><div class="val">${fm(p.capital)}</div></div><div class="stat-m"><div class="lbl">Total</div><div class="val">${fm(i.tot)}</div></div><div class="stat-m"><div class="lbl">Cuota/día</div><div class="val">${fm(i.c)}</div></div></div><div class="pbar" style="margin-bottom:4px"><div class="pfill" style="width:${i.prog.toFixed(0)}%"></div></div><div class="ts" style="margin-bottom:1rem">${i.pag} de ${p.dias} cuotas · ${i.venc.length} vencidas</div><h3 style="margin-bottom:8px">Cuotas</h3><div style="max-height:260px;overflow-y:auto">${ph}</div>`;document.getElementById('m-det').style.display='flex';}
 
-function verPre(id){const p=gP(id);if(!p)return;const c=gC(p.clienteId),i=pI(p),ini=new Date(p.fechaInicio),pg=p.pagos||{};let ph='';for(let n=1;n<=p.dias;n++){const d=new Date(ini);d.setDate(d.getDate()+n-1);const iso=d.toISOString().slice(0,10);const paid=pg[n];let cls='ppend',ico='○';if(paid){cls='pok';ico='✓';}else if(iso<ISO){cls='pvenc';ico='!';}else if(iso===ISO){cls='phoy';ico='◉';}ph+=`<div class="pr"><div class="pn ${cls}" style="font-size:11px">${ico}</div><div style="flex:1;min-width:0"><span style="font-size:13px;font-weight:600">Cuota ${n}</span><span class="ts" style="margin-left:6px">${fd(d)}</span>${paid&&paid.metodo?`<span class="badge ${paid.metodo==='nequi'?'badge-nequi':'badge-ef'}" style="margin-left:4px;font-size:10px">${paid.metodo}</span>`:''}</div><div style="font-size:13px;font-weight:700;color:var(--blue-dark)">${paid?fm(paid.valor||i.c):fm(i.c)}</div>${!paid&&iso<=ISO?`<button class="btn-c" onclick="cM('m-det');abrirCobro('${p.id}',${n},${i.c},'${c?.nombre||''}')">Cobrar</button>`:paid?'<span class="badge bg" style="font-size:10px">OK</span>':''}</div>`;}
-const B={completado:'bg',moroso:'br',atraso:'ba',activo:'bb'},T={completado:'Completado',moroso:'Moroso',atraso:'Atraso',activo:'Activo'};
-document.getElementById('detC').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:1rem;flex-wrap:wrap;gap:8px"><div><h3 style="margin-bottom:4px">${c?.nombre||''}</h3><div class="ts">Inicio: ${fd(p.fechaInicio)}</div></div><span class="badge ${B[i.est]}">${T[i.est]}</span></div><div class="stats3"><div class="stat-m"><div class="lbl">Capital</div><div class="val">${fm(p.capital)}</div></div><div class="stat-m"><div class="lbl">Total</div><div class="val">${fm(i.tot)}</div></div><div class="stat-m"><div class="lbl">Cuota/día</div><div class="val">${fm(i.c)}</div></div></div><div class="pbar" style="margin-bottom:4px"><div class="pfill" style="width:${i.prog.toFixed(0)}%"></div></div><div class="ts" style="margin-bottom:1rem">${i.pag} de ${p.dias} cuotas · ${i.venc.length} vencidas</div><h3 style="margin-bottom:8px">Cuotas</h3><div style="max-height:260px;overflow-y:auto">${ph}</div>`;
-document.getElementById('m-det').style.display='flex';}
-
-// EXPORTAR ──────────────────────────────────────
+// ── EXPORTAR ──────────────────────────────────
 function exp(tipo){const XLSX=window.XLSX;let wb=XLSX.utils.book_new(),data=[],tit='';
 if(tipo==='cartera'){tit='Cartera';data=[['Cliente','Ruta','Capital','Interés%','Total','Cuota/día','Días','Pagados','Vencidas','Saldo','Estado']];ST.prestamos.forEach(p=>{const c=gC(p.clienteId),i=pI(p),r=gR(c?.rutaId);data.push([c?.nombre||'',r?.nombre||'',p.capital,p.interes,Math.round(i.tot),Math.round(i.c),p.dias,i.pag,i.venc.length,Math.round((p.dias-i.pag)*i.c),i.est.toUpperCase()]);})}
-else if(tipo==='cobros'){tit='Cobros_'+ISO;data=[['Ruta','Cliente','Teléfono','Cuota#','Días','Cuota pactada','Valor cobrado','Método','Estado']];ST.prestamos.forEach(p=>{const c=gC(p.clienteId),i=pI(p),r=gR(c?.rutaId),ini=new Date(p.fechaInicio),pg=p.pagos||{};for(let n=1;n<=p.dias;n++){const d=new Date(ini);d.setDate(d.getDate()+n-1);if(d.toISOString().slice(0,10)===ISO){const paid=pg[n];data.push([r?.nombre||'',c?.nombre||'',c?.tel||'',n,p.dias,Math.round(i.c),paid?Math.round(paid.valor||i.c):0,paid?paid.metodo||'efectivo':'',paid?'COBRADO':'PENDIENTE']);}}})}
+else if(tipo==='cobros'){tit='Cobros_'+ISO;data=[['Ruta','Cliente','Teléfono','Cuota#','Días','Valor','Estado']];ST.prestamos.forEach(p=>{const c=gC(p.clienteId),i=pI(p),r=gR(c?.rutaId),ini=new Date(p.fechaInicio),pg=p.pagos||{};for(let n=1;n<=p.dias;n++){const d=new Date(ini);d.setDate(d.getDate()+n-1);if(d.toISOString().slice(0,10)===ISO)data.push([r?.nombre||'',c?.nombre||'',c?.tel||'',n,p.dias,Math.round(i.c),pg[n]?'COBRADO':'PENDIENTE']);}})}
 else if(tipo==='morosos'){tit='Morosos';data=[['Cliente','Cédula','Teléfono','Ruta','Cuotas vencidas','Monto mora']];ST.prestamos.forEach(p=>{const i=pI(p);if(!i.venc.length)return;const c=gC(p.clienteId),r=gR(c?.rutaId);data.push([c?.nombre||'',c?.cedula||'',c?.tel||'',r?.nombre||'',i.venc.length,Math.round(i.venc.length*i.c)]);})}
+else if(tipo==='flujo'){tit='Flujo_'+fMes;data=[['Ruta','Fecha','Ingresos','Gastos','Base/Retiro','Saldo acumulado']];ST.rutas.forEach(ruta=>{const cIds=ST.clientes.filter(c=>c.rutaId===ruta.id).map(c=>c.id);const ingD={};ST.prestamos.filter(p=>cIds.includes(p.clienteId)).forEach(p=>{const i=pI(p),ini=new Date(p.fechaInicio),pg=p.pagos||{};for(let n=1;n<=p.dias;n++){const d=new Date(ini);d.setDate(d.getDate()+n-1);const iso=d.toISOString().slice(0,10);if(iso.slice(0,7)===fMes&&pg[n])ingD[iso]=(ingD[iso]||0)+i.c;}});const gasD={};ST.gastos.filter(g=>g.rutaId===ruta.id&&g.fecha&&g.fecha.slice(0,7)===fMes).forEach(g=>{gasD[g.fecha]=(gasD[g.fecha]||0)+(g.monto||0);});const basD={};ST.bases.filter(b=>b.rutaId===ruta.id&&b.fecha&&b.fecha.slice(0,7)===fMes).forEach(b=>{if(b.tipo==='retiro')basD[b.fecha]=(basD[b.fecha]||0)-(b.monto||0);else basD[b.fecha]=(basD[b.fecha]||0)+(b.monto||0);});const[yr,mo]=fMes.split('-').map(Number);const ult=new Date(yr,mo,0).getDate();let saldo=0;for(let d=1;d<=ult;d++){const iso=`${fMes}-${String(d).padStart(2,'0')}`;const ing=ingD[iso]||0,gas=gasD[iso]||0,base=basD[iso]||0;if(ing||gas||base){saldo+=ing-gas+base;data.push([ruta.nombre,iso,Math.round(ing),Math.round(gas),Math.round(base),Math.round(saldo)]);}}});}
 else{tit='Ganancias';data=[['Mes','Año','Ingresos','Gastos','Ganancia','Margen%']];getMeses().forEach(m=>{const ing=getIng(m),gas=getGas(m),gan=ing-gas;data.push([MESES[parseInt(m.slice(5,7))-1],m.slice(0,4),Math.round(ing),Math.round(gas),Math.round(gan),ing>0?Math.round((gan/ing)*100):0]);});}
 const ws=XLSX.utils.aoa_to_sheet(data);ws['!cols']=data[0].map((_,i)=>({wch:Math.max(...data.map(r=>((r[i]||'')+'').length),10)}));XLSX.utils.book_append_sheet(wb,ws,tit.split('_')[0]);XLSX.writeFile(wb,'RutaCobro_'+tit+'.xlsx');document.getElementById('expmsg').innerHTML=`<div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;padding:10px 16px;font-size:13px;color:#1B5E20;font-weight:600">✓ RutaCobro_${tit}.xlsx descargado.</div>`;setTimeout(()=>{document.getElementById('expmsg').innerHTML='';},4000);}
 
-// INIT ──────────────────────────────────────────
+// ── INIT ──────────────────────────────────────
 buildUsers();setSync('conn');
-db.collection('usuarios').get().then(function(snap){ST.usuarios=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});buildUsers();if(ST.usuarios.length===0){db.collection('usuarios').add({nombre:'Administrador',user:'admin',pass:'admin123',rol:'admin',rutaId:null,createdAt:Date.now()}).then(function(){db.collection('usuarios').get().then(function(s2){ST.usuarios=s2.docs.map(function(d){return Object.assign({id:d.id},d.data());});buildUsers();});}); }}).catch(function(err){console.error('Error usuarios:',err);setSync('offline');ST.usuarios=[{id:'adm0',nombre:'Administrador',user:'admin',pass:'admin123',rol:'admin',rutaId:null}];buildUsers();});
+db.collection('usuarios').get().then(snap=>{ST.usuarios=snap.docs.map(d=>({id:d.id,...d.data()}));buildUsers();if(ST.usuarios.length===0){db.collection('usuarios').add({nombre:'Administrador',user:'admin',pass:'admin123',rol:'admin',rutaId:null,createdAt:Date.now()});}}).catch(()=>setSync('offline'));
 </script>
 </body>
 </html>
