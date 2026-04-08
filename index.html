@@ -575,7 +575,8 @@ function cuotasVencidas(p) {
   var pagos = p.pagos||{};
   var venc = [];
   var cuotaNum = 0;
-  for(var dayOffset=0; cuotaNum < p.dias; dayOffset++) {
+  // dayOffset empieza en 1: primera cuota = día siguiente a fecha inicio
+  for(var dayOffset=1; cuotaNum < p.dias; dayOffset++) {
     var d = new Date(ini); d.setDate(d.getDate()+dayOffset);
     if(d.getDay()===0) continue; // saltar domingos
     cuotaNum++;
@@ -601,7 +602,8 @@ function pI(p) {
   // Fechas de cuotas (saltando domingos)
   var fechas = {};
   var cuotaNum = 0;
-  for(var dayOffset=0; cuotaNum < p.dias; dayOffset++) {
+  // dayOffset empieza en 1: primera cuota = día siguiente a fecha inicio
+  for(var dayOffset=1; cuotaNum < p.dias; dayOffset++) {
     var d = new Date(ini); d.setDate(d.getDate()+dayOffset);
     if(d.getDay()===0) continue;
     cuotaNum++;
@@ -880,38 +882,74 @@ function rCob(){
 
 function rCli(){
   var q=(document.getElementById('SCI')||{}).value||'';
-  var list=myC().filter(function(c){return c.nombre.toLowerCase().indexOf(q.toLowerCase())>=0||(c.cedula||'').indexOf(q)>=0;});
-  var pres=myP();
-  // Mini dashboard
-  var totalCli=myC().length;
-  var totalPres=pres.length;
-  var presHoy=pres.filter(function(p){return p.fechaInicio===ISO;}).length;
-  var activos=pres.filter(function(p){return ['activo','atraso','moroso'].indexOf(pI(p).est)>=0;}).length;
+  var todosCli=myC();
+  var todosPres=myP();
+
+  // ── Mini dashboard ──────────────────────────
+  var totalCli = todosCli.length;
+  var creditosActivos = todosPres.filter(function(p){
+    return ['activo','atraso','moroso'].indexOf(pI(p).est)>=0;
+  }).length;
+
+  // Créditos otorgados hoy = fecha de inicio === hoy
+  var otorgadosHoy = todosPres.filter(function(p){
+    return p.fechaInicio === ISO;
+  }).length;
+
+  // Reembolsos hoy:
+  // Cliente que tiene un crédito donde TODAS las cuotas están pagadas (completado anticipado)
+  // Y ese mismo día (hoy) se le creó un nuevo crédito (fechaInicio === ISO)
+  var reembolsosHoy = 0;
+  var cliConNuevoHoy = {};
+  todosPres.filter(function(p){ return p.fechaInicio===ISO; }).forEach(function(p){
+    cliConNuevoHoy[p.clienteId] = true;
+  });
+  // Para cada cliente con crédito nuevo hoy, buscar si tiene otro crédito completado anticipadamente
+  Object.keys(cliConNuevoHoy).forEach(function(cliId){
+    var otrosCreditos = todosPres.filter(function(p){
+      return p.clienteId===cliId && p.fechaInicio!==ISO;
+    });
+    var tieneReembolso = otrosCreditos.some(function(p){
+      var i = pI(p);
+      // Completado = todas las cuotas pagadas (puede ser antes del vencimiento)
+      return i.pag >= p.dias;
+    });
+    if(tieneReembolso) reembolsosHoy++;
+  });
+
   document.getElementById('CLI-DASH').innerHTML=
     '<div class="me"><div class="lb">Total clientes</div><div class="vl">'+totalCli+'</div></div>'+
-    '<div class="me"><div class="lb">Créditos activos</div><div class="vl">'+activos+'</div></div>'+
-    '<div class="me"><div class="lb">Créditos otorgados hoy</div><div class="vl gp">'+presHoy+'</div></div>'+
-    '<div class="me"><div class="lb">Total créditos</div><div class="vl">'+totalPres+'</div></div>';
+    '<div class="me"><div class="lb">Créditos activos</div><div class="vl">'+creditosActivos+'</div></div>'+
+    '<div class="me"><div class="lb">Otorgados hoy</div><div class="vl gp">'+otorgadosHoy+'</div><div class="sb2">Fecha inicio: hoy</div></div>'+
+    '<div class="me"><div class="lb">Reembolsos hoy</div><div class="vl" style="color:#6A1B9A">'+reembolsosHoy+'</div><div class="sb2">Cancelado + nuevo mismo día</div></div>';
+
+  // ── Lista de clientes ──────────────────────
+  var list = todosCli.filter(function(c){
+    return c.nombre.toLowerCase().indexOf(q.toLowerCase())>=0 || (c.cedula||'').indexOf(q)>=0;
+  });
 
   if(!list.length){
     document.getElementById('CLI-LIST').innerHTML='<div class="empty">'+(q?'Sin resultados para "'+q+'"':'Sin clientes registrados')+'</div>';
     return;
   }
+
   var B={completado:'bg3',moroso:'br2',atraso:'ba',activo:'bb'};
   var T={completado:'Completado',moroso:'Moroso',atraso:'Atraso',activo:'Activo'};
   var COLORS=['#1565C0','#2E7D32','#C62828','#E65100','#6A1B9A','#00695C','#FF8F00','#AD1457'];
+
   document.getElementById('CLI-LIST').innerHTML=list.map(function(c,idx){
     var r=gR(c.rutaId);
-    var cp=pres.filter(function(p){return p.clienteId===c.id;});
+    var cp=todosPres.filter(function(p){return p.clienteId===c.id;});
     var activos2=cp.filter(function(p){return ['activo','atraso','moroso'].indexOf(pI(p).est)>=0;});
     var saldo=activos2.reduce(function(s,p){return s+saldoPendiente(p);},0);
     var mora=activos2.filter(function(p){return pI(p).est==='moroso';}).length;
+    var esReembolso=cliConNuevoHoy[c.id] && cp.filter(function(p){return p.fechaInicio!==ISO&&pI(p).pag>=p.dias;}).length>0;
     var color=r?r.color:COLORS[idx%COLORS.length];
     var inicial=c.nombre.trim()[0].toUpperCase();
-    return '<div class="cli-row" onclick="verCli(&quot;'+c.id+'&quot;)" >'+
+    return '<div class="cli-row" onclick="verCli(&quot;'+c.id+'&quot;)">'+
       '<div class="cli-avatar" style="background:'+color+'">'+inicial+'</div>'+
       '<div class="cli-info">'+
-        '<div class="cli-name">'+c.nombre+'</div>'+
+        '<div class="cli-name">'+c.nombre+(esReembolso?' <span class="badge" style="background:#F3E5F5;color:#6A1B9A">Reembolso</span>':'')+'</div>'+
         '<div class="cli-sub">'+(c.cedula?'CC '+c.cedula+' · ':'')+''+(c.tel||'')+(r?' · Ruta '+r.nombre:'')+'</div>'+
       '</div>'+
       '<div class="cli-right">'+
@@ -1253,9 +1291,8 @@ function oCred(cliId,nomCli){
   document.getElementById('CRED-TITLE').textContent='Nuevo crédito — '+nomCli;
   document.getElementById('CR-CAP').value='';document.getElementById('CR-INT').value='20';
   document.getElementById('CR-DIA').value='30';
-  // Fecha inicio = mañana (día siguiente)
-  var manana=new Date(HOY); manana.setDate(manana.getDate()+1);
-  document.getElementById('CR-FEC').value=manana.toISOString().slice(0,10);
+  // Fecha inicio = hoy (la primera cuota corre desde mañana automáticamente)
+  document.getElementById('CR-FEC').value=ISO;
   document.getElementById('CR-PREV').innerHTML='';
   // Para cobrador: plazo e interés fijos (solo lectura)
   var esAdmin=CU.rol==='admin';
@@ -1431,9 +1468,8 @@ function oM(id){
     document.getElementById('NC-DIA').readOnly=!esAdmin;
     document.getElementById('NC-INT').style.background=esAdmin?'':'var(--bll)';
     document.getElementById('NC-DIA').style.background=esAdmin?'':'var(--bll)';
-    // Fecha inicio = mañana (día siguiente)
-    var manana=new Date(HOY); manana.setDate(manana.getDate()+1);
-    document.getElementById('NC-FEC').value=manana.toISOString().slice(0,10);
+    // Fecha inicio = hoy (la primera cuota corre desde mañana automáticamente)
+    document.getElementById('NC-FEC').value=ISO;
     document.getElementById('NC-PREV').innerHTML='';
   }
   if(id==='m-gas'){
