@@ -286,6 +286,21 @@ tr:hover td{background:var(--bll)}
 .base-dia-card .lb{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;opacity:.8;margin-bottom:6px}
 .base-dia-card .vl{font-size:32px;font-weight:700}
 .base-dia-card .sub{font-size:12px;opacity:.7;margin-top:4px}
+
+/* SEGUROS */
+.seg-card{background:var(--wh);border-radius:var(--rm);padding:1.25rem;margin-bottom:1rem;border:1px solid #E1BEE7;border-left:4px solid #6A1B9A}
+.seg-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px}
+.seg-saldo{font-size:26px;font-weight:700;color:#6A1B9A}
+.seg-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bll)}
+.seg-row:last-child{border-bottom:none}
+/* CAJA vs BASE claridad */
+.caja-vs-base{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+.caja-box{background:var(--wh);border-radius:var(--rm);padding:1.25rem;border:1px solid var(--br);border-left:4px solid var(--bl)}
+.base-box{background:var(--wh);border-radius:var(--rm);padding:1.25rem;border:1px solid var(--br);border-left:4px solid var(--gn)}
+.box-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.box-value{font-size:26px;font-weight:700}
+.box-desc{font-size:11px;color:var(--tm);margin-top:4px;line-height:1.5}
+@media(max-width:640px){.caja-vs-base{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -398,6 +413,25 @@ tr:hover td{background:var(--bll)}
         <!-- Saldos de cajas -->
         <div id="FC-CAJAS"></div>
         <!-- Tabla flujo por día -->
+        <!-- SEGUROS -->
+        <div class="seg-card">
+          <div class="seg-header">
+            <div>
+              <div style="font-size:15px;font-weight:700;color:#6A1B9A">Fondo de Seguros</div>
+              <div class="ts">Independiente de la caja · Se cobra al crear cada préstamo</div>
+            </div>
+            <div style="text-align:right">
+              <div class="seg-saldo" id="SEG-SALDO">$0</div>
+              <div class="ts">Saldo disponible</div>
+            </div>
+          </div>
+          <div class="met" id="SEG-MET" style="margin-bottom:1rem"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem">
+            <button class="bp bs" onclick="oM('m-retiro-seg')" style="background:#6A1B9A">− Registrar retiro</button>
+          </div>
+          <div id="SEG-MOVS"></div>
+        </div>
+
         <div class="card">
           <h3>Totales por día</h3>
           <div class="flujo-table-wrap">
@@ -410,6 +444,7 @@ tr:hover td{background:var(--bll)}
                 <th>Gastos</th>
                 <th>Dif. Cierre</th>
                 <th>Retiros</th>
+                <th style="color:#6A1B9A">Seguros</th>
                 <th>Saldo caja</th>
               </tr></thead>
               <tbody id="FC-BODY"></tbody>
@@ -523,6 +558,17 @@ tr:hover td{background:var(--bll)}
   <div class="mf"><button class="bg2 bs" onclick="cM('m-ruta')">Cancelar</button><button class="bp bs" onclick="sRuta()">Guardar ruta</button></div>
 </div></div>
 
+<!-- RETIRO SEGUROS -->
+<div id="m-retiro-seg" class="mov" style="display:none" onclick="cM('m-retiro-seg')"><div class="modal" onclick="event.stopPropagation()">
+  <h3 style="color:#6A1B9A">Retiro del fondo de seguros</h3>
+  <div id="SEG-SALDO-MOD" style="background:#F3E5F5;border-radius:var(--rs);padding:10px 14px;margin-bottom:1rem;font-size:13px;color:#6A1B9A;font-weight:700"></div>
+  <div class="fr"><div class="fg2"><label>Valor del retiro ($)</label><input id="RS-VAL" type="number" placeholder="100000" oninput="validRetiroSeg()"></div><div class="fg2"><label>Fecha</label><input id="RS-FEC" type="date"></div></div>
+  <div class="fg2"><label>Concepto del retiro</label><input id="RS-CONC" type="text" placeholder="Ej: Retiro utilidades seguros, Pago siniestro..."></div>
+  <div class="fg2"><label>Ruta</label><select id="RS-RUT"></select></div>
+  <div id="RS-WARN" style="font-size:12px;color:var(--rd);margin-top:4px;display:none">El valor supera el saldo disponible del fondo</div>
+  <div class="mf"><button class="bg2 bs" onclick="cM('m-retiro-seg')">Cancelar</button><button class="bp bs" id="RS-OK" onclick="sRetiroSeg()" style="background:#6A1B9A">Registrar retiro</button></div>
+</div></div>
+
 <!-- DETALLE CLIENTE -->
 <div id="m-det" class="mov" style="display:none" onclick="cM('m-det')"><div class="modal mlg" onclick="event.stopPropagation()">
   <div id="DET-C"></div>
@@ -550,7 +596,7 @@ var ISO = HOY.toISOString().slice(0,10);
 var MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
 var CU = null, fcMes = ISO.slice(0,7);
-var ST = {usuarios:[],rutas:[],clientes:[],prestamos:[],gastos:[],cierres:[],bases:[]};
+var ST = {usuarios:[],rutas:[],clientes:[],prestamos:[],gastos:[],cierres:[],bases:[],seguros:[]};
 var unsubs = [];
 var _cobPid=null,_cobN=null,_cobMin=0,_cobMp='efectivo';
 var _cliEditId=null, _rutaEditId=null, _creditoCliId=null;
@@ -762,7 +808,7 @@ function logout(){unsubs.forEach(function(f){f();});unsubs=[];CU=null;_sui=null;
 // ── Firebase ──────────────────────────────────
 function subAll(){
   setSy('cn');
-  ['rutas','clientes','prestamos','gastos','cierres','bases'].forEach(function(col){
+  ['rutas','clientes','prestamos','gastos','cierres','bases','seguros'].forEach(function(col){
     var u=db.collection(col).onSnapshot(function(snap){
       ST[col]=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
       setSy('online'); refSc();
@@ -1008,57 +1054,101 @@ function rFlujo(){
   // Selector de mes
   var meses=getMeses(); if(!meses.includes(fcMes))fcMes=meses[0]||ISO.slice(0,7);
   document.getElementById('FC-MES').innerHTML=meses.slice(0,8).map(function(m){
-    return '<button class="mb'+(m===fcMes?' active':'')+'" onclick="fcMes=\''+m+'\';rFlujo()">'+MESES[parseInt(m.slice(5,7))-1]+' '+m.slice(0,4)+'</button>';
+    return '<button class="mb'+(m===fcMes?' active':'')+'" onclick="setFCMes(this.dataset.m)" data-m="'+m+'>'+MESES[parseInt(m.slice(5,7))-1]+' '+m.slice(0,4)+'</button>';
   }).join('');
+
   // Filtro ruta
   var rutaSel=document.getElementById('FC-RUTA');
   var curRuta=rutaSel.value;
   rutaSel.innerHTML='<option value="">Todas</option>'+ST.rutas.map(function(r){return '<option value="'+r.id+'">'+r.nombre+'</option>';}).join('');
   rutaSel.value=curRuta;
   var rutaFil=rutaSel.value;
-  // Rutas a mostrar
   var rutas=rutaFil?ST.rutas.filter(function(r){return r.id===rutaFil;}):ST.rutas;
 
-  // Saldos de cajas
+  // ── CAJA vs BASE por ruta ────────────────────
   var cajasH='';
   rutas.forEach(function(r){
-    var s=saldoCaja(r.id);
-    cajasH+='<div style="display:inline-flex;flex-direction:column;align-items:center;background:var(--wh);border:1px solid var(--br);border-left:4px solid '+r.color+';border-radius:var(--rm);padding:12px 20px;margin:0 8px 8px 0">'+
-      '<div style="font-size:11px;font-weight:700;color:'+r.color+';text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Ruta '+r.nombre+'</div>'+
-      '<div style="font-size:22px;font-weight:700;color:'+(s>=0?'var(--gn)':'var(--rd)')+'">'+fm(s)+'</div>'+
-      '<div style="font-size:11px;color:var(--tm);margin-top:2px">Saldo actual de caja</div></div>';
+    var saldoCajaR=saldoCaja(r.id);
+    // Base del mes: suma de bases asignadas en el mes seleccionado para esta ruta
+    var basesMes=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo!=='retiro'}).reduce(function(s,b){return s+(b.monto||0);},0);
+    var retirosMes=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='retiro'}).reduce(function(s,b){return s+(b.monto||0);},0);
+    cajasH+=
+      '<div style="margin-bottom:1rem">'+
+      '<div style="font-size:13px;font-weight:700;color:var(--bd);margin-bottom:8px">'+
+        '<span class="rd2" style="background:'+r.color+'"></span>Ruta '+r.nombre+'</div>'+
+      '<div class="caja-vs-base">'+
+        '<div class="caja-box">'+
+          '<div class="box-label" style="color:var(--bl)">Caja</div>'+
+          '<div class="box-value '+(saldoCajaR>=0?'gp':'gn2')+'">'+fm(saldoCajaR)+'</div>'+
+          '<div class="box-desc">Dinero total disponible de la ruta.<br>Se alimenta con aportes y cierres diarios.</div>'+
+        '</div>'+
+        '<div class="base-box">'+
+          '<div class="box-label" style="color:var(--gn)">Base del mes</div>'+
+          '<div class="box-value" style="color:var(--gn)">'+fm(basesMes)+'</div>'+
+          '<div class="box-desc">Dinero asignado para préstamos en este mes.<br>Retiros del mes: '+fm(retirosMes)+'</div>'+
+        '</div>'+
+      '</div></div>';
   });
-  document.getElementById('FC-CAJAS').innerHTML='<div style="display:flex;flex-wrap:wrap;margin-bottom:1rem">'+cajasH+'</div>';
+  document.getElementById('FC-CAJAS').innerHTML=cajasH;
 
-  // Tabla por días del mes
+  // ── SEGUROS ─────────────────────────────────
+  var saldoSeg=saldoSeguros(rutaFil||null);
+  var segIngMes=ST.seguros.filter(function(s){return s.tipo==='ingreso'&&s.fecha&&s.fecha.slice(0,7)===fcMes&&(!rutaFil||s.rutaId===rutaFil);}).reduce(function(s,x){return s+(x.monto||0);},0);
+  var segRetMes=ST.seguros.filter(function(s){return s.tipo==='retiro'&&s.fecha&&s.fecha.slice(0,7)===fcMes&&(!rutaFil||s.rutaId===rutaFil);}).reduce(function(s,x){return s+(x.monto||0);},0);
+  document.getElementById('SEG-SALDO').textContent=fm(saldoSeg);
+  document.getElementById('SEG-MET').innerHTML=
+    '<div class="me"><div class="lb">Saldo acumulado</div><div class="vl" style="color:#6A1B9A">'+fm(saldoSeg)+'</div></div>'+
+    '<div class="me"><div class="lb">Ingresos del mes</div><div class="vl gp">'+fm(segIngMes)+'</div></div>'+
+    '<div class="me"><div class="lb">Retiros del mes</div><div class="vl gn2">'+fm(segRetMes)+'</div></div>'+
+    '<div class="me"><div class="lb">Neto del mes</div><div class="vl '+(segIngMes-segRetMes>=0?'gp':'gn2')+'">'+fm(segIngMes-segRetMes)+'</div></div>';
+
+  // Movimientos de seguros del mes
+  var movsSeg=ST.seguros.filter(function(s){
+    return s.fecha&&s.fecha.slice(0,7)===fcMes&&(!rutaFil||s.rutaId===rutaFil);
+  }).sort(function(a,b){return (b.fecha||'').localeCompare(a.fecha||'');});
+  document.getElementById('SEG-MOVS').innerHTML=movsSeg.length===0?'<div class="empty">Sin movimientos de seguros este mes</div>':
+    movsSeg.map(function(s){
+      var r=gR(s.rutaId);
+      return '<div class="seg-row">'+
+        '<div style="width:30px;height:30px;border-radius:50%;background:'+(s.tipo==='ingreso'?'#F3E5F5':'#FFEBEE')+';display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">'+(s.tipo==='ingreso'?'🛡':'💸')+'</div>'+
+        '<div style="flex:1;min-width:0">'+
+          '<div class="tn">'+s.concepto+'</div>'+
+          '<div class="ts">'+fd2(s.fecha)+(r?' · Ruta '+r.nombre:'')+'</div>'+
+        '</div>'+
+        '<div style="font-size:14px;font-weight:700;color:'+(s.tipo==='ingreso'?'#6A1B9A':'var(--rd)')+';">'+(s.tipo==='ingreso'?'+':'−')+fm(s.monto)+'</div>'+
+      '</div>';
+    }).join('');
+
+  // ── TABLA FLUJO POR DÍA ─────────────────────
   var dias=diasDelMes(fcMes);
-  var totBase=0,totRec=0,totPre=0,totGas=0,totDif=0,totRet=0;
+  var totBase=0,totRec=0,totPre=0,totGas=0,totDif=0,totRet=0,totSeg=0;
   var rows=[];
+
   rutas.forEach(function(ruta){
     var saldoAcum=0;
-    // Calcular saldo inicial (antes del mes)
     var primerDia=fcMes+'-01';
     ST.bases.forEach(function(b){if(b.rutaId===ruta.id&&b.fecha<primerDia){if(b.tipo==='retiro')saldoAcum-=(b.monto||0);else saldoAcum+=(b.monto||0);}});
     ST.cierres.forEach(function(ci){if(ci.rutaId===ruta.id&&ci.fecha<primerDia)saldoAcum+=(ci.diferencia||0);});
 
     dias.forEach(function(fecha){
       var b=baseDia(ruta.id,fecha);
-      var baseE=b.entradas, retE=b.retiros;
+      var baseE=b.entradas,retE=b.retiros;
       var rec=recaudoDia(ruta.id,fecha);
       var pre=prestamosDia(ruta.id,fecha);
       var gas=gastosDia(ruta.id,fecha);
       var dif=difCierre(ruta.id,fecha);
       var difVal=dif!==null?dif:0;
+      var seg=segurosDia(ruta.id,fecha);
       saldoAcum+=baseE-retE+difVal;
-      var tieneMovs=baseE||retE||rec||pre||gas||dif!==null;
+      var tieneMovs=baseE||retE||rec||pre||gas||dif!==null||seg;
       if(!tieneMovs)return;
-      totBase+=baseE; totRec+=rec; totPre+=pre; totGas+=gas; totDif+=difVal; totRet+=retE;
-      rows.push({fecha:fecha,ruta:ruta,baseE:baseE,retE:retE,rec:rec,pre:pre,gas:gas,dif:dif,difVal:difVal,saldo:saldoAcum,esHoy:fecha===ISO});
+      totBase+=baseE;totRec+=rec;totPre+=pre;totGas+=gas;totDif+=difVal;totRet+=retE;totSeg+=seg;
+      rows.push({fecha:fecha,ruta:ruta,baseE:baseE,retE:retE,rec:rec,pre:pre,gas:gas,dif:dif,difVal:difVal,seg:seg,saldo:saldoAcum,esHoy:fecha===ISO});
     });
   });
 
   var bodyH=rows.map(function(r){
-    return '<tr class="'+(r.esHoy?'hoy-row':'')+'" title="'+r.ruta.nombre+'">'+
+    return '<tr class="'+(r.esHoy?'hoy-row':'')+'" >'+
       '<td><span class="rd2" style="background:'+r.ruta.color+'"></span>'+fds(r.fecha)+(rutas.length>1?' <span style="font-size:10px;color:var(--tm)">'+r.ruta.nombre+'</span>':'')+'</td>'+
       '<td>'+(r.baseE?'<span class="flujo-entry">+'+fm(r.baseE)+'</span>':'—')+'</td>'+
       '<td>'+(r.rec?'<span class="flujo-entry">+'+fm(r.rec)+'</span>':'—')+'</td>'+
@@ -1066,10 +1156,12 @@ function rFlujo(){
       '<td>'+(r.gas?'<span class="flujo-exit">−'+fm(r.gas)+'</span>':'—')+'</td>'+
       '<td>'+(r.dif!==null?'<span class="'+(r.difVal>=0?'flujo-entry':'flujo-exit')+'">'+(r.difVal>=0?'+':'−')+fm(Math.abs(r.difVal))+'</span>':'—')+'</td>'+
       '<td>'+(r.retE?'<span class="flujo-exit">−'+fm(r.retE)+'</span>':'—')+'</td>'+
+      '<td>'+(r.seg?'<span style="color:#6A1B9A;font-weight:700">+'+fm(r.seg)+'</span>':'—')+'</td>'+
       '<td class="'+(r.saldo>=0?'flujo-saldo-pos':'flujo-saldo-neg')+'">'+fm(r.saldo)+'</td>'+
     '</tr>';
   }).join('');
-  document.getElementById('FC-BODY').innerHTML=bodyH||'<tr><td colspan="8"><div class="empty">Sin movimientos este mes</div></td></tr>';
+
+  document.getElementById('FC-BODY').innerHTML=bodyH||'<tr><td colspan="9"><div class="empty">Sin movimientos este mes</div></td></tr>';
   document.getElementById('FC-FOOT').innerHTML='<tr class="total-row">'+
     '<td>TOTAL</td>'+
     '<td><span class="flujo-entry">'+fm(totBase)+'</span></td>'+
@@ -1078,8 +1170,13 @@ function rFlujo(){
     '<td><span class="flujo-exit">'+fm(totGas)+'</span></td>'+
     '<td class="'+(totDif>=0?'flujo-entry':'flujo-exit')+'">'+fm(totDif)+'</td>'+
     '<td><span class="flujo-exit">'+fm(totRet)+'</span></td>'+
+    '<td style="color:#6A1B9A;font-weight:700">'+fm(totSeg)+'</td>'+
     '<td></td></tr>';
 }
+
+// helper fd para seguros
+function fd2(d){try{return new Date(d+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'});}catch(e){return d||'';}}
+
 
 function rCie(){
   document.getElementById('CF').textContent=HOY.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
@@ -1265,11 +1362,18 @@ function calcPrev2(){
   var int=parseFloat(document.getElementById('NC-INT').value)||0;
   var dias=parseInt(document.getElementById('NC-DIA').value)||0;
   if(!cap||!dias){document.getElementById('NC-PREV').innerHTML='';return;}
-  var tot=cap*(1+int/100),c=tot/dias;
-  document.getElementById('NC-PREV').innerHTML='<div class="pvb">'+
+  var tot=cap*(1+int/100),c=Math.round(tot/dias),seguro=c,recibe=cap-seguro;
+  document.getElementById('NC-PREV').innerHTML=
+    '<div class="pvb">'+
     '<div class="pvi"><div class="lb">Total a pagar</div><div class="vl">'+fm(tot)+'</div></div>'+
     '<div class="pvi"><div class="lb">Cuota diaria</div><div class="vl">'+fm(c)+'</div></div>'+
-    '<div class="pvi"><div class="lb">Interés total</div><div class="vl">'+fm(tot-cap)+'</div></div></div>';
+    '<div class="pvi"><div class="lb">Interés total</div><div class="vl">'+fm(tot-cap)+'</div></div>'+
+    '</div>'+
+    '<div style="background:#F3E5F5;border-radius:var(--rs);padding:10px 14px;margin-top:8px;display:flex;justify-content:space-between;align-items:center">'+
+    '<div><div style="font-size:11px;font-weight:700;color:#6A1B9A;text-transform:uppercase;letter-spacing:.05em">Seguro (1 cuota descontada)</div>'+
+    '<div style="font-size:11px;color:var(--tm);margin-top:2px">El cliente debe el capital completo más interés</div></div>'+
+    '<div style="text-align:right"><div style="font-size:15px;font-weight:700;color:#6A1B9A">−'+fm(seguro)+'</div>'+
+    '<div style="font-size:12px;color:var(--tm)">Recibe: '+fm(recibe)+'</div></div></div>';
 }
 function sNuevoCli(){
   var nom=document.getElementById('NC-NOM').value.trim();
@@ -1316,11 +1420,18 @@ function calcPrev3(){
   var int=parseFloat(document.getElementById('CR-INT').value)||0;
   var dias=parseInt(document.getElementById('CR-DIA').value)||0;
   if(!cap||!dias){document.getElementById('CR-PREV').innerHTML='';return;}
-  var tot=cap*(1+int/100),c=tot/dias;
-  document.getElementById('CR-PREV').innerHTML='<div class="pvb">'+
+  var tot=cap*(1+int/100),c=Math.round(tot/dias),seguro=c,recibe=cap-seguro;
+  document.getElementById('CR-PREV').innerHTML=
+    '<div class="pvb">'+
     '<div class="pvi"><div class="lb">Total a pagar</div><div class="vl">'+fm(tot)+'</div></div>'+
     '<div class="pvi"><div class="lb">Cuota diaria</div><div class="vl">'+fm(c)+'</div></div>'+
-    '<div class="pvi"><div class="lb">Interés total</div><div class="vl">'+fm(tot-cap)+'</div></div></div>';
+    '<div class="pvi"><div class="lb">Interés total</div><div class="vl">'+fm(tot-cap)+'</div></div>'+
+    '</div>'+
+    '<div style="background:#F3E5F5;border-radius:var(--rs);padding:10px 14px;margin-top:8px;display:flex;justify-content:space-between;align-items:center">'+
+    '<div><div style="font-size:11px;font-weight:700;color:#6A1B9A;text-transform:uppercase;letter-spacing:.05em">Seguro (1 cuota descontada)</div>'+
+    '<div style="font-size:11px;color:var(--tm);margin-top:2px">El cliente debe el capital completo más interés</div></div>'+
+    '<div style="text-align:right"><div style="font-size:15px;font-weight:700;color:#6A1B9A">−'+fm(seguro)+'</div>'+
+    '<div style="font-size:12px;color:var(--tm)">Recibe: '+fm(recibe)+'</div></div></div>';
 }
 function sCredito(){
   var cap=parseFloat(document.getElementById('CR-CAP').value);
@@ -1420,7 +1531,7 @@ function expFlujo(){
   var wb=XLSX.utils.book_new();
   var rutaFil=document.getElementById('FC-RUTA')?document.getElementById('FC-RUTA').value:'';
   var rutas=rutaFil?ST.rutas.filter(function(r){return r.id===rutaFil;}):ST.rutas;
-  var data=[['Fecha','Ruta','Base entrada','Recaudo','Préstamos entregados','Gastos','Dif. cierre','Retiros','Saldo acum. caja']];
+  var data=[['Fecha','Ruta','Base entrada','Recaudo','Préstamos entregados','Gastos','Dif. cierre','Retiros','Seguros','Saldo acum. caja']];
 
   rutas.forEach(function(ruta){
     var saldoAcum=0;
@@ -1436,12 +1547,13 @@ function expFlujo(){
       var difVal=dif!==null?dif:0;
       saldoAcum+=b.entradas-b.retiros+difVal;
       if(!b.entradas&&!b.retiros&&!rec&&!pre&&!gas&&dif===null)return;
-      data.push([fecha,ruta.nombre,Math.round(b.entradas),Math.round(rec),Math.round(pre),Math.round(gas),dif!==null?Math.round(difVal):'',Math.round(b.retiros),Math.round(saldoAcum)]);
+      var seg2=segurosDia(ruta.id,fecha);
+      data.push([fecha,ruta.nombre,Math.round(b.entradas),Math.round(rec),Math.round(pre),Math.round(gas),dif!==null?Math.round(difVal):'',Math.round(b.retiros),Math.round(seg2),Math.round(saldoAcum)]);
     });
   });
 
   var ws=XLSX.utils.aoa_to_sheet(data);
-  ws['!cols']=[{wch:12},{wch:12},{wch:14},{wch:14},{wch:20},{wch:12},{wch:14},{wch:12},{wch:16}];
+  ws['!cols']=[{wch:12},{wch:12},{wch:14},{wch:14},{wch:20},{wch:12},{wch:14},{wch:12},{wch:12},{wch:16}];
   XLSX.utils.book_append_sheet(wb,ws,'Flujo de Caja');
 
   // Hoja resumen por ruta
@@ -1461,6 +1573,15 @@ function expFlujo(){
   var wsR=XLSX.utils.aoa_to_sheet(dataR);
   wsR['!cols']=[{wch:12},{wch:16},{wch:14},{wch:14},{wch:16},{wch:14},{wch:14}];
   XLSX.utils.book_append_sheet(wb,wsR,'Resumen por Ruta');
+  // Hoja seguros
+  var dataSeg=[['Fecha','Ruta','Tipo','Concepto','Monto']];
+  var rutaFilEx=document.getElementById('FC-RUTA')?document.getElementById('FC-RUTA').value:'';
+  ST.seguros.filter(function(s){return s.fecha&&s.fecha.slice(0,7)===fcMes&&(!rutaFilEx||s.rutaId===rutaFilEx);})
+    .sort(function(a,b){return (a.fecha||'').localeCompare(b.fecha||'');})
+    .forEach(function(s){var r=gR(s.rutaId);dataSeg.push([s.fecha,r?r.nombre:'General',s.tipo==='ingreso'?'Ingreso':'Retiro',s.concepto,Math.round(s.monto)]);});
+  var wsSeg=XLSX.utils.aoa_to_sheet(dataSeg);
+  wsSeg['!cols']=[{wch:12},{wch:12},{wch:10},{wch:35},{wch:14}];
+  XLSX.utils.book_append_sheet(wb,wsSeg,'Seguros');
   XLSX.writeFile(wb,'RutaCobro_Flujo_'+fcMes+'.xlsx');
   toast('Excel descargado','ok');
 }
@@ -1485,6 +1606,15 @@ function oM(id){
     document.getElementById('GAS-CONC').value='';
     document.getElementById('GAS-VAL').value='';
     document.getElementById('GAS-FEC').value=ISO;
+  }
+  if(id==='m-retiro-seg'){
+    document.getElementById('RS-FEC').value=ISO;
+    document.getElementById('RS-VAL').value='';
+    document.getElementById('RS-CONC').value='';
+    document.getElementById('RS-RUT').innerHTML=ST.rutas.map(function(r){return '<option value="'+r.id+'">'+r.nombre+'</option>';}).join('');
+    document.getElementById('RS-WARN').style.display='none';
+    var saldoSeg=saldoSeguros();
+    document.getElementById('SEG-SALDO-MOD').textContent='Saldo disponible: '+fm(saldoSeg);
   }
   if(id==='m-base'){
     document.getElementById('B-RUT').innerHTML=ST.rutas.map(function(r){return '<option value="'+r.id+'">'+r.nombre+'</option>';}).join('');
@@ -1573,7 +1703,7 @@ async function limpiarFirebase(){
   var conf=document.getElementById('confirm-limpiar').value.trim();
   if(conf!=='LIMPIAR'){alert('Debes escribir exactamente: LIMPIAR');return;}
   if(!confirm('¿Estás completamente seguro? Se borrarán TODOS los datos.'))return;
-  var colecciones=['rutas','clientes','prestamos','gastos','cierres','bases'];
+  var colecciones=['rutas','clientes','prestamos','gastos','cierres','bases','seguros'];
   var total=0;
   try{
     for(var ci=0;ci<colecciones.length;ci++){
@@ -1598,6 +1728,66 @@ async function limpiarFirebase(){
 }
 
 
+
+// ══════════════════════════════════════════════
+// SEGUROS
+// ══════════════════════════════════════════════
+
+function saldoSeguros(rutaId){
+  // Ingresos de seguros (al crear préstamo)
+  var ingresos = ST.seguros.filter(function(s){
+    if(s.tipo!=='ingreso') return false;
+    if(rutaId) return s.rutaId===rutaId;
+    return true;
+  }).reduce(function(s,x){return s+(x.monto||0);},0);
+  // Retiros de seguros
+  var retiros = ST.seguros.filter(function(s){
+    if(s.tipo!=='retiro') return false;
+    if(rutaId) return s.rutaId===rutaId;
+    return true;
+  }).reduce(function(s,x){return s+(x.monto||0);},0);
+  return ingresos - retiros;
+}
+
+function segurosDia(rutaId, fecha){
+  return ST.seguros.filter(function(s){
+    return s.tipo==='ingreso' && s.fecha===fecha &&
+           (!rutaId || s.rutaId===rutaId);
+  }).reduce(function(s,x){return s+(x.monto||0);},0);
+}
+
+function retirosSegDia(rutaId, fecha){
+  return ST.seguros.filter(function(s){
+    return s.tipo==='retiro' && s.fecha===fecha &&
+           (!rutaId || s.rutaId===rutaId);
+  }).reduce(function(s,x){return s+(x.monto||0);},0);
+}
+
+function validRetiroSeg(){
+  var val=parseFloat(document.getElementById('RS-VAL').value)||0;
+  var saldo=saldoSeguros();
+  var w=document.getElementById('RS-WARN'), b=document.getElementById('RS-OK');
+  if(val>saldo&&val>0){w.style.display='block';b.disabled=true;b.style.opacity='.5';}
+  else{w.style.display='none';b.disabled=false;b.style.opacity='';}
+}
+
+function sRetiroSeg(){
+  if(demoGuard())return;
+  var val=parseFloat(document.getElementById('RS-VAL').value)||0;
+  var fec=document.getElementById('RS-FEC').value;
+  var conc=document.getElementById('RS-CONC').value.trim();
+  var rut=document.getElementById('RS-RUT').value;
+  if(!val||!fec||!conc){toast('Complete todos los campos','err');return;}
+  if(val>saldoSeguros()){toast('Saldo insuficiente en el fondo de seguros','err');return;}
+  db.collection('seguros').add({
+    tipo:'retiro',monto:val,fecha:fec,
+    concepto:conc,rutaId:rut,
+    user:CU.nombre,createdAt:Date.now()
+  }).then(function(){cM('m-retiro-seg');toast('Retiro de seguros registrado','ok');rFlujo();})
+    .catch(function(e){toast('Error','err');console.error(e);});
+}
+
+function setFCMes(m){fcMes=m;rFlujo();}
 // INIT
 buildU(); setSy('cn');
 db.collection('usuarios').get()
