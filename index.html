@@ -917,12 +917,11 @@ function rDash(){
       var s=saldoCaja(r.id);
       var bd=baseDia(r.id,ISO);
       var baseHoy=bd.base;
-      // Recaudo real cobrado hoy en esta ruta
       var recaudoHoy=recaudoDia(r.id,ISO);
-      // Préstamos otorgados hoy en esta ruta
       var prestHoy=prestamosDia(r.id,ISO);
-      // Disponible = base + recaudo - prestamos ya otorgados
-      var disponible=baseHoy+recaudoHoy-prestHoy;
+      var gastosHoy=gastosDia(r.id,ISO);
+      // Disponible = base + recaudo - prestamos - gastos
+      var disponible=baseHoy+recaudoHoy-prestHoy-gastosHoy;
       cajasH+=
         '<div class="caja-card" style="border-left-color:'+r.color+'">'+
         '<div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:8px;margin-bottom:.75rem">'+
@@ -937,7 +936,8 @@ function rDash(){
             '<div style="display:flex;justify-content:space-between"><span style="color:var(--tm)">Base asignada</span><span class="gp">+'+fm(baseHoy)+'</span></div>'+
             '<div style="display:flex;justify-content:space-between"><span style="color:var(--tm)">Recaudo cobrado hoy</span><span class="gp">+'+fm(recaudoHoy)+'</span></div>'+
             '<div style="display:flex;justify-content:space-between;border-top:1px solid var(--br);padding-top:4px;margin-top:2px"><span style="color:var(--tm)">Préstamos otorgados hoy</span><span class="gn2">−'+fm(prestHoy)+'</span></div>'+
-            '<div style="display:flex;justify-content:space-between;font-weight:700;font-size:15px;margin-top:4px"><span style="color:var(--bd)">Disponible</span><span style="color:'+(disponible>=0?'var(--gn)':'var(--rd)')+'">'+fm(disponible)+'</span></div>'+
+            '<div style="display:flex;justify-content:space-between"><span style="color:var(--tm)">Gastos del día</span><span class="gn2">−'+fm(gastosHoy)+'</span></div>'+
+            '<div style="display:flex;justify-content:space-between;font-weight:700;font-size:15px;margin-top:4px;border-top:1px solid var(--br);padding-top:4px"><span style="color:var(--bd)">Disponible</span><span style="color:'+(disponible>=0?'var(--gn)':'var(--rd)')+'">'+fm(disponible)+'</span></div>'+
           '</div>'+
         '</div>'+
         '</div>';
@@ -960,7 +960,8 @@ function rDash(){
     var baseHoy=bd.base;
     var recaudoHoy=recaudoDia(CU.rutaId,ISO);
     var prestHoy=prestamosDia(CU.rutaId,ISO);
-    var disponible=baseHoy+recaudoHoy-prestHoy;
+    var gastosHoy=gastosDia(CU.rutaId,ISO);
+    var disponible=baseHoy+recaudoHoy-prestHoy-gastosHoy;
 
     document.getElementById('DC2').innerHTML=
       '<div class="caja-card" style="border-left-color:'+(r?r.color:'var(--bl)')+'">'+
@@ -969,6 +970,7 @@ function rDash(){
         '<div style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--tm)">Base asignada</span><span class="gp" style="font-size:15px;font-weight:700">'+fm(baseHoy)+'</span></div>'+
         '<div style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--tm)">Recaudo cobrado hoy</span><span class="gp" style="font-size:15px;font-weight:700">'+fm(recaudoHoy)+'</span></div>'+
         '<div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--br);padding-top:8px;margin-top:4px"><span style="color:var(--tm)">Préstamos otorgados hoy</span><span class="gn2" style="font-size:15px;font-weight:700">−'+fm(prestHoy)+'</span></div>'+
+        '<div style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--tm)">Gastos del día</span><span class="gn2" style="font-size:15px;font-weight:700">−'+fm(gastosHoy)+'</span></div>'+
         '<div style="display:flex;justify-content:space-between;align-items:center;background:'+(disponible>=0?'var(--gl)':'var(--rl)')+';border-radius:var(--rs);padding:10px 12px;margin-top:6px">'+
           '<span style="font-weight:700;color:var(--bd)">Disponible</span>'+
           '<span style="font-size:22px;font-weight:700;color:'+(disponible>=0?'var(--gn)':'var(--rd)')+'">'+fm(disponible)+'</span>'+
@@ -1518,6 +1520,20 @@ function calcPrev2(){
     '<div style="font-size:11px;color:var(--tm);margin-top:2px">El cliente debe el capital completo más interés</div></div>'+
     '<div style="text-align:right"><div style="font-size:15px;font-weight:700;color:#6A1B9A">−'+fm(seguro)+'</div>'+
     '<div style="font-size:12px;color:var(--tm)">Recibe: '+fm(recibe)+'</div></div></div>';
+  // Mostrar disponible
+  var rutPrev=document.getElementById('NC-RUT')?document.getElementById('NC-RUT').value:'';
+  if(rutPrev){
+    var disp=disponibleRuta(rutPrev);
+    var alcanza=cap<=disp;
+    document.getElementById('NC-PREV').innerHTML+=
+      '<div style="margin-top:8px;background:'+(alcanza?'#E8F5E9':'#FFEBEE')+';border-radius:var(--rs);padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'+
+      '<div style="font-size:12px;font-weight:700;color:'+(alcanza?'var(--gn)':'var(--rd)')+'">'+
+        (alcanza?'✓ Saldo disponible suficiente':'✗ Saldo insuficiente')+'</div>'+
+      '<div style="text-align:right">'+
+        '<div style="font-size:13px;font-weight:700;color:'+(alcanza?'var(--gn)':'var(--rd)')+'">Disponible: '+fm(disp)+'</div>'+
+        (alcanza?'':'<div style="font-size:11px;color:var(--rd)">Faltan: '+fm(cap-disp)+'</div>')+
+      '</div></div>';
+  }
 }
 function sNuevoCli(){
   var nom=document.getElementById('NC-NOM').value.trim();
@@ -1527,6 +1543,12 @@ function sNuevoCli(){
   var rut=document.getElementById('NC-RUT').value;
   if(!nom||!cap||!dias||!fec||!rut){toast('Complete nombre, ruta y datos del crédito','err');return;}
   var int=parseFloat(document.getElementById('NC-INT').value)||0;
+  // Validar disponible antes de crear
+  var disp=disponibleRuta(rut);
+  if(cap>disp){
+    toast('Saldo insuficiente. Disponible: '+fm(disp)+' — Capital solicitado: '+fm(cap),'err');
+    return;
+  }
   var tot=cap*(1+int/100);
   var cuota=Math.round(tot/dias);
   var recibe=cap-cuota;
@@ -1597,6 +1619,22 @@ function calcPrev3(){
     '<div style="font-size:11px;color:var(--tm);margin-top:2px">El cliente debe el capital completo más interés</div></div>'+
     '<div style="text-align:right"><div style="font-size:15px;font-weight:700;color:#6A1B9A">−'+fm(seguro)+'</div>'+
     '<div style="font-size:12px;color:var(--tm)">Recibe: '+fm(recibe)+'</div></div></div>';
+  // Mostrar disponible según la ruta del cliente
+  if(_creditoCliId){
+    var c3=gC(_creditoCliId);
+    if(c3&&c3.rutaId){
+      var disp3=disponibleRuta(c3.rutaId);
+      var alcanza3=cap<=disp3;
+      document.getElementById('CR-PREV').innerHTML+=
+        '<div style="margin-top:8px;background:'+(alcanza3?'#E8F5E9':'#FFEBEE')+';border-radius:var(--rs);padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'+
+        '<div style="font-size:12px;font-weight:700;color:'+(alcanza3?'var(--gn)':'var(--rd)')+'">'+
+          (alcanza3?'✓ Saldo disponible suficiente':'✗ Saldo insuficiente')+'</div>'+
+        '<div style="text-align:right">'+
+          '<div style="font-size:13px;font-weight:700;color:'+(alcanza3?'var(--gn)':'var(--rd)')+'">Disponible: '+fm(disp3)+'</div>'+
+          (alcanza3?'':'<div style="font-size:11px;color:var(--rd)">Faltan: '+fm(cap-disp3)+'</div>')+
+        '</div></div>';
+    }
+  }
 }
 function sCredito(){
   var cap=parseFloat(document.getElementById('CR-CAP').value);
@@ -1604,6 +1642,15 @@ function sCredito(){
   var dias=parseInt(document.getElementById('CR-DIA').value);
   var fec=document.getElementById('CR-FEC').value;
   if(!_creditoCliId||!cap||!dias||!fec){toast('Complete todos los campos','err');return;}
+  var c2=gC(_creditoCliId);
+  var rutaId2=c2?c2.rutaId:null;
+  if(rutaId2){
+    var disp2=disponibleRuta(rutaId2);
+    if(cap>disp2){
+      toast('Saldo insuficiente. Disponible: '+fm(disp2)+' — Capital solicitado: '+fm(cap),'err');
+      return;
+    }
+  }
   var tot=cap*(1+int/100);
   var cuota=Math.round(tot/dias);
   var recibe=cap-cuota;
@@ -1973,6 +2020,16 @@ function sRetiroSeg(){
 }
 
 function setFCMes(m){fcMes=m;rFlujo();}
+
+// Disponible para prestar en una ruta hoy
+function disponibleRuta(rutaId){
+  var bd=baseDia(rutaId,ISO);
+  var base=bd.base;
+  var recaudo=recaudoDia(rutaId,ISO);
+  var prest=prestamosDia(rutaId,ISO);
+  var gastos=gastosDia(rutaId,ISO);
+  return base+recaudo-prest-gastos;
+}
 // INIT
 buildU(); setSy('cn');
 db.collection('usuarios').get()
