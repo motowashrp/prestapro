@@ -263,6 +263,29 @@ tr:hover td{background:var(--bll)}
   .mps{grid-template-columns:1fr 1fr}
   .caja-saldo{font-size:22px}
 }
+
+/* LISTA CLIENTES */
+.cli-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--bll);cursor:pointer;transition:background .12s}
+.cli-row:last-child{border-bottom:none}
+.cli-row:hover{background:var(--bll);margin:0 -1.25rem;padding-left:1.25rem;padding-right:1.25rem}
+.cli-avatar{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0}
+.cli-info{flex:1;min-width:0}
+.cli-name{font-size:14px;font-weight:700;color:var(--bd);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cli-sub{font-size:11px;color:var(--tm);margin-top:1px}
+.cli-right{text-align:right;flex-shrink:0}
+.cli-saldo{font-size:14px;font-weight:700;color:var(--bd)}
+.cli-badges{display:flex;gap:4px;justify-content:flex-end;margin-top:3px;flex-wrap:wrap}
+/* STATS MINI DASHBOARD */
+.mini-dash{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:1.25rem}
+/* GASTOS ROW */
+.gasto-row2{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--bll)}
+.gasto-row2:last-child{border-bottom:none}
+.gasto-icon{width:34px;height:34px;border-radius:8px;background:var(--bll);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+/* BASE DIA COBRADOR */
+.base-dia-card{background:linear-gradient(135deg,#1565C0,#0D47A1);border-radius:var(--rm);padding:1.25rem;margin-bottom:1rem;color:#fff}
+.base-dia-card .lb{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;opacity:.8;margin-bottom:6px}
+.base-dia-card .vl{font-size:32px;font-weight:700}
+.base-dia-card .sub{font-size:12px;opacity:.7;margin-top:4px}
 </style>
 </head>
 <body>
@@ -320,11 +343,15 @@ tr:hover td{background:var(--bll)}
       </div>
       <!-- CLIENTES + PRESTAMOS unificado -->
       <div class="sc" id="sc-cli">
+        <!-- Mini dashboard -->
+        <div class="mini-dash" id="CLI-DASH"></div>
         <div class="sh">
-          <div class="sr"><input type="text" placeholder="Buscar cliente..." id="SCI" oninput="rCli()"></div>
+          <div class="sr"><input type="text" placeholder="Buscar por nombre o cédula..." id="SCI" oninput="rCli()"></div>
           <button class="bp bs" onclick="oM('m-nuevo-cli')">+ Nuevo cliente / crédito</button>
         </div>
-        <div id="CLI-LIST"></div>
+        <div class="card" style="padding:0 1.25rem">
+          <div id="CLI-LIST"></div>
+        </div>
       </div>
       <!-- RECAUDOS -->
       <div class="sc" id="sc-rec">
@@ -380,6 +407,18 @@ tr:hover td{background:var(--bll)}
               <tfoot id="FC-FOOT"></tfoot>
             </table>
           </div>
+        </div>
+      </div>
+      <!-- GASTOS DIARIOS -->
+      <div class="sc" id="sc-gas">
+        <div class="tb"><h2>Gastos del día</h2><span class="tbd" id="GAS-FECHA"></span></div>
+        <div class="met" id="GAS-MET"></div>
+        <div class="card">
+          <div class="chr">
+            <h3>Registrar gasto</h3>
+            <button class="bp bs" onclick="oM('m-gas')">+ Agregar gasto</button>
+          </div>
+          <div id="GAS-LIST"></div>
         </div>
       </div>
       <!-- CIERRE DEL DÍA -->
@@ -443,6 +482,15 @@ tr:hover td{background:var(--bll)}
     <div id="COB-WARN" style="font-size:11px;color:var(--rd);margin-top:4px;display:none">El valor no puede ser inferior a la cuota pactada</div>
   </div>
   <div class="mf"><button class="bg2 bs" onclick="cM('m-cob')">Cancelar</button><button class="bp bs" id="COB-OK" onclick="cfCob()">Confirmar cobro</button></div>
+</div></div>
+
+<!-- GASTO DIARIO -->
+<div id="m-gas" class="mov" style="display:none" onclick="cM('m-gas')"><div class="modal" onclick="event.stopPropagation()">
+  <h3>Registrar gasto</h3>
+  <div class="fg2"><label>Concepto</label><input id="GAS-CONC" type="text" placeholder="Ej: Gasolina, alimentación, papelería..."></div>
+  <div class="fg2"><label>Valor ($)</label><input id="GAS-VAL" type="number" placeholder="50000"></div>
+  <div class="fg2"><label>Fecha</label><input id="GAS-FEC" type="date"></div>
+  <div class="mf"><button class="bg2 bs" onclick="cM('m-gas')">Cancelar</button><button class="bp bs" onclick="sGasto()">Guardar gasto</button></div>
 </div></div>
 
 <!-- BASE / RETIRO -->
@@ -609,7 +657,12 @@ function prestamosDia(rutaId, fecha) {
 
 // Gastos en fecha por ruta
 function gastosDia(rutaId, fecha) {
-  return ST.gastos.filter(function(g){return g.rutaId===rutaId && g.fecha===fecha;}).reduce(function(s,g){return s+(g.monto||0);},0);
+  // Incluye gastos de la ruta Y gastos sin ruta asignada del mismo día
+  return ST.gastos.filter(function(g){
+    if(g.fecha!==fecha)return false;
+    if(rutaId) return g.rutaId===rutaId || !g.rutaId;
+    return true;
+  }).reduce(function(s,g){return s+(g.monto||0);},0);
 }
 
 // Base del día por ruta
@@ -715,6 +768,7 @@ function refSc(){var a=document.querySelector('.sc.active');if(a){var id=a.id.re
 
 // ── Navegación ────────────────────────────────
 var IC={
+  ga:'<path d="M3 13V7M7 13V4M11 13V9M15 13V2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
   hm:'<rect x="1" y="1" width="6" height="6" rx="1" fill="currentColor"/><rect x="9" y="1" width="6" height="6" rx="1" fill="currentColor" opacity=".7"/><rect x="1" y="9" width="6" height="6" rx="1" fill="currentColor" opacity=".7"/><rect x="9" y="9" width="6" height="6" rx="1" fill="currentColor" opacity=".5"/>',
   co:'<circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 4v4l3 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
   cl:'<circle cx="6" cy="5" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M1 14c0-3 2-5 5-5s5 2 5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
@@ -727,12 +781,17 @@ var IC={
 var ANAV=[
   {s:'General',i:[{id:'dash',l:'Inicio',ic:IC.hm},{id:'cob',l:'Cobros del día',ic:IC.co}]},
   {s:'Gestión',i:[{id:'cli',l:'Clientes y créditos',ic:IC.cl},{id:'rec',l:'Recaudos',ic:IC.re},{id:'mor',l:'Morosos',ic:IC.wa},{id:'rut',l:'Rutas y usuarios',ic:IC.ru}]},
-  {s:'Finanzas',i:[{id:'flujo',l:'Flujo de caja',ic:IC.fl},{id:'cie',l:'Cierre del día',ic:IC.ci}]}
+  {s:'Finanzas',i:[{id:'gas',l:'Gastos del día',ic:IC.ga},{id:'flujo',l:'Flujo de caja',ic:IC.fl},{id:'cie',l:'Cierre del día',ic:IC.ci}]}
 ];
-var SCRS={dash:rDash,cob:rCob,cli:rCli,rec:rRec,mor:rMor,rut:rRut,flujo:rFlujo,cie:rCie};
+var SCRS={dash:rDash,cob:rCob,cli:rCli,rec:rRec,mor:rMor,rut:rRut,gas:rGas,flujo:rFlujo,cie:rCie};
 
+var RNAV=[
+  {s:'Mi ruta',i:[{id:'dash',l:'Inicio',ic:IC.hm},{id:'cob',l:'Cobros del día',ic:IC.co}]},
+  {s:'Gestión',i:[{id:'cli',l:'Clientes y créditos',ic:IC.cl},{id:'rec',l:'Recaudos',ic:IC.re},{id:'mor',l:'Morosos',ic:IC.wa}]},
+  {s:'Finanzas',i:[{id:'gas',l:'Gastos del día',ic:IC.ga},{id:'cie',l:'Cierre del día',ic:IC.ci}]}
+];
 function buildNav(){
-  var nav=ANAV; var h='';
+  var nav=CU.rol==='admin'?ANAV:RNAV; var h='';
   nav.forEach(function(sec){
     h+='<div class="ns">'+sec.s+'</div>';
     sec.i.forEach(function(it){h+='<button class="ni" id="ni-'+it.id+'" onclick="goto(\''+it.id+'\')"><svg viewBox="0 0 16 16" fill="none">'+it.ic+'</svg>'+it.l+'</button>';});
@@ -752,30 +811,45 @@ function goto(id){
 // ══════════════════════════════════════════════
 
 function rDash(){
-  document.getElementById('DT').textContent='Resumen general';
   document.getElementById('DF').textContent=HOY.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long'});
   var pres=myP();
-  // Capital en calle = saldo pendiente total
   var capitalCalle=0; pres.forEach(function(p){if(pI(p).est!=='completado')capitalCalle+=saldoPendiente(p);});
-  // Recaudo diario estimado hoy
   var recHoy=0; pres.forEach(function(p){var i=pI(p);Object.keys(i.fechas).forEach(function(n){if(i.fechas[n]===ISO)recHoy+=i.c;});});
-  // Cobros pendientes hoy
   var pendHoy=0; pres.forEach(function(p){var i=pI(p),pg=p.pagos||{};Object.keys(i.fechas).forEach(function(n){if(i.fechas[n]===ISO&&!pg[n])pendHoy++;});});
-  // Morosos
   var mora=0; pres.forEach(function(p){if(pI(p).est==='moroso')mora++;});
-  document.getElementById('DM').innerHTML=
-    '<div class="me"><div class="lb">Capital en calle</div><div class="vl">'+fm(capitalCalle)+'</div><div class="sb2">Saldo pendiente</div></div>'+
-    '<div class="me"><div class="lb">Recaudo est. hoy</div><div class="vl gp">'+fm(recHoy)+'</div><div class="sb2">Sin domingos</div></div>'+
-    '<div class="me"><div class="lb">Cobros pend. hoy</div><div class="vl">'+pendHoy+'</div></div>'+
-    '<div class="me"><div class="lb">Clientes morosos</div><div class="vl gn2">'+mora+'</div><div class="sb2">3+ cuotas vencidas</div></div>';
-  document.getElementById('DA').innerHTML=mora>0?'<div class="alb">&#9888; <strong>'+mora+' cliente(s) morosos.</strong> <button class="bc" onclick="goto(\'mor\')">Ver morosos</button></div>':'';
-  // Cajas por ruta
-  var cajasH='';
-  ST.rutas.forEach(function(r){
-    var s=saldoCaja(r.id);
-    cajasH+='<div class="caja-card" style="border-left-color:'+r.color+'"><div class="caja-header"><div><div style="font-size:14px;font-weight:700;color:'+r.color+'">Ruta '+r.nombre+'</div><div class="ts">Saldo de caja</div></div><div class="caja-saldo '+( s>=0?'gp':'gn2')+'" style="font-size:22px">'+fm(s)+'</div></div></div>';
-  });
-  document.getElementById('DC2').innerHTML=cajasH;
+
+  if(CU.rol==='admin'){
+    document.getElementById('DT').textContent='Resumen general';
+    document.getElementById('DM').innerHTML=
+      '<div class="me"><div class="lb">Capital en calle</div><div class="vl">'+fm(capitalCalle)+'</div><div class="sb2">Saldo pendiente</div></div>'+
+      '<div class="me"><div class="lb">Recaudo est. hoy</div><div class="vl gp">'+fm(recHoy)+'</div><div class="sb2">Sin domingos</div></div>'+
+      '<div class="me"><div class="lb">Cobros pend. hoy</div><div class="vl">'+pendHoy+'</div></div>'+
+      '<div class="me"><div class="lb">Clientes morosos</div><div class="vl gn2">'+mora+'</div><div class="sb2">3+ cuotas vencidas</div></div>';
+    document.getElementById('DA').innerHTML=mora>0?'<div class="alb">&#9888; <strong>'+mora+'  cliente(s) morosos.</strong> <button class="bc" onclick="goto(&quot;mor&quot;)">Ver morosos</button></div>':'';
+    var cajasH='';
+    ST.rutas.forEach(function(r){
+      var s=saldoCaja(r.id);
+      cajasH+='<div class="caja-card" style="border-left-color:'+r.color+'"><div class="caja-header"><div><div style="font-size:14px;font-weight:700;color:'+r.color+'">Ruta '+r.nombre+'</div><div class="ts">Saldo de caja</div></div><div class="caja-saldo '+(s>=0?'gp':'gn2')+'" style="font-size:22px">'+fm(s)+'</div></div></div>';
+    });
+    document.getElementById('DC2').innerHTML=cajasH;
+  } else {
+    var r=gR(CU.rutaId);
+    document.getElementById('DT').textContent='Ruta '+(r?r.nombre:'');
+    var bd=baseDia(CU.rutaId,ISO);
+    var baseHoy=bd.entradas;
+    document.getElementById('DM').innerHTML=
+      '<div class="me"><div class="lb">Capital en calle</div><div class="vl">'+fm(capitalCalle)+'</div><div class="sb2">Saldo pendiente</div></div>'+
+      '<div class="me"><div class="lb">Recaudo est. hoy</div><div class="vl gp">'+fm(recHoy)+'</div><div class="sb2">Sin domingos</div></div>'+
+      '<div class="me"><div class="lb">Cobros pend. hoy</div><div class="vl">'+pendHoy+'</div></div>'+
+      '<div class="me"><div class="lb">Clientes morosos</div><div class="vl gn2">'+mora+'</div><div class="sb2">3+ cuotas</div></div>';
+    document.getElementById('DA').innerHTML='';
+    document.getElementById('DC2').innerHTML=
+      '<div class="base-dia-card">'+
+        '<div class="lb">Base asignada para hoy</div>'+
+        '<div class="vl">'+fm(baseHoy)+'</div>'+
+        '<div class="sub">'+(baseHoy>0?'Ruta '+(r?r.nombre:'')+' · '+HOY.toLocaleDateString('es-CO',{day:'numeric',month:'long'}):'Sin base asignada para hoy')+'</div>'+
+      '</div>';
+  }
 }
 
 function rCob(){
@@ -807,26 +881,50 @@ function rCob(){
 function rCli(){
   var q=(document.getElementById('SCI')||{}).value||'';
   var list=myC().filter(function(c){return c.nombre.toLowerCase().indexOf(q.toLowerCase())>=0||(c.cedula||'').indexOf(q)>=0;});
-  var B={completado:'bg3',moroso:'br2',atraso:'ba',activo:'bb'},T={completado:'Completado',moroso:'Moroso',atraso:'Atraso',activo:'Activo'};
-  var html=list.map(function(c){
+  var pres=myP();
+  // Mini dashboard
+  var totalCli=myC().length;
+  var totalPres=pres.length;
+  var presHoy=pres.filter(function(p){return p.fechaInicio===ISO;}).length;
+  var activos=pres.filter(function(p){return ['activo','atraso','moroso'].indexOf(pI(p).est)>=0;}).length;
+  document.getElementById('CLI-DASH').innerHTML=
+    '<div class="me"><div class="lb">Total clientes</div><div class="vl">'+totalCli+'</div></div>'+
+    '<div class="me"><div class="lb">Créditos activos</div><div class="vl">'+activos+'</div></div>'+
+    '<div class="me"><div class="lb">Créditos otorgados hoy</div><div class="vl gp">'+presHoy+'</div></div>'+
+    '<div class="me"><div class="lb">Total créditos</div><div class="vl">'+totalPres+'</div></div>';
+
+  if(!list.length){
+    document.getElementById('CLI-LIST').innerHTML='<div class="empty">'+(q?'Sin resultados para "'+q+'"':'Sin clientes registrados')+'</div>';
+    return;
+  }
+  var B={completado:'bg3',moroso:'br2',atraso:'ba',activo:'bb'};
+  var T={completado:'Completado',moroso:'Moroso',atraso:'Atraso',activo:'Activo'};
+  var COLORS=['#1565C0','#2E7D32','#C62828','#E65100','#6A1B9A','#00695C','#FF8F00','#AD1457'];
+  document.getElementById('CLI-LIST').innerHTML=list.map(function(c,idx){
     var r=gR(c.rutaId);
-    var pres=myP().filter(function(p){return p.clienteId===c.id;});
-    var activos=pres.filter(function(p){return pI(p).est!=='completado';});
-    var saldo=activos.reduce(function(s,p){return s+saldoPendiente(p);},0);
-    var mora=activos.filter(function(p){return pI(p).est==='moroso';}).length;
-    return '<div class="cli-card">'+
-      '<div class="cli-card-header">'+
-      '<div><div class="tn">'+c.nombre+'</div><div class="ts">'+(c.cedula||'')+(c.tel?' · '+c.tel:'')+(r?' · Ruta '+r.nombre:'')+'</div></div>'+
-      '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">'+
-      (mora>0?'<span class="badge br2">'+mora+' moroso</span>':'')+
-      '<span class="badge bb">'+activos.length+' crédito(s) activo(s)</span>'+
-      '<span style="font-size:13px;font-weight:700;color:var(--bd)">'+fm(saldo)+'</span>'+
-      '<button class="bv" onclick="verCli(\''+c.id+'\')">Ver</button>'+
-      '<button class="bc" onclick="oCred(\''+c.id+'\',\''+c.nombre.replace(/'/g,"\\'")+'\')" >+ Crédito</button>'+
-      '</div></div>';
+    var cp=pres.filter(function(p){return p.clienteId===c.id;});
+    var activos2=cp.filter(function(p){return ['activo','atraso','moroso'].indexOf(pI(p).est)>=0;});
+    var saldo=activos2.reduce(function(s,p){return s+saldoPendiente(p);},0);
+    var mora=activos2.filter(function(p){return pI(p).est==='moroso';}).length;
+    var color=r?r.color:COLORS[idx%COLORS.length];
+    var inicial=c.nombre.trim()[0].toUpperCase();
+    return '<div class="cli-row" onclick="verCli(&quot;'+c.id+'&quot;)" >'+
+      '<div class="cli-avatar" style="background:'+color+'">'+inicial+'</div>'+
+      '<div class="cli-info">'+
+        '<div class="cli-name">'+c.nombre+'</div>'+
+        '<div class="cli-sub">'+(c.cedula?'CC '+c.cedula+' · ':'')+''+(c.tel||'')+(r?' · Ruta '+r.nombre:'')+'</div>'+
+      '</div>'+
+      '<div class="cli-right">'+
+        '<div class="cli-saldo">'+fm(saldo)+'</div>'+
+        '<div class="cli-badges">'+
+          (mora>0?'<span class="badge br2">'+mora+' mora</span>':'')+
+          (activos2.length>0?'<span class="badge bb">'+activos2.length+' crédito'+(activos2.length>1?'s':'')+'</span>':'<span class="badge bg3">Al día</span>')+
+        '</div>'+
+      '</div>'+
+    '</div>';
   }).join('');
-  document.getElementById('CLI-LIST').innerHTML=html||'<div class="empty">Sin clientes. Crea el primero.</div>';
 }
+
 
 function rRec(){
   var dEl=document.getElementById('REC-DIA');
@@ -1154,8 +1252,17 @@ function oCred(cliId,nomCli){
   _creditoCliId=cliId;
   document.getElementById('CRED-TITLE').textContent='Nuevo crédito — '+nomCli;
   document.getElementById('CR-CAP').value='';document.getElementById('CR-INT').value='20';
-  document.getElementById('CR-DIA').value='30';document.getElementById('CR-FEC').value=ISO;
+  document.getElementById('CR-DIA').value='30';
+  // Fecha inicio = mañana (día siguiente)
+  var manana=new Date(HOY); manana.setDate(manana.getDate()+1);
+  document.getElementById('CR-FEC').value=manana.toISOString().slice(0,10);
   document.getElementById('CR-PREV').innerHTML='';
+  // Para cobrador: plazo e interés fijos (solo lectura)
+  var esAdmin=CU.rol==='admin';
+  document.getElementById('CR-INT').readOnly=!esAdmin;
+  document.getElementById('CR-DIA').readOnly=!esAdmin;
+  document.getElementById('CR-INT').style.background=esAdmin?'':'var(--bll)';
+  document.getElementById('CR-DIA').style.background=esAdmin?'':'var(--bll)';
   document.getElementById('m-credito').style.display='flex';
 }
 function calcPrev3(){
@@ -1318,7 +1425,21 @@ function oM(id){
     document.getElementById('NC-RUT').innerHTML=ST.rutas.map(function(r){return '<option value="'+r.id+'">'+r.nombre+'</option>';}).join('');
     ['NC-NOM','NC-CED','NC-TEL','NC-DIR','NC-CAP'].forEach(function(f){document.getElementById(f).value='';});
     document.getElementById('NC-INT').value='20';document.getElementById('NC-DIA').value='30';
-    document.getElementById('NC-FEC').value=ISO;document.getElementById('NC-PREV').innerHTML='';
+    // Para cobrador: plazo e interés fijos (solo lectura)
+    var esAdmin=CU.rol==='admin';
+    document.getElementById('NC-INT').readOnly=!esAdmin;
+    document.getElementById('NC-DIA').readOnly=!esAdmin;
+    document.getElementById('NC-INT').style.background=esAdmin?'':'var(--bll)';
+    document.getElementById('NC-DIA').style.background=esAdmin?'':'var(--bll)';
+    // Fecha inicio = mañana (día siguiente)
+    var manana=new Date(HOY); manana.setDate(manana.getDate()+1);
+    document.getElementById('NC-FEC').value=manana.toISOString().slice(0,10);
+    document.getElementById('NC-PREV').innerHTML='';
+  }
+  if(id==='m-gas'){
+    document.getElementById('GAS-CONC').value='';
+    document.getElementById('GAS-VAL').value='';
+    document.getElementById('GAS-FEC').value=ISO;
   }
   if(id==='m-base'){
     document.getElementById('B-RUT').innerHTML=ST.rutas.map(function(r){return '<option value="'+r.id+'">'+r.nombre+'</option>';}).join('');
@@ -1333,6 +1454,65 @@ function oM(id){
   document.getElementById(id).style.display='flex';
 }
 function cM(id){document.getElementById(id).style.display='none';}
+
+
+// ══════════════════════════════════════════════
+// GASTOS DIARIOS
+// ══════════════════════════════════════════════
+function rGas(){
+  var fecha = ISO;
+  document.getElementById('GAS-FECHA').textContent = HOY.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long'});
+  // Gastos del día — todos los de la ruta del usuario o todos si es admin
+  var gasHoy = ST.gastos.filter(function(g){
+    if(!g.fecha || g.fecha!==fecha) return false;
+    if(CU.rol==='ruta') return g.rutaId===CU.rutaId;
+    return true;
+  });
+  var total = gasHoy.reduce(function(s,g){return s+(g.monto||0);},0);
+  var cnt = gasHoy.length;
+  document.getElementById('GAS-MET').innerHTML =
+    '<div class="me"><div class="lb">Total gastos hoy</div><div class="vl gn2">'+fm(total)+'</div></div>'+
+    '<div class="me"><div class="lb">Número de gastos</div><div class="vl">'+cnt+'</div></div>'+
+    '<div class="me"><div class="lb">Promedio por gasto</div><div class="vl">'+(cnt>0?fm(Math.round(total/cnt)):fm(0))+'</div></div>'+
+    '<div class="me"><div class="lb">Día</div><div class="vl" style="font-size:14px">'+HOY.toLocaleDateString('es-CO',{day:'2-digit',month:'short'})+'</div></div>';
+
+  if(!gasHoy.length){
+    document.getElementById('GAS-LIST').innerHTML='<div class="empty">Sin gastos registrados hoy. Agrega el primero.</div>';
+    return;
+  }
+  document.getElementById('GAS-LIST').innerHTML = gasHoy.map(function(g){
+    var r = gR(g.rutaId);
+    return '<div class="gasto-row2">'+
+      '<div class="gasto-icon">💸</div>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div class="tn">'+g.concepto+'</div>'+
+        '<div class="ts">'+(r?'Ruta '+r.nombre:'General')+'</div>'+
+      '</div>'+
+      '<div style="font-size:14px;font-weight:700;color:var(--rd);flex-shrink:0">'+fm(g.monto||0)+'</div>'+
+      (CU.rol==='admin'?'<button class="bd2" onclick="dGasto(&quot;'+g.id+'&quot;)">&#10005;</button>':'')+
+    '</div>';
+  }).join('');
+}
+
+function sGasto(){
+  var conc = document.getElementById('GAS-CONC').value.trim();
+  var val = parseFloat(document.getElementById('GAS-VAL').value);
+  var fec = document.getElementById('GAS-FEC').value;
+  if(!conc||!val){toast('Complete concepto y valor','err');return;}
+  var rutaId = CU.rol==='ruta' ? CU.rutaId : null;
+  db.collection('gastos').add({
+    concepto:conc, monto:val, fecha:fec,
+    rutaId:rutaId, user:CU.nombre, createdAt:Date.now()
+  }).then(function(){cM('m-gas');toast('Gasto registrado','ok');rGas();})
+    .catch(function(e){toast('Error','err');console.error(e);});
+}
+
+function dGasto(id){
+  if(!confirm('¿Eliminar este gasto?'))return;
+  db.collection('gastos').doc(id).delete()
+    .then(function(){toast('Eliminado');rGas();})
+    .catch(function(e){toast('Error','err');console.error(e);});
+}
 
 // INIT
 buildU(); setSy('cn');
