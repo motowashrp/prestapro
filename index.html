@@ -920,7 +920,7 @@ function rDash(){
     var r=gR(CU.rutaId);
     document.getElementById('DT').textContent='Ruta '+(r?r.nombre:'');
     var bd=baseDia(CU.rutaId,ISO);
-    var baseHoy=bd.entradas;
+    var baseHoy=bd.base; // solo la base asignada desde la caja, no aportes
     document.getElementById('DM').innerHTML=
       '<div class="me"><div class="lb">Capital en calle</div><div class="vl">'+fm(capitalCalle)+'</div><div class="sb2">Saldo pendiente</div></div>'+
       '<div class="me"><div class="lb">Recaudo est. hoy</div><div class="vl gp">'+fm(recHoy)+'</div><div class="sb2">Sin domingos</div></div>'+
@@ -1250,7 +1250,7 @@ function rCie(){
     // Gastos del día
     var gas=gastosDia(ruta.id,ISO);
     // Diferencia: Recaudo + Base - Prestamos - Gastos
-    var dif=rec+b.entradas-pre-gas;
+    var dif=rec+b.base-pre-gas; // base = solo lo asignado desde caja para préstamos
     // Saldo caja actual
     var cajaSaldo=saldoCaja(ruta.id);
 
@@ -1262,7 +1262,7 @@ function rCie(){
       // Fórmula
       '<div class="cie-formula">'+
       '<div class="cie-formula-row"><span class="cie-formula-label">Recaudo del día</span><span class="gp">+'+fm(rec)+'</span></div>'+
-      (b.entradas>0?'<div class="cie-formula-row"><span class="cie-formula-label">Base agregada</span><span class="gp">+'+fm(b.entradas)+'</span></div>':'')+
+      (b.base>0?'<div class="cie-formula-row"><span class="cie-formula-label">Base asignada</span><span class="gp">+'+fm(b.base)+'</span></div>':'')+
       '<div class="cie-formula-row"><span class="cie-formula-label">Préstamos entregados</span><span class="gn2">−'+fm(pre)+'</span></div>'+
       '<div class="cie-formula-row"><span class="cie-formula-label">Gastos del día</span><span class="gn2">−'+fm(gas)+'</span></div>'+
       '<div class="cie-formula-row"><span class="cie-formula-label">Diferencia (afecta la caja)</span><span class="'+(dif>=0?'gp':'gn2')+'">'+(dif>=0?'+':'')+fm(dif)+'</span></div>'+
