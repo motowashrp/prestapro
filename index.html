@@ -1402,18 +1402,60 @@ function sCierre(rutaId,rec,base,pre,gas,dif){
 }
 
 // BASE / RETIRO
-function sBase(){
-  var mon=parseFloat(document.getElementById('B-MON').value);
-  var rut=document.getElementById('B-RUT').value;
-  var fec=document.getElementById('B-FEC').value;
-  if(!mon||!rut||!fec){toast('Complete monto, ruta y fecha','err');return;}
+var _tipoBase = 'aporte';
+
+function selTipoBase(tipo) {
+  _tipoBase = tipo;
+  ['AP','RE','BA'].forEach(function(t){
+    var el = document.getElementById('BT-'+t);
+    if(el) el.className = 'mp-opt';
+  });
+  var map = {aporte:'AP', retiro:'RE', base:'BA'};
+  var el = document.getElementById('BT-'+map[tipo]);
+  if(el) el.className = 'mp-opt ' + (tipo==='aporte'?'sel-ef':tipo==='retiro'?'sef':'sel-nq');
+
+  var info = document.getElementById('BASE-INFO');
+  var title = document.getElementById('BASE-TITLE');
+  var msgs = {
+    aporte: {txt:'El dinero del inversionista ingresa a la caja de la ruta.', bg:'#E8F5E9', color:'var(--gn)'},
+    retiro: {txt:'El dinero sale de la caja hacia el inversionista.', bg:'#FFEBEE', color:'var(--rd)'},
+    base:   {txt:'El dinero sale de la caja y queda disponible para préstamos del día.', bg:'var(--bli)', color:'var(--bl)'}
+  };
+  var cfg = msgs[tipo];
+  if(info) { info.style.display='block'; info.style.background=cfg.bg; info.style.color=cfg.color; info.textContent=cfg.txt; }
+  if(title) title.textContent = tipo==='aporte'?'Aporte del inversionista a la caja' : tipo==='retiro'?'Retiro del inversionista de la caja' : 'Asignar base desde la caja';
+}
+
+function abrirBase(tipo, rutaId) {
+  // Poblar rutas
+  var rutSel = document.getElementById('B-RUT');
+  rutSel.innerHTML = ST.rutas.map(function(r){ return '<option value="'+r.id+'">'+r.nombre+'</option>'; }).join('');
+  // Limpiar
+  document.getElementById('B-FEC').value = ISO;
+  document.getElementById('B-MON').value = '';
+  document.getElementById('B-DESC').value = '';
+  // Preseleccionar tipo y ruta
+  selTipoBase(tipo);
+  if(rutaId) rutSel.value = rutaId;
+  document.getElementById('m-base').style.display = 'flex';
+}
+
+function sBase() {
+  var mon = parseFloat(document.getElementById('B-MON').value);
+  var rut = document.getElementById('B-RUT').value;
+  var fec = document.getElementById('B-FEC').value;
+  if(!mon||!rut||!fec) { toast('Complete monto, ruta y fecha','err'); return; }
+  if(_tipoBase==='base' || _tipoBase==='retiro') {
+    var saldo = saldoCaja(rut);
+    if(mon > saldo) { toast('Saldo insuficiente en la caja ('+fm(saldo)+')','err'); return; }
+  }
   db.collection('bases').add({
-    monto:mon,tipo:document.getElementById('B-TIPO').value,
-    rutaId:rut,fecha:fec,
-    desc:document.getElementById('B-DESC').value,
-    createdAt:Date.now()
-  }).then(function(){cM('m-base');toast('Registrado','ok');})
-    .catch(function(e){toast('Error','err');console.error(e);});
+    monto: mon, tipo: _tipoBase,
+    rutaId: rut, fecha: fec,
+    desc: document.getElementById('B-DESC').value,
+    createdAt: Date.now()
+  }).then(function(){ cM('m-base'); toast('Registrado','ok'); rFlujo(); })
+    .catch(function(e){ toast('Error','err'); console.error(e); });
 }
 
 // NUEVO CLIENTE + CRÉDITO
@@ -1677,9 +1719,8 @@ function oM(id){
     document.getElementById('SEG-SALDO-MOD').textContent='Saldo disponible: '+fm(saldoSeg);
   }
   if(id==='m-base'){
-    document.getElementById('B-RUT').innerHTML=ST.rutas.map(function(r){return '<option value="'+r.id+'">'+r.nombre+'</option>';}).join('');
-    document.getElementById('B-FEC').value=ISO;document.getElementById('B-MON').value='';document.getElementById('B-DESC').value='';
-    selTipoBase('aporte'); // por defecto aporte
+    abrirBase('aporte', null);
+    return; // abrirBase ya abre el modal
   }
   if(id==='m-ruta'){
     _rutaEditId=null;
