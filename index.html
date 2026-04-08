@@ -405,7 +405,7 @@ tr:hover td{background:var(--bll)}
         <div class="tb">
           <h2>Flujo de caja</h2>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="bp bs" onclick="oM('m-base')">+ Mover caja</button>
+            <button class="bp bs" onclick="oM('m-base')" style="background:var(--gn)">+ Aporte / Retiro / Base</button>
             <button class="bx bs" onclick="expFlujo()">Exportar Excel</button>
           </div>
         </div>
@@ -1121,15 +1121,20 @@ function rFlujo(){
         '<div class="caja-stat"><div class="lb">Base asignada mes</div><div class="vl">−'+fm(basesMes)+'</div></div>'+
         '<div class="caja-stat '+(difCierresMes>=0?'success':'danger')+'"><div class="lb">Dif. cierres mes</div><div class="vl">'+(difCierresMes>=0?'+':'−')+fm(Math.abs(difCierresMes))+'</div></div>'+
       '</div>'+
-      // Botones de acción
+      // Botones de acción — usar data-attributes para evitar problemas de quotes
       '<div style="display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid var(--br);padding-top:1rem">'+
-        '<button class="bp bs" onclick="abrirBase(&quot;aporte&quot;,&quot;'+r.id+'&quot;)" style="background:var(--gn)">+ Aporte inversionista</button>'+
-        '<button class="bp bs" onclick="abrirBase(&quot;retiro&quot;,&quot;'+r.id+'&quot;)" style="background:var(--rd)">&#8722; Retiro inversionista</button>'+
-        '<button class="bp bs" onclick="abrirBase(&quot;base&quot;,&quot;'+r.id+'&quot;)">&#127974; Asignar base</button>'+
+        '<button class="bp bs btn-caja-mov" data-tipo="aporte" data-ruta="'+r.id+'" style="background:var(--gn)">+ Aporte inversionista</button>'+
+        '<button class="bp bs btn-caja-mov" data-tipo="retiro" data-ruta="'+r.id+'" style="background:var(--rd)">&#8722; Retiro inversionista</button>'+
+        '<button class="bp bs btn-caja-mov" data-tipo="base" data-ruta="'+r.id+'">&#127974; Asignar base</button>'+
       '</div>'+
       '</div>';
   });
   document.getElementById('FC-CAJAS').innerHTML=cajasH;
+  // Delegación de eventos para botones de caja
+  document.getElementById('FC-CAJAS').onclick=function(e){
+    var btn=e.target.closest('.btn-caja-mov');
+    if(btn) abrirBase(btn.dataset.tipo, btn.dataset.ruta);
+  };
 
   // ── SEGUROS ─────────────────────────────────
   var saldoSeg=saldoSeguros(rutaFil||null);
@@ -1342,9 +1347,15 @@ function rRut(){
       '</div>'+
       '<div style="display:flex;gap:6px">'+
       '<button class="bam bs" onclick="oM(\'m-base\');document.getElementById(\'B-RUT\').value=\''+ruta.id+'\'">+ Base / Retiro</button>'+
-      '<button class="bv" onclick="oEditRuta(\''+ruta.id+'\')">Editar ruta</button>'+
+      '<button class="bv btn-rut-edit" data-ruta="'+ruta.id+'">Editar ruta</button>'+
       '</div></div></div>';
   }).join('')||'<div class="empty">Sin rutas. Crea la primera.</div>';
+  document.getElementById('RUT-LIST').onclick=function(e){
+    var btn=e.target.closest('.btn-rut-base');
+    if(btn){abrirBase('aporte',btn.dataset.ruta);}
+    var btn2=e.target.closest('.btn-rut-edit');
+    if(btn2){oEditRuta(btn2.dataset.ruta);}
+  };
 }
 
 // ══════════════════════════════════════════════
