@@ -1181,34 +1181,52 @@ function rFlujo(){
   };
 
   // ── SEGUROS ─────────────────────────────────
-  var saldoSeg=saldoSeguros(rutaFil||null);
-  var segIngMes=ST.seguros.filter(function(s){return s.tipo==='ingreso'&&s.fecha&&s.fecha.slice(0,7)===fcMes&&(!rutaFil||s.rutaId===rutaFil);}).reduce(function(s,x){return s+(x.monto||0);},0);
-  var segRetMes=ST.seguros.filter(function(s){return s.tipo==='retiro'&&s.fecha&&s.fecha.slice(0,7)===fcMes&&(!rutaFil||s.rutaId===rutaFil);}).reduce(function(s,x){return s+(x.monto||0);},0);
-  document.getElementById('SEG-SALDO').textContent=fm(saldoSeg);
+  var rutaFilSeg = rutaFil||null;
+
+  // Totales globales (todo el historial)
+  var segTotalAcum = ST.seguros.filter(function(s){
+    return s.tipo==='ingreso' && (!rutaFilSeg||s.rutaId===rutaFilSeg);
+  }).reduce(function(s,x){return s+(x.monto||0);},0);
+
+  var segTotalRet = ST.seguros.filter(function(s){
+    return s.tipo==='retiro' && (!rutaFilSeg||s.rutaId===rutaFilSeg);
+  }).reduce(function(s,x){return s+(x.monto||0);},0);
+
+  var segSaldoTotal = segTotalAcum - segTotalRet;
+
+  // Solo del día de hoy
+  var segHoy = ST.seguros.filter(function(s){
+    return s.tipo==='ingreso' && s.fecha===ISO && (!rutaFilSeg||s.rutaId===rutaFilSeg);
+  }).reduce(function(s,x){return s+(x.monto||0);},0);
+
+  document.getElementById('SEG-SALDO').textContent=fm(segSaldoTotal);
+
   document.getElementById('SEG-MET').innerHTML=
-    '<div class="me"><div class="lb">Saldo acumulado</div><div class="vl" style="color:#6A1B9A">'+fm(saldoSeg)+'</div></div>'+
-    '<div class="me"><div class="lb">Ingresos del mes</div><div class="vl gp">'+fm(segIngMes)+'</div></div>'+
-    '<div class="me"><div class="lb">Retiros del mes</div><div class="vl gn2">'+fm(segRetMes)+'</div></div>'+
-    '<div class="me"><div class="lb">Neto del mes</div><div class="vl '+(segIngMes-segRetMes>=0?'gp':'gn2')+'">'+fm(segIngMes-segRetMes)+'</div></div>';
+    '<div class="me"><div class="lb">Acumulado del día</div><div class="vl" style="color:#6A1B9A">'+fm(segHoy)+'</div><div class="sb2">Solo hoy</div></div>'+
+    '<div class="me"><div class="lb">Acumulado total</div><div class="vl" style="color:#6A1B9A">'+fm(segTotalAcum)+'</div><div class="sb2">Histórico</div></div>'+
+    '<div class="me"><div class="lb">Retiros</div><div class="vl gn2">'+fm(segTotalRet)+'</div><div class="sb2">Total retirado</div></div>'+
+    '<div class="me"><div class="lb">Saldo total</div><div class="vl" style="color:#6A1B9A;font-size:18px">'+fm(segSaldoTotal)+'</div><div class="sb2">Disponible</div></div>';
 
-  // Movimientos de seguros del mes
-  var movsSeg=ST.seguros.filter(function(s){
-    return s.fecha&&s.fecha.slice(0,7)===fcMes&&(!rutaFil||s.rutaId===rutaFil);
-  }).sort(function(a,b){return (b.fecha||'').localeCompare(a.fecha||'');});
-  document.getElementById('SEG-MOVS').innerHTML=movsSeg.length===0?'<div class="empty">Sin movimientos de seguros este mes</div>':
-    movsSeg.map(function(s){
-      var r=gR(s.rutaId);
-      return '<div class="seg-row">'+
-        '<div style="width:30px;height:30px;border-radius:50%;background:'+(s.tipo==='ingreso'?'#F3E5F5':'#FFEBEE')+';display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">'+(s.tipo==='ingreso'?'🛡':'💸')+'</div>'+
-        '<div style="flex:1;min-width:0">'+
-          '<div class="tn">'+s.concepto+'</div>'+
-          '<div class="ts">'+fd2(s.fecha)+(r?' · Ruta '+r.nombre:'')+'</div>'+
-        '</div>'+
-        '<div style="font-size:14px;font-weight:700;color:'+(s.tipo==='ingreso'?'#6A1B9A':'var(--rd)')+';">'+(s.tipo==='ingreso'?'+':'−')+fm(s.monto)+'</div>'+
-      '</div>';
-    }).join('');
+  // Detalle: SOLO movimientos del día de hoy
+  var movsHoy = ST.seguros.filter(function(s){
+    return s.fecha===ISO && (!rutaFilSeg||s.rutaId===rutaFilSeg);
+  }).sort(function(a,b){return (b.createdAt||0)-(a.createdAt||0);});
 
-  // ── TABLA FLUJO POR DÍA ─────────────────────
+  document.getElementById('SEG-MOVS').innerHTML = movsHoy.length===0
+    ? '<div class="empty">Sin movimientos de seguros hoy</div>'
+    : movsHoy.map(function(s){
+        var r=gR(s.rutaId);
+        return '<div class="seg-row">'+
+          '<div style="width:30px;height:30px;border-radius:50%;background:'+(s.tipo==='ingreso'?'#F3E5F5':'#FFEBEE')+';display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">'+(s.tipo==='ingreso'?'🛡':'💸')+'</div>'+
+          '<div style="flex:1;min-width:0">'+
+            '<div class="tn">'+s.concepto+'</div>'+
+            '<div class="ts">'+(r?'Ruta '+r.nombre:'')+'</div>'+
+          '</div>'+
+          '<div style="font-size:14px;font-weight:700;color:'+(s.tipo==='ingreso'?'#6A1B9A':'var(--rd)')+'">'+(s.tipo==='ingreso'?'+':'−')+fm(s.monto)+'</div>'+
+        '</div>';
+      }).join('');
+
+// ── TABLA FLUJO POR DÍA ─────────────────────
   var dias=diasDelMes(fcMes);
   var totBase=0,totRec=0,totPre=0,totGas=0,totDif=0,totRet=0,totSeg=0;
   var rows=[];
