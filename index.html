@@ -303,9 +303,8 @@ tr:hover td{background:var(--bll)}
     <div class="fg"><label>Contraseña</label><input type="password" id="LP" placeholder="••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <div class="le" id="LE"></div>
     <button class="blo" onclick="doLogin()">Ingresar a RutaCobro</button>
-    <div style="display:flex;gap:8px;margin-top:10px">
-      <button class="blo" onclick="entrarDemo()" style="background:#2E7D32;font-size:13px;padding:9px">&#9654; Modo Demo</button>
-      <button class="blo" onclick="mostrarLimpiar()" style="background:#9E9E9E;font-size:13px;padding:9px">&#9881; Config.</button>
+    <div style="margin-top:10px">
+      <button class="blo" onclick="mostrarLimpiar()" style="background:#9E9E9E;font-size:13px;padding:9px;width:100%">&#9881; Limpiar base de datos</button>
     </div>
     <div id="panel-limpiar" style="display:none;margin-top:12px;background:#FFEBEE;border:1px solid #FFCDD2;border-radius:8px;padding:12px">
       <div style="font-size:12px;font-weight:700;color:#C62828;margin-bottom:8px">&#9888; Limpiar todos los datos de Firebase</div>
@@ -1222,7 +1221,6 @@ function aCob(pid,n,cuota,nomCli){
 function sMp(mp){_cobMp=mp;document.getElementById('MP-EF').className='mpo'+(mp==='efectivo'?' sef':'');document.getElementById('MP-NQ').className='mpo'+(mp==='nequi'?' snq':'');}
 function vCob(){var v=parseFloat(document.getElementById('COB-VAL').value)||0,w=document.getElementById('COB-WARN'),b=document.getElementById('COB-OK');if(v>0&&v<_cobMin){w.style.display='block';b.disabled=true;b.style.opacity='.5';}else{w.style.display='none';b.disabled=false;b.style.opacity='';}}
 function cfCob(){
-  if(demoGuard())return;
   var val=parseFloat(document.getElementById('COB-VAL').value)||0;
   if(val<_cobMin){toast('El valor no puede ser menor a la cuota pactada','err');return;}
   var p=gP(_cobPid);if(!p)return;
@@ -1235,7 +1233,6 @@ function cfCob(){
 
 // CIERRE
 function sCierre(rutaId,rec,base,pre,gas,dif){
-  if(demoGuard())return;
   var nota=document.getElementById('CIE-NOTA-'+rutaId)?document.getElementById('CIE-NOTA-'+rutaId).value:'';
   var ckey=rutaId+'_'+ISO;
   db.collection('cierres').doc(ckey).set({
@@ -1249,7 +1246,6 @@ function sCierre(rutaId,rec,base,pre,gas,dif){
 
 // BASE / RETIRO
 function sBase(){
-  if(demoGuard())return;
   var mon=parseFloat(document.getElementById('B-MON').value);
   var rut=document.getElementById('B-RUT').value;
   var fec=document.getElementById('B-FEC').value;
@@ -1276,7 +1272,6 @@ function calcPrev2(){
     '<div class="pvi"><div class="lb">Interés total</div><div class="vl">'+fm(tot-cap)+'</div></div></div>';
 }
 function sNuevoCli(){
-  if(demoGuard())return;
   var nom=document.getElementById('NC-NOM').value.trim();
   var cap=parseFloat(document.getElementById('NC-CAP').value);
   var dias=parseInt(document.getElementById('NC-DIA').value);
@@ -1328,7 +1323,6 @@ function calcPrev3(){
     '<div class="pvi"><div class="lb">Interés total</div><div class="vl">'+fm(tot-cap)+'</div></div></div>';
 }
 function sCredito(){
-  if(demoGuard())return;
   var cap=parseFloat(document.getElementById('CR-CAP').value);
   var int=parseFloat(document.getElementById('CR-INT').value)||0;
   var dias=parseInt(document.getElementById('CR-DIA').value);
@@ -1357,7 +1351,6 @@ function oEditRuta(rutaId){
   document.getElementById('m-ruta').style.display='flex';
 }
 function sRuta(){
-  if(demoGuard())return;
   var nom=document.getElementById('R-NOM').value.trim();
   if(!nom){toast('El nombre es obligatorio','err');return;}
   var rutaData={nombre:nom,zona:document.getElementById('R-ZON').value,color:document.getElementById('R-COL').value,createdAt:Date.now()};
@@ -1547,7 +1540,6 @@ function rGas(){
 }
 
 function sGasto(){
-  if(demoGuard())return;
   var conc = document.getElementById('GAS-CONC').value.trim();
   var val = parseFloat(document.getElementById('GAS-VAL').value);
   var fec = document.getElementById('GAS-FEC').value;
@@ -1561,7 +1553,6 @@ function sGasto(){
 }
 
 function dGasto(id){
-  if(demoGuard())return;
   if(!confirm('¿Eliminar este gasto?'))return;
   db.collection('gastos').doc(id).delete()
     .then(function(){toast('Eliminado');rGas();})
@@ -1606,148 +1597,7 @@ async function limpiarFirebase(){
   }
 }
 
-function entrarDemo(){
-  // Datos ficticios en memoria — no tocan Firebase
-  var hoy=new Date(), iso=hoy.toISOString().slice(0,10);
-  var ayer=new Date(hoy); ayer.setDate(ayer.getDate()-1); var isoAyer=ayer.toISOString().slice(0,10);
-  var hace5=new Date(hoy); hace5.setDate(hace5.getDate()-5); var iso5=hace5.toISOString().slice(0,10);
-  var hace10=new Date(hoy); hace10.setDate(hace10.getDate()-10); var iso10=hace10.toISOString().slice(0,10);
-  var hace20=new Date(hoy); hace20.setDate(hace20.getDate()-20); var iso20=hace20.toISOString().slice(0,10);
 
-  // Rutas demo
-  ST.rutas=[
-    {id:'r1',nombre:'Norte',cobrador:'Carlos Mendoza',zona:'Barrio Norte, La Esperanza',color:'#1565C0',createdAt:1},
-    {id:'r2',nombre:'Sur',cobrador:'Ana Gómez',zona:'Barrio Sur, Villa Nueva',color:'#2E7D32',createdAt:2},
-  ];
-
-  // Usuarios demo
-  ST.usuarios=[
-    {id:'u0',nombre:'Administrador',user:'admin',pass:'admin123',rol:'admin',rutaId:null},
-    {id:'u1',nombre:'Carlos Mendoza',user:'carlos',pass:'1234',rol:'ruta',rutaId:'r1'},
-    {id:'u2',nombre:'Ana Gómez',user:'ana',pass:'1234',rol:'ruta',rutaId:'r2'},
-  ];
-
-  // Clientes demo
-  ST.clientes=[
-    {id:'c1',nombre:'Pedro Ramírez',cedula:'12345678',tel:'3101234567',rutaId:'r1',createdAt:1},
-    {id:'c2',nombre:'María López',cedula:'23456789',tel:'3202345678',rutaId:'r1',createdAt:2},
-    {id:'c3',nombre:'Jorge Castro',cedula:'34567890',tel:'3003456789',rutaId:'r1',createdAt:3},
-    {id:'c4',nombre:'Luz Marina Torres',cedula:'45678901',tel:'3154567890',rutaId:'r2',createdAt:4},
-    {id:'c5',nombre:'Roberto Peña',cedula:'56789012',tel:'3005678901',rutaId:'r2',createdAt:5},
-    {id:'c6',nombre:'Carmen Díaz',cedula:'67890123',tel:'3156789012',rutaId:'r2',createdAt:6},
-  ];
-
-  // Helper: generar pagos para N cuotas desde offset, saltando domingos
-  function genPagos(fechaInicio, dias, pagarHasta){
-    var pagos={}, num=0;
-    var ini=new Date(fechaInicio+'T12:00:00');
-    for(var off=1;num<dias;off++){
-      var d=new Date(ini); d.setDate(d.getDate()+off);
-      if(d.getDay()===0)continue;
-      num++;
-      var iso2=d.toISOString().slice(0,10);
-      if(pagarHasta && iso2<=pagarHasta) pagos[num]={valor:0,metodo:'efectivo',fecha:iso2}; // valor se sobreescribirá
-    }
-    return pagos;
-  }
-
-  // Préstamos demo
-  var p1pagos=genPagos(iso10,30,ayer.toISOString().slice(0,10));
-  // Fijar valores reales de cuota
-  var c1=300000*(1.20)/30;
-  Object.keys(p1pagos).forEach(function(k){p1pagos[k].valor=Math.round(c1);});
-
-  var p2pagos={};
-  var c2=200000*(1.20)/20;
-  // Solo 3 pagos
-  var cnt=0,ini2=new Date(iso5+'T12:00:00');
-  for(var off=1;cnt<3;off++){var d=new Date(ini2);d.setDate(d.getDate()+off);if(d.getDay()===0)continue;cnt++;p2pagos[cnt]={valor:Math.round(c2),metodo:'nequi',fecha:d.toISOString().slice(0,10)};}
-
-  var p3pagos={}; // Sin pagos — moroso
-  var p4pagos=genPagos(iso20,25,iso5);
-  var c4=500000*(1.20)/25;
-  Object.keys(p4pagos).forEach(function(k){p4pagos[k].valor=Math.round(c4);});
-
-  var p5pagos={};
-  var c5=150000*(1.20)/15;
-  // 2 pagos
-  var cnt5=0,ini5=new Date(isoAyer+'T12:00:00');
-  for(var off=1;cnt5<2;off++){var d5=new Date(ini5);d5.setDate(d5.getDate()+off);if(d5.getDay()===0)continue;cnt5++;p5pagos[cnt5]={valor:Math.round(c5),metodo:'efectivo',fecha:d5.toISOString().slice(0,10)};}
-
-  // Reembolso: c1 tiene p1 completado + p6 nuevo hoy
-  // Para demo, marcar todos los pagos de p1 como pagados
-  var p1full={}; var c1f=300000*(1.20)/30; var n1=0,ini1f=new Date(iso10+'T12:00:00');
-  for(var off=1;n1<30;off++){var d1f=new Date(ini1f);d1f.setDate(d1f.getDate()+off);if(d1f.getDay()===0)continue;n1++;p1full[n1]={valor:Math.round(c1f),metodo:'efectivo',fecha:d1f.toISOString().slice(0,10)};}
-
-  ST.prestamos=[
-    {id:'p1',clienteId:'c1',capital:300000,interes:20,dias:30,fechaInicio:iso10,pagos:p1full,createdAt:1}, // completado → reembolso
-    {id:'p6',clienteId:'c1',capital:400000,interes:20,dias:30,fechaInicio:iso,pagos:{},createdAt:6},       // nuevo hoy → reembolso
-    {id:'p2',clienteId:'c2',capital:200000,interes:20,dias:20,fechaInicio:iso5,pagos:p2pagos,createdAt:2}, // activo
-    {id:'p3',clienteId:'c3',capital:180000,interes:20,dias:15,fechaInicio:iso10,pagos:p3pagos,createdAt:3},// moroso
-    {id:'p4',clienteId:'c4',capital:500000,interes:20,dias:25,fechaInicio:iso20,pagos:p4pagos,createdAt:4},// activo avanzado
-    {id:'p5',clienteId:'c5',capital:150000,interes:20,dias:15,fechaInicio:isoAyer,pagos:p5pagos,createdAt:5},// activo
-    {id:'p7',clienteId:'c6',capital:250000,interes:20,dias:20,fechaInicio:iso5,pagos:{},createdAt:7},      // activo sin pagos
-  ];
-
-  // Gastos demo
-  ST.gastos=[
-    {id:'g1',concepto:'Gasolina ruta Norte',monto:25000,fecha:iso,rutaId:'r1',user:'Carlos Mendoza',createdAt:1},
-    {id:'g2',concepto:'Papelería',monto:15000,fecha:iso,rutaId:'r2',user:'Ana Gómez',createdAt:2},
-    {id:'g3',concepto:'Almuerzo cobrador',monto:18000,fecha:isoAyer,rutaId:'r1',user:'Carlos Mendoza',createdAt:3},
-  ];
-
-  // Bases demo
-  ST.bases=[
-    {id:'b1',monto:2000000,tipo:'base',rutaId:'r1',fecha:iso10,desc:'Capital inicial Ruta Norte',createdAt:1},
-    {id:'b2',monto:1500000,tipo:'base',rutaId:'r2',fecha:iso10,desc:'Capital inicial Ruta Sur',createdAt:2},
-    {id:'b3',monto:200000,tipo:'base',rutaId:'r1',fecha:iso,desc:'Base del día',createdAt:3},
-  ];
-
-  // Cierres demo
-  ST.cierres=[
-    {id:'r1_'+isoAyer,ckey:'r1_'+isoAyer,rutaId:'r1',fecha:isoAyer,hora:'06:00 PM',recaudo:360000,base:0,prestamos:0,gastos:18000,diferencia:342000,user:'Carlos Mendoza',createdAt:1},
-  ];
-
-  // Activar modo demo
-  window._modoDemo=true;
-  CU={id:'u0',nombre:'Administrador',user:'admin',pass:'admin123',rol:'admin',rutaId:null};
-  document.getElementById('VL').style.display='none';
-  document.getElementById('VA').style.display='block';
-  document.getElementById('SBU').textContent='Administrador';
-  document.getElementById('SBR').textContent='Administrador';
-  document.getElementById('MUN').textContent='Admin';
-  // Banner demo
-  document.getElementById('VA').insertAdjacentHTML('afterbegin',
-    '<div style="background:#FF6F00;color:#fff;text-align:center;padding:8px;font-size:12px;font-weight:700;position:sticky;top:0;z-index:100">'+
-    '&#9654; MODO DEMO — Datos ficticios, cambios no se guardan &nbsp;'+
-    '<button onclick="salirDemo()" style="background:rgba(255,255,255,.25);border:none;color:#fff;padding:3px 10px;border-radius:4px;cursor:pointer;font-family:inherit;font-weight:700;font-size:12px">Salir</button></div>'
-  );
-  fcMes=iso.slice(0,7);
-  buildU(); buildNav(); goto('dash');
-}
-
-function salirDemo(){
-  window._modoDemo=false;
-  CU=null;
-  document.getElementById('VA').style.display='none';
-  document.getElementById('VL').style.display='flex';
-  // Remover banner demo
-  var banner=document.querySelector('[style*="MODO DEMO"]');
-  if(banner)banner.remove();
-  // Limpiar datos demo
-  ST={usuarios:[],rutas:[],clientes:[],prestamos:[],gastos:[],cierres:[],bases:[]};
-  buildU();
-}
-
-
-// Guard para modo demo — bloquea escrituras a Firebase
-function demoGuard(accion){
-  if(window._modoDemo){
-    toast('Modo demo — los cambios no se guardan','err');
-    return true;
-  }
-  return false;
-}
 // INIT
 buildU(); setSy('cn');
 db.collection('usuarios').get()
