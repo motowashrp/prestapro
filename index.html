@@ -521,7 +521,7 @@ tr:hover td{background:var(--bll)}
   <div class="fr"><div class="fg2"><label>Teléfono</label><input id="NC-TEL" type="text"></div><div class="fg2"><label>Ruta *</label><select id="NC-RUT"></select></div></div>
   <div class="fr"><div class="fg2"><label>Ciudad / Municipio</label><input id="NC-CIU" type="text" placeholder="Ej: Bogotá, Medellín..."></div><div class="fg2"><label>Dirección / notas</label><input id="NC-DIR" type="text"></div></div>
   <div style="background:var(--bll);border-radius:var(--rs);padding:10px 14px;margin:1rem 0;font-size:12px;color:var(--bl);font-weight:600">Datos del crédito</div>
-  <div class="fr"><div class="fg2"><label>Capital ($) * <span style="font-size:10px;color:var(--tm);font-weight:400">mín $100.000</span></label><input id="NC-CAP" type="number" min="100000" oninput="calcPrev2()"></div><div class="fg2"><label>Interés (%)</label><input id="NC-INT" type="number" value="20" oninput="calcPrev2()"></div></div>
+  <div class="fr"><div class="fg2"><label>Capital ($) * <span style="font-size:10px;color:var(--tm);font-weight:400">mín $100.000</span></label><input id="NC-CAP" type="text" inputmode="numeric" placeholder="100.000" oninput="fmtCap(this,'NC-CAP-VAL');calcPrev2()" style="font-weight:700"><input type="hidden" id="NC-CAP-VAL"></div><div class="fg2"><label>Interés (%)</label><input id="NC-INT" type="number" value="20" oninput="calcPrev2()"></div></div>
   <div class="fr"><div class="fg2"><label>Plazo (días) *</label><input id="NC-DIA" type="number" value="30" oninput="calcPrev2()"></div><div class="fg2"><label>Fecha inicio *</label><input id="NC-FEC" type="date"></div></div>
   <div id="NC-PREV"></div>
   <div class="mf"><button class="bg2 bs" onclick="cM('m-nuevo-cli')">Cancelar</button><button class="bp bs" onclick="sNuevoCli()">Crear cliente y crédito</button></div>
@@ -530,7 +530,7 @@ tr:hover td{background:var(--bll)}
 <!-- AGREGAR CRÉDITO A CLIENTE EXISTENTE -->
 <div id="m-credito" class="mov" style="display:none" onclick="cM('m-credito')"><div class="modal" onclick="event.stopPropagation()">
   <h3 id="CRED-TITLE">Nuevo crédito</h3>
-  <div class="fr"><div class="fg2"><label>Capital ($) * <span style="font-size:10px;color:var(--tm);font-weight:400">mín $100.000</span></label><input id="CR-CAP" type="number" min="100000" oninput="calcPrev3()"></div><div class="fg2"><label>Interés (%)</label><input id="CR-INT" type="number" value="20" oninput="calcPrev3()"></div></div>
+  <div class="fr"><div class="fg2"><label>Capital ($) * <span style="font-size:10px;color:var(--tm);font-weight:400">mín $100.000</span></label><input id="CR-CAP" type="text" inputmode="numeric" placeholder="100.000" oninput="fmtCap(this,'CR-CAP-VAL');calcPrev3()" style="font-weight:700"><input type="hidden" id="CR-CAP-VAL"></div><div class="fg2"><label>Interés (%)</label><input id="CR-INT" type="number" value="20" oninput="calcPrev3()"></div></div>
   <div class="fr"><div class="fg2"><label>Plazo (días) *</label><input id="CR-DIA" type="number" value="30" oninput="calcPrev3()"></div><div class="fg2"><label>Fecha inicio *</label><input id="CR-FEC" type="date"></div></div>
   <div id="CR-PREV"></div>
   <div class="mf"><button class="bg2 bs" onclick="cM('m-credito')">Cancelar</button><button class="bp bs" onclick="sCredito()">Crear crédito</button></div>
@@ -617,7 +617,7 @@ tr:hover td{background:var(--bll)}
 <div id="m-edit-pre" class="mov" style="display:none" onclick="cM('m-edit-pre')"><div class="modal" onclick="event.stopPropagation()">
   <h3>Editar préstamo</h3>
   <input type="hidden" id="EP-ID">
-  <div class="fr"><div class="fg2"><label>Capital ($)</label><input id="EP-CAP" type="number" min="100000" oninput="calcPrevEdit()"></div><div class="fg2"><label>Interés (%)</label><input id="EP-INT" type="number" oninput="calcPrevEdit()"></div></div>
+  <div class="fr"><div class="fg2"><label>Capital ($)</label><input id="EP-CAP" type="text" inputmode="numeric" placeholder="100.000" oninput="fmtCap(this,'EP-CAP-VAL');calcPrevEdit()" style="font-weight:700"><input type="hidden" id="EP-CAP-VAL"></div><div class="fg2"><label>Interés (%)</label><input id="EP-INT" type="number" oninput="calcPrevEdit()"></div></div>
   <div class="fr"><div class="fg2"><label>Plazo (días)</label><input id="EP-DIA" type="number" oninput="calcPrevEdit()"></div><div class="fg2"><label>Fecha inicio</label><input id="EP-FEC" type="date"></div></div>
   <div id="EP-PREV" style="margin-top:8px"></div>
   <div class="mf"><button class="bg2 bs" onclick="cM('m-edit-pre')">Cancelar</button><button class="bp bs" onclick="sEditPre()">Guardar cambios</button></div>
@@ -1568,7 +1568,7 @@ function sBase() {
 
 // NUEVO CLIENTE + CRÉDITO
 function calcPrev2(){
-  var cap=parseFloat(document.getElementById('NC-CAP').value)||0;
+  var cap=getCapVal('NC-CAP','NC-CAP-VAL');
   var int=parseFloat(document.getElementById('NC-INT').value)||0;
   var dias=parseInt(document.getElementById('NC-DIA').value)||0;
   if(!cap||!dias){document.getElementById('NC-PREV').innerHTML='';return;}
@@ -1602,7 +1602,7 @@ function calcPrev2(){
 function sNuevoCli(){
   var nom=document.getElementById('NC-NOM').value.trim();
   var ced=document.getElementById('NC-CED').value.trim();
-  var cap=parseFloat(document.getElementById('NC-CAP').value);
+  var cap=getCapVal('NC-CAP','NC-CAP-VAL');
   var dias=parseInt(document.getElementById('NC-DIA').value);
   var fec=document.getElementById('NC-FEC').value;
   var rut=document.getElementById('NC-RUT').value;
@@ -1667,7 +1667,7 @@ var _creditoCliId=null;
 function oCred(cliId,nomCli){
   _creditoCliId=cliId;
   document.getElementById('CRED-TITLE').textContent='Nuevo crédito — '+nomCli;
-  document.getElementById('CR-CAP').value='';document.getElementById('CR-INT').value='20';
+  document.getElementById('CR-CAP').value='';document.getElementById('CR-CAP-VAL').value='';document.getElementById('CR-INT').value='20';
   document.getElementById('CR-DIA').value='30';
   // Fecha inicio = hoy (la primera cuota corre desde mañana automáticamente)
   document.getElementById('CR-FEC').value=ISO;
@@ -1681,7 +1681,7 @@ function oCred(cliId,nomCli){
   document.getElementById('m-credito').style.display='flex';
 }
 function calcPrev3(){
-  var cap=parseFloat(document.getElementById('CR-CAP').value)||0;
+  var cap=getCapVal('CR-CAP','CR-CAP-VAL');
   var int=parseFloat(document.getElementById('CR-INT').value)||0;
   var dias=parseInt(document.getElementById('CR-DIA').value)||0;
   if(!cap||!dias){document.getElementById('CR-PREV').innerHTML='';return;}
@@ -1715,7 +1715,7 @@ function calcPrev3(){
   }
 }
 function sCredito(){
-  var cap=parseFloat(document.getElementById('CR-CAP').value);
+  var cap=getCapVal('CR-CAP','CR-CAP-VAL');
   var int=parseFloat(document.getElementById('CR-INT').value)||0;
   var dias=parseInt(document.getElementById('CR-DIA').value);
   var fec=document.getElementById('CR-FEC').value;
@@ -1924,7 +1924,7 @@ function expFlujo(){
 function oM(id){
   if(id==='m-nuevo-cli'){
     document.getElementById('NC-RUT').innerHTML=ST.rutas.map(function(r){return '<option value="'+r.id+'">'+r.nombre+'</option>';}).join('');
-    ['NC-NOM','NC-CED','NC-TEL','NC-DIR','NC-CAP','NC-CIU'].forEach(function(f){document.getElementById(f).value='';});
+    ['NC-NOM','NC-CED','NC-TEL','NC-DIR','NC-CAP','NC-CIU','NC-CAP-VAL'].forEach(function(f){document.getElementById(f).value='';});
     document.getElementById('NC-INT').value='20';document.getElementById('NC-DIA').value='30';
     // Para cobrador: plazo e interés fijos (solo lectura)
     var esAdmin=CU.rol==='admin';
@@ -2140,7 +2140,7 @@ function abrirEditPre(pid){
   // Solo si fue creado hoy
   if(p.fechaInicio!==ISO){toast('Solo se pueden editar préstamos creados hoy','err');return;}
   document.getElementById('EP-ID').value=pid;
-  document.getElementById('EP-CAP').value=p.capital;
+  document.getElementById('EP-CAP').value=Math.round(p.capital).toLocaleString('es-CO');document.getElementById('EP-CAP-VAL').value=p.capital;
   document.getElementById('EP-INT').value=p.interes||20;
   document.getElementById('EP-DIA').value=p.dias;
   document.getElementById('EP-FEC').value=p.fechaInicio;
@@ -2149,7 +2149,7 @@ function abrirEditPre(pid){
 }
 
 function calcPrevEdit(){
-  var cap=parseFloat(document.getElementById('EP-CAP').value)||0;
+  var cap=getCapVal('EP-CAP','EP-CAP-VAL');
   var int=parseFloat(document.getElementById('EP-INT').value)||0;
   var dias=parseInt(document.getElementById('EP-DIA').value)||0;
   if(!cap||!dias){document.getElementById('EP-PREV').innerHTML='';return;}
@@ -2164,7 +2164,7 @@ function calcPrevEdit(){
 
 function sEditPre(){
   var pid=document.getElementById('EP-ID').value;
-  var cap=parseFloat(document.getElementById('EP-CAP').value);
+  var cap=getCapVal('EP-CAP','EP-CAP-VAL');
   var int=parseFloat(document.getElementById('EP-INT').value)||0;
   var dias=parseInt(document.getElementById('EP-DIA').value);
   var fec=document.getElementById('EP-FEC').value;
@@ -2273,11 +2273,47 @@ function checkCed(val){
   var existe=ST.clientes.find(function(c){return c.cedula&&c.cedula===val;});
   if(existe){
     w.style.display='block';
-    var _eid=existe.id,_enom=existe.nombre;
-    w.innerHTML='⚠ Ya existe: <strong>'+existe.nombre+'</strong> — <button class="bc bs" style="font-size:11px;padding:2px 8px" onclick="cM(\"m-nuevo-cli\");setTimeout(function(){oCred(_eid,_enom);},300)">Asignar crédito</button>';
+    // Guardar ids en atributos del propio div para acceso desde el onclick
+    w.dataset.cid=existe.id;
+    w.dataset.cnom=existe.nombre;
+    w.innerHTML='<span>&#9888; Ya existe: <strong>'+existe.nombre+'</strong></span>';
+    var btn=document.createElement('button');
+    btn.className='bc bs';
+    btn.style.cssText='font-size:11px;padding:2px 8px;margin-left:8px';
+    btn.textContent='Asignar crédito';
+    btn.onclick=function(){
+      var cid=w.dataset.cid, cnom=w.dataset.cnom;
+      cM('m-nuevo-cli');
+      setTimeout(function(){ oCred(cid, cnom); }, 350);
+    };
+    w.appendChild(btn);
   }else{
     w.style.display='none';
+    w.dataset.cid=''; w.dataset.cnom='';
   }
+}
+
+// Formato de miles en inputs de capital
+function fmtCap(el, hiddenId){
+  // Quitar todo excepto dígitos
+  var raw=el.value.replace(/[^0-9]/g,'');
+  // Guardar valor numérico en hidden
+  if(hiddenId) document.getElementById(hiddenId).value=raw;
+  // Mostrar con puntos de miles
+  if(raw){
+    el.value=parseInt(raw,10).toLocaleString('es-CO');
+  }else{
+    el.value='';
+  }
+}
+
+function getCapVal(visId, hiddenId){
+  // Leer el valor numérico real
+  var h=document.getElementById(hiddenId);
+  if(h&&h.value) return parseFloat(h.value)||0;
+  // Fallback: limpiar el visible
+  var v=(document.getElementById(visId)||{}).value||'';
+  return parseFloat(v.replace(/[^0-9]/g,''))||0;
 }
 // INIT
 buildU(); setSy('cn');
