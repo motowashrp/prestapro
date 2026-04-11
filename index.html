@@ -1007,15 +1007,15 @@ function actualizarFiltroRuta(scId){
   if(CU.rol!=='admin') return;
   var varName=RUTA_MODS[scId];
   if(!varName) return;
-  // Poblar selector
   var elId='SEL-'+varName;
   if(scId==='dash') elId='DASH-RUTA';
   if(scId==='cob') elId='COB-RUTA';
   var el=document.getElementById(elId); if(!el) return;
-  var cur=window['_ruta'+varName]||'';
+  // Preservar selección actual del select (si ya tiene valor, usarlo)
+  var cur=el.value||window['_ruta'+varName]||'';
+  window['_ruta'+varName]=cur; // sincronizar variable global
   el.innerHTML='<option value="">Todas las rutas</option>'+
     ST.rutas.map(function(r){return '<option value="'+r.id+'"'+(r.id===cur?' selected':'')+'>'+r.nombre+'</option>';}).join('');
-  // Mostrar u ocultar barra
   var barId='FIL-'+varName;
   if(scId==='dash') barId='DASH-RUTA-FIL';
   if(scId==='cob') barId='COB-RUTA-FIL';
@@ -1037,8 +1037,6 @@ function goto(id){
 // ══════════════════════════════════════════════
 
 function rDash(){
-  // Inicializar filtros de ruta para admin
-  initRutaFiltros();
   var rutaFil = CU.rol==='admin' ? _rutaDash : CU.rutaId;
 
   document.getElementById('DF').textContent=HOY.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long'});
@@ -1064,6 +1062,10 @@ function rDash(){
   if(CU.rol!=='admin') rutas = ST.rutas.filter(function(r){return r.id===CU.rutaId;});
 
   var cajasH='';
+  if(!rutas.length){
+    document.getElementById('DC2').innerHTML='<div class="empty">Selecciona una ruta o espera a que carguen los datos.</div>';
+    return;
+  }
   rutas.forEach(function(r){
     var s=saldoCaja(r.id);
     var bd=baseDia(r.id,ISO);
@@ -1115,7 +1117,6 @@ function rDash(){
 
 
 function rCob(){
-  initRutaFiltros();
   var rutaFil = CU.rol==='admin' ? _rutaCob : CU.rutaId;
   var pres = rutaFil
     ? ST.prestamos.filter(function(p){var c=gC(p.clienteId);return c&&c.rutaId===rutaFil;})
@@ -1262,7 +1263,7 @@ function rFlujo(){
   // Selector de mes
   var meses=getMeses(); if(!meses.includes(fcMes))fcMes=meses[0]||ISO.slice(0,7);
   document.getElementById('FC-MES').innerHTML=meses.slice(0,8).map(function(m){
-    return '<button class="mb'+(m===fcMes?' active':'')+'" onclick="setFCMes(this.dataset.m)" data-m="'+m+'>'+MESES[parseInt(m.slice(5,7))-1]+' '+m.slice(0,4)+'</button>';
+    return '<button class="mb'+(m===fcMes?' active':'')+'" onclick="setFCMes(this.dataset.m)" data-m="'+m+'">'+MESES[parseInt(m.slice(5,7))-1]+' '+m.slice(0,4)+'</button>';
   }).join('');
 
   // Filtro ruta
@@ -1275,6 +1276,10 @@ function rFlujo(){
 
   // ── CAJA vs BASE por ruta ────────────────────
   var cajasH='';
+  if(!rutas.length){
+    document.getElementById('FC-CAJAS').innerHTML='<div class="empty">Selecciona una ruta o espera a que carguen los datos.</div>';
+    return;
+  }
   rutas.forEach(function(r){
     var saldoCajaR=saldoCaja(r.id);
     var cajaDesg=saldoCajaEfNq(r.id);
@@ -1333,7 +1338,7 @@ function rFlujo(){
         '<button class="bp bs btn-caja-mov" data-tipo="retiro" data-ruta="'+r.id+'" style="background:var(--rd)">&#8722; Retiro</button>'+
         '<button class="bp bs btn-caja-mov" data-tipo="base" data-ruta="'+r.id+'">&#127974; Asignar base</button>'+
       '</div>'+
-      '</div>'
+      '</div>';
   });
   document.getElementById('FC-CAJAS').innerHTML=cajasH;
   // Delegación de eventos para botones de caja
@@ -1462,6 +1467,10 @@ function rCie(){
   var rutas = CU.rol==='admin'
     ? (rutaFil ? ST.rutas.filter(function(r){return r.id===rutaFil;}) : ST.rutas)
     : ST.rutas.filter(function(r){return r.id===CU.rutaId;});
+  if(!rutas.length){
+    document.getElementById('CIE-C').innerHTML='<div class="empty">Cargando rutas...</div>';
+    return;
+  }
   var html='';
   rutas.forEach(function(ruta){
     var ckey=ruta.id+'_'+ISO;
