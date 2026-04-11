@@ -1007,15 +1007,15 @@ function actualizarFiltroRuta(scId){
   if(CU.rol!=='admin') return;
   var varName=RUTA_MODS[scId];
   if(!varName) return;
+  // Poblar selector
   var elId='SEL-'+varName;
   if(scId==='dash') elId='DASH-RUTA';
   if(scId==='cob') elId='COB-RUTA';
   var el=document.getElementById(elId); if(!el) return;
-  // Preservar selección actual del select (si ya tiene valor, usarlo)
-  var cur=el.value||window['_ruta'+varName]||'';
-  window['_ruta'+varName]=cur; // sincronizar variable global
+  var cur=window['_ruta'+varName]||'';
   el.innerHTML='<option value="">Todas las rutas</option>'+
     ST.rutas.map(function(r){return '<option value="'+r.id+'"'+(r.id===cur?' selected':'')+'>'+r.nombre+'</option>';}).join('');
+  // Mostrar u ocultar barra
   var barId='FIL-'+varName;
   if(scId==='dash') barId='DASH-RUTA-FIL';
   if(scId==='cob') barId='COB-RUTA-FIL';
@@ -1037,6 +1037,8 @@ function goto(id){
 // ══════════════════════════════════════════════
 
 function rDash(){
+  // Inicializar filtros de ruta para admin
+  initRutaFiltros();
   var rutaFil = CU.rol==='admin' ? _rutaDash : CU.rutaId;
 
   document.getElementById('DF').textContent=HOY.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long'});
@@ -1062,10 +1064,6 @@ function rDash(){
   if(CU.rol!=='admin') rutas = ST.rutas.filter(function(r){return r.id===CU.rutaId;});
 
   var cajasH='';
-  if(!rutas.length){
-    document.getElementById('DC2').innerHTML='<div class="empty">Selecciona una ruta o espera a que carguen los datos.</div>';
-    return;
-  }
   rutas.forEach(function(r){
     var s=saldoCaja(r.id);
     var bd=baseDia(r.id,ISO);
@@ -1079,8 +1077,15 @@ function rDash(){
     var pEnq=prestamosEfNq(r.id,ISO);
 
     // Calcular desglose ef/nq de la caja
-    var cajaDesgDash=saldoCajaEfNq(r.id);
-    var cajaEf=cajaDesgDash.ef, cajaNq=cajaDesgDash.nq;
+    var cajaEf=0, cajaNq=0;
+    ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha<=ISO;}).forEach(function(b){
+      var sign=(b.tipo==='aporte')?1:-1;
+      if(b.metodo==='nequi') cajaNq+=sign*(b.monto||0);
+      else cajaEf+=sign*(b.monto||0);
+    });
+    ST.cierres.filter(function(ci){return ci.rutaId===r.id&&ci.fecha<=ISO;}).forEach(function(ci){
+      cajaEf+=(ci.diferencia||0);
+    });
     cajasH+=
       '<div class="caja-card" style="border-left-color:'+r.color+'">'+
       '<div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:8px;margin-bottom:.75rem">'+
@@ -1117,6 +1122,7 @@ function rDash(){
 
 
 function rCob(){
+  initRutaFiltros();
   var rutaFil = CU.rol==='admin' ? _rutaCob : CU.rutaId;
   var pres = rutaFil
     ? ST.prestamos.filter(function(p){var c=gC(p.clienteId);return c&&c.rutaId===rutaFil;})
@@ -1263,7 +1269,7 @@ function rFlujo(){
   // Selector de mes
   var meses=getMeses(); if(!meses.includes(fcMes))fcMes=meses[0]||ISO.slice(0,7);
   document.getElementById('FC-MES').innerHTML=meses.slice(0,8).map(function(m){
-    return '<button class="mb'+(m===fcMes?' active':'')+'" onclick="setFCMes(this.dataset.m)" data-m="'+m+'">'+MESES[parseInt(m.slice(5,7))-1]+' '+m.slice(0,4)+'</button>';
+    return '<button class="mb'+(m===fcMes?' active':'')+'" onclick="setFCMes(this.dataset.m)" data-m="'+m+'>'+MESES[parseInt(m.slice(5,7))-1]+' '+m.slice(0,4)+'</button>';
   }).join('');
 
   // Filtro ruta
@@ -1276,66 +1282,37 @@ function rFlujo(){
 
   // ── CAJA vs BASE por ruta ────────────────────
   var cajasH='';
-  if(!rutas.length){
-    document.getElementById('FC-CAJAS').innerHTML='<div class="empty">Selecciona una ruta o espera a que carguen los datos.</div>';
-    return;
-  }
   rutas.forEach(function(r){
     var saldoCajaR=saldoCaja(r.id);
-    var cajaDesg=saldoCajaEfNq(r.id);
+    // Movimientos de la caja en el mes
     var aportesMes=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='aporte';}).reduce(function(s,b){return s+(b.monto||0);},0);
     var retirosMes=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='retiro';}).reduce(function(s,b){return s+(b.monto||0);},0);
     var basesMes=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='base';}).reduce(function(s,b){return s+(b.monto||0);},0);
     var difCierresMes=ST.cierres.filter(function(ci){return ci.rutaId===r.id&&ci.fecha&&ci.fecha.slice(0,7)===fcMes;}).reduce(function(s,ci){return s+(ci.diferencia||0);},0);
-    // Desglose ef/nq de movimientos del mes
-    var aportesEf=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='aporte'&&b.metodo!=='nequi';}).reduce(function(s,b){return s+(b.monto||0);},0);
-    var aportesNq=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='aporte'&&b.metodo==='nequi';}).reduce(function(s,b){return s+(b.monto||0);},0);
-    var retirosEf=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='retiro'&&b.metodo!=='nequi';}).reduce(function(s,b){return s+(b.monto||0);},0);
-    var retirosNq=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='retiro'&&b.metodo==='nequi';}).reduce(function(s,b){return s+(b.monto||0);},0);
-    var basesEf=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='base'&&b.metodo!=='nequi';}).reduce(function(s,b){return s+(b.monto||0);},0);
-    var basesNq=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='base'&&b.metodo==='nequi';}).reduce(function(s,b){return s+(b.monto||0);},0);
 
     cajasH+=
       '<div class="caja-card" style="border-left-color:'+r.color+';margin-bottom:1rem">'+
-      '<div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:8px;margin-bottom:.5rem">'+
+      '<div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:8px;margin-bottom:1rem">'+
         '<div>'+
           '<div style="font-size:15px;font-weight:700;color:'+r.color+'">Caja — Ruta '+r.nombre+'</div>'+
           '<div class="ts">Dinero total disponible de la ruta</div>'+
         '</div>'+
         '<div style="text-align:right">'+
-          '<div style="font-size:26px;font-weight:700;color:'+(saldoCajaR>=0?'var(--gn)':'var(--rd)')+'">'+fm(saldoCajaR)+'</div>'+
-          '<div style="font-size:12px;margin-top:3px;display:flex;gap:12px;justify-content:flex-end">'+
-            '<span>💵 <strong>'+fm(Math.max(0,cajaDesg.ef))+'</strong></span>'+
-            '<span>📱 <strong style="color:#6A1B9A">'+fm(Math.max(0,cajaDesg.nq))+'</strong></span>'+
-          '</div>'+
+          '<div style="font-size:28px;font-weight:700;color:'+(saldoCajaR>=0?'var(--gn)':'var(--rd)')+'">'+fm(saldoCajaR)+'</div>'+
+          '<div class="ts">Saldo actual</div>'+
         '</div>'+
       '</div>'+
-      // Stats del mes con desglose
-      '<div class="caja-grid" style="margin-bottom:.75rem">'+
-        '<div class="caja-stat success">'+
-          '<div class="lb">Aportes del mes</div>'+
-          '<div class="vl">+'+fm(aportesMes)+'</div>'+
-          '<div style="font-size:10px;color:var(--tm);margin-top:2px">💵 '+fm(aportesEf)+' · 📱 '+fm(aportesNq)+'</div>'+
-        '</div>'+
-        '<div class="caja-stat danger">'+
-          '<div class="lb">Retiros del mes</div>'+
-          '<div class="vl">−'+fm(retirosMes)+'</div>'+
-          '<div style="font-size:10px;color:var(--tm);margin-top:2px">💵 '+fm(retirosEf)+' · 📱 '+fm(retirosNq)+'</div>'+
-        '</div>'+
-        '<div class="caja-stat">'+
-          '<div class="lb">Base asignada mes</div>'+
-          '<div class="vl">−'+fm(basesMes)+'</div>'+
-          '<div style="font-size:10px;color:var(--tm);margin-top:2px">💵 '+fm(basesEf)+' · 📱 '+fm(basesNq)+'</div>'+
-        '</div>'+
-        '<div class="caja-stat '+(difCierresMes>=0?'success':'danger')+'">'+
-          '<div class="lb">Dif. cierres mes</div>'+
-          '<div class="vl">'+(difCierresMes>=0?'+':'−')+fm(Math.abs(difCierresMes))+'</div>'+
-        '</div>'+
+      // Stats del mes
+      '<div class="caja-grid" style="margin-bottom:1rem">'+
+        '<div class="caja-stat success"><div class="lb">Aportes del mes</div><div class="vl">+'+fm(aportesMes)+'</div></div>'+
+        '<div class="caja-stat danger"><div class="lb">Retiros del mes</div><div class="vl">−'+fm(retirosMes)+'</div></div>'+
+        '<div class="caja-stat"><div class="lb">Base asignada mes</div><div class="vl">−'+fm(basesMes)+'</div></div>'+
+        '<div class="caja-stat '+(difCierresMes>=0?'success':'danger')+'"><div class="lb">Dif. cierres mes</div><div class="vl">'+(difCierresMes>=0?'+':'−')+fm(Math.abs(difCierresMes))+'</div></div>'+
       '</div>'+
-      // Botones de acción
-      '<div style="display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid var(--br);padding-top:.75rem">'+
-        '<button class="bp bs btn-caja-mov" data-tipo="aporte" data-ruta="'+r.id+'" style="background:var(--gn)">+ Aporte</button>'+
-        '<button class="bp bs btn-caja-mov" data-tipo="retiro" data-ruta="'+r.id+'" style="background:var(--rd)">&#8722; Retiro</button>'+
+      // Botones de acción — usar data-attributes para evitar problemas de quotes
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid var(--br);padding-top:1rem">'+
+        '<button class="bp bs btn-caja-mov" data-tipo="aporte" data-ruta="'+r.id+'" style="background:var(--gn)">+ Aporte inversionista</button>'+
+        '<button class="bp bs btn-caja-mov" data-tipo="retiro" data-ruta="'+r.id+'" style="background:var(--rd)">&#8722; Retiro inversionista</button>'+
         '<button class="bp bs btn-caja-mov" data-tipo="base" data-ruta="'+r.id+'">&#127974; Asignar base</button>'+
       '</div>'+
       '</div>';
@@ -1467,10 +1444,6 @@ function rCie(){
   var rutas = CU.rol==='admin'
     ? (rutaFil ? ST.rutas.filter(function(r){return r.id===rutaFil;}) : ST.rutas)
     : ST.rutas.filter(function(r){return r.id===CU.rutaId;});
-  if(!rutas.length){
-    document.getElementById('CIE-C').innerHTML='<div class="empty">Cargando rutas...</div>';
-    return;
-  }
   var html='';
   rutas.forEach(function(ruta){
     var ckey=ruta.id+'_'+ISO;
@@ -1495,7 +1468,6 @@ function rCie(){
     // Diferencia
     var dif=rec+b.base-pre-gas;
     var cajaSaldo=saldoCaja(ruta.id);
-    var cajaEfNq=saldoCajaEfNq(ruta.id);
     // Saldo ef/nq estimado: recaudo ef - prestamos ef + base ef
     var saldoEf=recEf-preEf+baseEf;
     var saldoNq=recNq-preNq+baseNq;
@@ -1520,25 +1492,10 @@ function rCie(){
       '</div>'+
       // Desglose saldo por método
       '<div class="cie-desglose">'+
-        '<div style="font-size:10px;font-weight:700;color:var(--bl);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Desglose por método — hoy</div>'+
-        '<div class="cie-desglose-row"><span style="color:var(--tm)">Recaudo efectivo</span><span class="metodo-ef">+'+fm(recEf)+'</span></div>'+
-        '<div class="cie-desglose-row"><span style="color:var(--tm)">Recaudo Nequi</span><span class="metodo-nq">+'+fm(recNq)+'</span></div>'+
-        '<div class="cie-desglose-row"><span style="color:var(--tm)">Préstamos efectivo</span><span class="gn2">−'+fm(preEf)+'</span></div>'+
-        '<div class="cie-desglose-row"><span style="color:var(--tm)">Préstamos Nequi</span><span class="gn2">−'+fm(preNq)+'</span></div>'+
-        '<div class="cie-desglose-row" style="border-top:1px solid var(--br);padding-top:6px;margin-top:6px">'+
-          '<span style="font-weight:700">Diferencia efectivo</span><span class="metodo-ef" style="font-weight:700">'+(saldoEf>=0?'+':'')+fm(saldoEf)+'</span></div>'+
-        '<div class="cie-desglose-row">'+
-          '<span style="font-weight:700">Diferencia Nequi</span><span class="metodo-nq" style="font-weight:700">'+(saldoNq>=0?'+':'')+fm(saldoNq)+'</span></div>'+
-        '<div class="cie-desglose-row" style="border-top:2px solid var(--br);padding-top:6px;margin-top:6px;font-size:14px;font-weight:700">'+
-          '<span>Total diferencia</span><span style="color:'+(dif>=0?'var(--gn)':'var(--rd)')+'">'+fm(saldoEf+saldoNq)+'</span></div>'+
-        // Saldo caja proyectado
-        '<div style="margin-top:10px;padding:8px 10px;background:var(--bli);border-radius:var(--rs)">'+
-          '<div style="font-size:10px;font-weight:700;color:var(--bl);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Saldo de caja después del cierre</div>'+
-          '<div class="cie-desglose-row"><span>💵 Efectivo</span><span class="metodo-ef" style="font-weight:700">'+fm(Math.max(0,cajaEfNq.ef+saldoEf))+'</span></div>'+
-          '<div class="cie-desglose-row"><span>📱 Nequi</span><span class="metodo-nq" style="font-weight:700">'+fm(Math.max(0,cajaEfNq.nq+saldoNq))+'</span></div>'+
-          '<div class="cie-desglose-row" style="border-top:1px solid var(--br);padding-top:4px;margin-top:4px;font-weight:700">'+
-            '<span>Total caja</span><span style="color:'+(cajaSaldo+dif>=0?'var(--gn)':'var(--rd)')+'">'+fm(cajaSaldo+dif)+'</span></div>'+
-        '</div>'+
+        '<div style="font-size:10px;font-weight:700;color:var(--bl);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Saldo del día por método</div>'+
+        '<div class="cie-desglose-row"><span>💵 Efectivo</span><span class="metodo-ef">'+fm(saldoEf)+'</span></div>'+
+        '<div class="cie-desglose-row"><span>📱 Nequi</span><span class="metodo-nq">'+fm(saldoNq)+'</span></div>'+
+        '<div class="cie-desglose-row" style="border-top:1px solid var(--br);padding-top:4px;margin-top:4px;font-weight:700"><span>Total</span><span style="color:'+(dif>=0?'var(--gn)':'var(--rd)')+'">'+fm(saldoEf+saldoNq)+'</span></div>'+
       '</div>';
 
     if(yaC){
