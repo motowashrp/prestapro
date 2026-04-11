@@ -1076,6 +1076,9 @@ function rDash(){
     var rEnq=recaudoEfNq(r.id,ISO);
     var pEnq=prestamosEfNq(r.id,ISO);
 
+    // Calcular desglose ef/nq de la caja
+    var cajaDesgDash=saldoCajaEfNq(r.id);
+    var cajaEf=cajaDesgDash.ef, cajaNq=cajaDesgDash.nq;
     cajasH+=
       '<div class="caja-card" style="border-left-color:'+r.color+'">'+
       '<div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:8px;margin-bottom:.75rem">'+
@@ -1083,6 +1086,9 @@ function rDash(){
         '<div class="ts">Saldo de caja</div></div>'+
         '<div style="text-align:right">'+
           '<div style="font-size:22px;font-weight:700;color:'+(s>=0?'var(--gn)':'var(--rd)')+'">'+fm(s)+'</div>'+
+          '<div style="font-size:11px;color:var(--tm);margin-top:2px">'+
+            '💵 '+fm(Math.max(0,cajaEf))+' &nbsp; 📱 '+fm(Math.max(0,cajaNq))+
+          '</div>'+
         '</div>'+
       '</div>'+
       '<div style="background:var(--bll);border-radius:var(--rs);padding:10px 12px;border:1px solid var(--bb)">'+
@@ -1144,36 +1150,30 @@ function rCob(){
 
 function rCli(){
   var q=(document.getElementById('SCI')||{}).value||'';
+  // Filtro de ruta
+  var rutaFil = CU.rol==='admin' ? _rutaCli : CU.rutaId;
+  var todosCli = rutaFil
+    ? ST.clientes.filter(function(c){return c.rutaId===rutaFil;})
+    : myC();
+  var todosPres = rutaFil
+    ? ST.prestamos.filter(function(p){var c=gC(p.clienteId);return c&&c.rutaId===rutaFil;})
+    : myP();
+
   // ── Mini dashboard ──────────────────────────
   var totalCli = todosCli.length;
   var creditosActivos = todosPres.filter(function(p){
     return ['activo','atraso','moroso'].indexOf(pI(p).est)>=0;
   }).length;
+  var otorgadosHoy = todosPres.filter(function(p){return p.fechaInicio===ISO;}).length;
 
-  // Créditos otorgados hoy = fecha de inicio === hoy
-  var otorgadosHoy = todosPres.filter(function(p){
-    return p.fechaInicio === ISO;
-  }).length;
-
-  // Reembolsos hoy:
-  // Cliente que tiene un crédito donde TODAS las cuotas están pagadas (completado anticipado)
-  // Y ese mismo día (hoy) se le creó un nuevo crédito (fechaInicio === ISO)
   var reembolsosHoy = 0;
   var cliConNuevoHoy = {};
-  todosPres.filter(function(p){ return p.fechaInicio===ISO; }).forEach(function(p){
-    cliConNuevoHoy[p.clienteId] = true;
+  todosPres.filter(function(p){return p.fechaInicio===ISO;}).forEach(function(p){
+    cliConNuevoHoy[p.clienteId]=true;
   });
-  // Para cada cliente con crédito nuevo hoy, buscar si tiene otro crédito completado anticipadamente
   Object.keys(cliConNuevoHoy).forEach(function(cliId){
-    var otrosCreditos = todosPres.filter(function(p){
-      return p.clienteId===cliId && p.fechaInicio!==ISO;
-    });
-    var tieneReembolso = otrosCreditos.some(function(p){
-      var i = pI(p);
-      // Completado = todas las cuotas pagadas (puede ser antes del vencimiento)
-      return i.pag >= p.dias;
-    });
-    if(tieneReembolso) reembolsosHoy++;
+    var otros=todosPres.filter(function(p){return p.clienteId===cliId&&p.fechaInicio!==ISO;});
+    if(otros.some(function(p){return pI(p).pag>=p.dias;})) reembolsosHoy++;
   });
 
   document.getElementById('CLI-DASH').innerHTML=
@@ -1183,57 +1183,45 @@ function rCli(){
     '<div class="me"><div class="lb">Reembolsos hoy</div><div class="vl" style="color:#6A1B9A">'+reembolsosHoy+'</div><div class="sb2">Cancelado + nuevo mismo día</div></div>';
 
   // ── Lista de clientes ──────────────────────
-  var rutaFil = CU.rol==='admin' ? _rutaCli : CU.rutaId;
-  var todosCli = rutaFil
-    ? ST.clientes.filter(function(c){return c.rutaId===rutaFil;})
-    : myC();
-  var todosPres = rutaFil
-    ? ST.prestamos.filter(function(p){var c=gC(p.clienteId);return c&&c.rutaId===rutaFil;})
-    : myP();
   var list = todosCli.filter(function(c){
     return c.nombre.toLowerCase().indexOf(q.toLowerCase())>=0 || (c.cedula||'').indexOf(q)>=0;
   }).sort(function(a,b){
-    // Ordenar por campo 'orden' si existe, luego por nombre
     if(a.orden&&b.orden) return a.orden-b.orden;
     if(a.orden) return -1; if(b.orden) return 1;
     return (a.nombre||'').localeCompare(b.nombre||'');
   });
 
   if(!list.length){
-    document.getElementById('CLI-LIST').innerHTML='<div class="empty">'+(q?'Sin resultados para "'+q+'"':'Sin clientes registrados')+'</div>';
+    document.getElementById('CLI-LIST').innerHTML='<div class="empty">'+(q?'Sin resultados para "'+q+'"':'Sin clientes registrados en esta ruta')+'</div>';
     return;
   }
 
-  var B={completado:'bg3',moroso:'br2',atraso:'ba',activo:'bb'};
-  var T={completado:'Completado',moroso:'Moroso',atraso:'Atraso',activo:'Activo'};
   var COLORS=['#1565C0','#2E7D32','#C62828','#E65100','#6A1B9A','#00695C','#FF8F00','#AD1457'];
-
   document.getElementById('CLI-LIST').innerHTML=list.map(function(c,idx){
     var r=gR(c.rutaId);
     var cp=todosPres.filter(function(p){return p.clienteId===c.id;});
     var activos2=cp.filter(function(p){return ['activo','atraso','moroso'].indexOf(pI(p).est)>=0;});
     var saldo=activos2.reduce(function(s,p){return s+saldoPendiente(p);},0);
     var mora=activos2.filter(function(p){return pI(p).est==='moroso';}).length;
-    var esReembolso=cliConNuevoHoy[c.id] && cp.filter(function(p){return p.fechaInicio!==ISO&&pI(p).pag>=p.dias;}).length>0;
+    var esReembolso=cliConNuevoHoy[c.id]&&cp.filter(function(p){return p.fechaInicio!==ISO&&pI(p).pag>=p.dias;}).length>0;
     var color=r?r.color:COLORS[idx%COLORS.length];
     var inicial=c.nombre.trim()[0].toUpperCase();
     return '<div class="cli-row" onclick="verCli(&quot;'+c.id+'&quot;)">'+
       '<div class="cli-avatar" style="background:'+color+'">'+inicial+'</div>'+
       '<div class="cli-info">'+
         '<div class="cli-name">'+c.nombre+(esReembolso?' <span class="badge" style="background:#F3E5F5;color:#6A1B9A">Reembolso</span>':'')+'</div>'+
-        '<div class="cli-sub">'+(c.cedula?'CC '+c.cedula+' · ':'')+''+(c.tel||'')+(c.ciudad?' · '+c.ciudad:'')+(r?' · '+r.nombre:'')+'</div>'+
+        '<div class="cli-sub">'+(c.cedula?'CC '+c.cedula+' · ':'')+( c.tel||'')+(c.ciudad?' · '+c.ciudad:'')+(r?' · '+r.nombre:'')+'</div>'+
       '</div>'+
       '<div class="cli-right">'+
         '<div class="cli-saldo">'+fm(saldo)+'</div>'+
         '<div class="cli-badges">'+
           (mora>0?'<span class="badge br2">'+mora+' mora</span>':'')+
-          (activos2.length>0?'<span class="badge bb">'+activos2.length+' crédito'+(activos2.length>1?'s':'')+'</span>':'<span class="badge bg3">Al día</span>')+
+          (activos2.length>0?'<span class="badge bb">'+activos2.length+' créd.</span>':'<span class="badge bg3">Al día</span>')+
         '</div>'+
       '</div>'+
     '</div>';
   }).join('');
 }
-
 
 function rRec(){
   var dEl=document.getElementById('REC-DIA');
@@ -1289,38 +1277,63 @@ function rFlujo(){
   var cajasH='';
   rutas.forEach(function(r){
     var saldoCajaR=saldoCaja(r.id);
-    // Movimientos de la caja en el mes
+    var cajaDesg=saldoCajaEfNq(r.id);
     var aportesMes=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='aporte';}).reduce(function(s,b){return s+(b.monto||0);},0);
     var retirosMes=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='retiro';}).reduce(function(s,b){return s+(b.monto||0);},0);
     var basesMes=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='base';}).reduce(function(s,b){return s+(b.monto||0);},0);
     var difCierresMes=ST.cierres.filter(function(ci){return ci.rutaId===r.id&&ci.fecha&&ci.fecha.slice(0,7)===fcMes;}).reduce(function(s,ci){return s+(ci.diferencia||0);},0);
+    // Desglose ef/nq de movimientos del mes
+    var aportesEf=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='aporte'&&b.metodo!=='nequi';}).reduce(function(s,b){return s+(b.monto||0);},0);
+    var aportesNq=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='aporte'&&b.metodo==='nequi';}).reduce(function(s,b){return s+(b.monto||0);},0);
+    var retirosEf=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='retiro'&&b.metodo!=='nequi';}).reduce(function(s,b){return s+(b.monto||0);},0);
+    var retirosNq=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='retiro'&&b.metodo==='nequi';}).reduce(function(s,b){return s+(b.monto||0);},0);
+    var basesEf=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='base'&&b.metodo!=='nequi';}).reduce(function(s,b){return s+(b.monto||0);},0);
+    var basesNq=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='base'&&b.metodo==='nequi';}).reduce(function(s,b){return s+(b.monto||0);},0);
 
     cajasH+=
       '<div class="caja-card" style="border-left-color:'+r.color+';margin-bottom:1rem">'+
-      '<div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:8px;margin-bottom:1rem">'+
+      '<div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:8px;margin-bottom:.5rem">'+
         '<div>'+
           '<div style="font-size:15px;font-weight:700;color:'+r.color+'">Caja — Ruta '+r.nombre+'</div>'+
           '<div class="ts">Dinero total disponible de la ruta</div>'+
         '</div>'+
         '<div style="text-align:right">'+
-          '<div style="font-size:28px;font-weight:700;color:'+(saldoCajaR>=0?'var(--gn)':'var(--rd)')+'">'+fm(saldoCajaR)+'</div>'+
-          '<div class="ts">Saldo actual</div>'+
+          '<div style="font-size:26px;font-weight:700;color:'+(saldoCajaR>=0?'var(--gn)':'var(--rd)')+'">'+fm(saldoCajaR)+'</div>'+
+          '<div style="font-size:12px;margin-top:3px;display:flex;gap:12px;justify-content:flex-end">'+
+            '<span>💵 <strong>'+fm(Math.max(0,cajaDesg.ef))+'</strong></span>'+
+            '<span>📱 <strong style="color:#6A1B9A">'+fm(Math.max(0,cajaDesg.nq))+'</strong></span>'+
+          '</div>'+
         '</div>'+
       '</div>'+
-      // Stats del mes
-      '<div class="caja-grid" style="margin-bottom:1rem">'+
-        '<div class="caja-stat success"><div class="lb">Aportes del mes</div><div class="vl">+'+fm(aportesMes)+'</div></div>'+
-        '<div class="caja-stat danger"><div class="lb">Retiros del mes</div><div class="vl">−'+fm(retirosMes)+'</div></div>'+
-        '<div class="caja-stat"><div class="lb">Base asignada mes</div><div class="vl">−'+fm(basesMes)+'</div></div>'+
-        '<div class="caja-stat '+(difCierresMes>=0?'success':'danger')+'"><div class="lb">Dif. cierres mes</div><div class="vl">'+(difCierresMes>=0?'+':'−')+fm(Math.abs(difCierresMes))+'</div></div>'+
+      // Stats del mes con desglose
+      '<div class="caja-grid" style="margin-bottom:.75rem">'+
+        '<div class="caja-stat success">'+
+          '<div class="lb">Aportes del mes</div>'+
+          '<div class="vl">+'+fm(aportesMes)+'</div>'+
+          '<div style="font-size:10px;color:var(--tm);margin-top:2px">💵 '+fm(aportesEf)+' · 📱 '+fm(aportesNq)+'</div>'+
+        '</div>'+
+        '<div class="caja-stat danger">'+
+          '<div class="lb">Retiros del mes</div>'+
+          '<div class="vl">−'+fm(retirosMes)+'</div>'+
+          '<div style="font-size:10px;color:var(--tm);margin-top:2px">💵 '+fm(retirosEf)+' · 📱 '+fm(retirosNq)+'</div>'+
+        '</div>'+
+        '<div class="caja-stat">'+
+          '<div class="lb">Base asignada mes</div>'+
+          '<div class="vl">−'+fm(basesMes)+'</div>'+
+          '<div style="font-size:10px;color:var(--tm);margin-top:2px">💵 '+fm(basesEf)+' · 📱 '+fm(basesNq)+'</div>'+
+        '</div>'+
+        '<div class="caja-stat '+(difCierresMes>=0?'success':'danger')+'">'+
+          '<div class="lb">Dif. cierres mes</div>'+
+          '<div class="vl">'+(difCierresMes>=0?'+':'−')+fm(Math.abs(difCierresMes))+'</div>'+
+        '</div>'+
       '</div>'+
-      // Botones de acción — usar data-attributes para evitar problemas de quotes
-      '<div style="display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid var(--br);padding-top:1rem">'+
-        '<button class="bp bs btn-caja-mov" data-tipo="aporte" data-ruta="'+r.id+'" style="background:var(--gn)">+ Aporte inversionista</button>'+
-        '<button class="bp bs btn-caja-mov" data-tipo="retiro" data-ruta="'+r.id+'" style="background:var(--rd)">&#8722; Retiro inversionista</button>'+
+      // Botones de acción
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid var(--br);padding-top:.75rem">'+
+        '<button class="bp bs btn-caja-mov" data-tipo="aporte" data-ruta="'+r.id+'" style="background:var(--gn)">+ Aporte</button>'+
+        '<button class="bp bs btn-caja-mov" data-tipo="retiro" data-ruta="'+r.id+'" style="background:var(--rd)">&#8722; Retiro</button>'+
         '<button class="bp bs btn-caja-mov" data-tipo="base" data-ruta="'+r.id+'">&#127974; Asignar base</button>'+
       '</div>'+
-      '</div>';
+      '</div>'
   });
   document.getElementById('FC-CAJAS').innerHTML=cajasH;
   // Delegación de eventos para botones de caja
@@ -1473,6 +1486,7 @@ function rCie(){
     // Diferencia
     var dif=rec+b.base-pre-gas;
     var cajaSaldo=saldoCaja(ruta.id);
+    var cajaEfNq=saldoCajaEfNq(ruta.id);
     // Saldo ef/nq estimado: recaudo ef - prestamos ef + base ef
     var saldoEf=recEf-preEf+baseEf;
     var saldoNq=recNq-preNq+baseNq;
@@ -1497,10 +1511,25 @@ function rCie(){
       '</div>'+
       // Desglose saldo por método
       '<div class="cie-desglose">'+
-        '<div style="font-size:10px;font-weight:700;color:var(--bl);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Saldo del día por método</div>'+
-        '<div class="cie-desglose-row"><span>💵 Efectivo</span><span class="metodo-ef">'+fm(saldoEf)+'</span></div>'+
-        '<div class="cie-desglose-row"><span>📱 Nequi</span><span class="metodo-nq">'+fm(saldoNq)+'</span></div>'+
-        '<div class="cie-desglose-row" style="border-top:1px solid var(--br);padding-top:4px;margin-top:4px;font-weight:700"><span>Total</span><span style="color:'+(dif>=0?'var(--gn)':'var(--rd)')+'">'+fm(saldoEf+saldoNq)+'</span></div>'+
+        '<div style="font-size:10px;font-weight:700;color:var(--bl);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Desglose por método — hoy</div>'+
+        '<div class="cie-desglose-row"><span style="color:var(--tm)">Recaudo efectivo</span><span class="metodo-ef">+'+fm(recEf)+'</span></div>'+
+        '<div class="cie-desglose-row"><span style="color:var(--tm)">Recaudo Nequi</span><span class="metodo-nq">+'+fm(recNq)+'</span></div>'+
+        '<div class="cie-desglose-row"><span style="color:var(--tm)">Préstamos efectivo</span><span class="gn2">−'+fm(preEf)+'</span></div>'+
+        '<div class="cie-desglose-row"><span style="color:var(--tm)">Préstamos Nequi</span><span class="gn2">−'+fm(preNq)+'</span></div>'+
+        '<div class="cie-desglose-row" style="border-top:1px solid var(--br);padding-top:6px;margin-top:6px">'+
+          '<span style="font-weight:700">Diferencia efectivo</span><span class="metodo-ef" style="font-weight:700">'+(saldoEf>=0?'+':'')+fm(saldoEf)+'</span></div>'+
+        '<div class="cie-desglose-row">'+
+          '<span style="font-weight:700">Diferencia Nequi</span><span class="metodo-nq" style="font-weight:700">'+(saldoNq>=0?'+':'')+fm(saldoNq)+'</span></div>'+
+        '<div class="cie-desglose-row" style="border-top:2px solid var(--br);padding-top:6px;margin-top:6px;font-size:14px;font-weight:700">'+
+          '<span>Total diferencia</span><span style="color:'+(dif>=0?'var(--gn)':'var(--rd)')+'">'+fm(saldoEf+saldoNq)+'</span></div>'+
+        // Saldo caja proyectado
+        '<div style="margin-top:10px;padding:8px 10px;background:var(--bli);border-radius:var(--rs)">'+
+          '<div style="font-size:10px;font-weight:700;color:var(--bl);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Saldo de caja después del cierre</div>'+
+          '<div class="cie-desglose-row"><span>💵 Efectivo</span><span class="metodo-ef" style="font-weight:700">'+fm(Math.max(0,cajaEfNq.ef+saldoEf))+'</span></div>'+
+          '<div class="cie-desglose-row"><span>📱 Nequi</span><span class="metodo-nq" style="font-weight:700">'+fm(Math.max(0,cajaEfNq.nq+saldoNq))+'</span></div>'+
+          '<div class="cie-desglose-row" style="border-top:1px solid var(--br);padding-top:4px;margin-top:4px;font-weight:700">'+
+            '<span>Total caja</span><span style="color:'+(cajaSaldo+dif>=0?'var(--gn)':'var(--rd)')+'">'+fm(cajaSaldo+dif)+'</span></div>'+
+        '</div>'+
       '</div>';
 
     if(yaC){
