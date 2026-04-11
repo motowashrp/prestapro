@@ -392,7 +392,7 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
         <div class="tb"><h2 id="DT">Resumen</h2><span class="tbd" id="DF"></span></div>
         <div id="DASH-RUTA-FIL" class="ruta-fil-bar" style="display:none">
           <label>Ver ruta:</label>
-          <select id="DASH-RUTA" onchange="rDash()"><option value="">Todas las rutas</option></select>
+          <select id="DASH-RUTA" onchange="setRutaFil('Dash',this.value)"><option value="">Todas las rutas</option></select>
         </div>
         <div id="DA"></div>
         <div class="met" id="DM"></div>
@@ -403,7 +403,7 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
         <div class="tb"><h2>Cobros del día</h2></div>
         <div id="COB-RUTA-FIL" class="ruta-fil-bar" style="display:none">
           <label>Filtrar ruta:</label>
-          <select id="COB-RUTA" onchange="rCob()"><option value="">Todas las rutas</option></select>
+          <select id="COB-RUTA" onchange="setRutaFil('Cob',this.value)"><option value="">Todas las rutas</option></select>
         </div>
         <div class="met" id="CM"></div>
         <div class="card"><div id="CL"></div></div>
@@ -412,6 +412,10 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
       <div class="sc" id="sc-cli">
         <!-- Mini dashboard -->
         <div class="mini-dash" id="CLI-DASH"></div>
+        <div id="FIL-Cli" class="ruta-fil-bar" style="display:none">
+          <label>Ruta:</label>
+          <select id="SEL-Cli" onchange="setRutaFil('Cli',this.value)"><option value="">Todas las rutas</option></select>
+        </div>
         <div class="sh">
           <div class="sr"><input type="text" placeholder="Buscar por nombre o cédula..." id="SCI" oninput="rCli()"></div>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
@@ -426,6 +430,10 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
       <!-- RECAUDOS -->
       <div class="sc" id="sc-rec">
         <div class="tb"><h2>Recaudos</h2></div>
+        <div id="FIL-Rec" class="ruta-fil-bar" style="display:none">
+          <label>Ruta:</label>
+          <select id="SEL-Rec" onchange="setRutaFil('Rec',this.value)"><option value="">Todas las rutas</option></select>
+        </div>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem;flex-wrap:wrap">
           <label style="font-size:11px;font-weight:700;color:var(--bl);text-transform:uppercase;letter-spacing:.05em">Día:</label>
           <input type="date" id="REC-DIA" style="padding:6px 10px;font-size:13px;font-family:inherit;border:1px solid var(--br);border-radius:var(--rs);" onchange="rRec()">
@@ -503,6 +511,10 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
       <!-- GASTOS DIARIOS -->
       <div class="sc" id="sc-gas">
         <div class="tb"><h2>Gastos</h2></div>
+        <div id="FIL-Gas" class="ruta-fil-bar" style="display:none">
+          <label>Ruta:</label>
+          <select id="SEL-Gas" onchange="setRutaFil('Gas',this.value)"><option value="">Todas las rutas</option></select>
+        </div>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem;flex-wrap:wrap">
           <label style="font-size:11px;font-weight:700;color:var(--bl);text-transform:uppercase;letter-spacing:.05em">Fecha:</label>
           <input type="date" id="GAS-DIA" style="padding:6px 10px;font-size:13px;font-family:inherit;border:1px solid var(--br);border-radius:var(--rs);" onchange="rGas()">
@@ -520,11 +532,19 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
       <!-- CIERRE DEL DÍA -->
       <div class="sc" id="sc-cie">
         <div class="tb"><h2>Cierre del día</h2><span class="tbd" id="CF"></span></div>
+                <div id="FIL-Cie" class="ruta-fil-bar" style="display:none">
+          <label>Ruta:</label>
+          <select id="SEL-Cie" onchange="setRutaFil('Cie',this.value)"><option value="">Todas las rutas</option></select>
+        </div>
         <div id="CIE-C"></div>
       </div>
       <!-- MOROSOS -->
       <div class="sc" id="sc-mor">
         <div class="tb"><h2>Morosos</h2><span class="tbd" style="font-size:12px;color:var(--rd)">3+ cuotas vencidas (sin domingos)</span></div>
+                <div id="FIL-Mor" class="ruta-fil-bar" style="display:none">
+          <label>Ruta:</label>
+          <select id="SEL-Mor" onchange="setRutaFil('Mor',this.value)"><option value="">Todas las rutas</option></select>
+        </div>
         <div class="met" id="MM"></div>
         <div id="ML"></div>
       </div>
@@ -943,7 +963,7 @@ function subAll(){
   },function(e){console.error('usuarios',e);});
   unsubs.push(u2);
 }
-function refSc(){var a=document.querySelector('.sc.active');if(a){var id=a.id.replace('sc-','');if(SCRS[id])SCRS[id]();}}
+function refSc(){var a=document.querySelector('.sc.active');if(a){var id=a.id.replace('sc-','');actualizarFiltroRuta(id);if(SCRS[id])SCRS[id]();}}
 
 // ── Navegación ────────────────────────────────
 var IC={
@@ -977,11 +997,38 @@ function buildNav(){
   });
   document.getElementById('SBN').innerHTML=h;
 }
+// Módulos con filtro de ruta y su variable
+var RUTA_MODS={
+  dash:'Dash', cob:'Cob', cli:'Cli',
+  rec:'Rec', mor:'Mor', gas:'Gas', cie:'Cie'
+};
+
+function actualizarFiltroRuta(scId){
+  if(CU.rol!=='admin') return;
+  var varName=RUTA_MODS[scId];
+  if(!varName) return;
+  // Poblar selector
+  var elId='SEL-'+varName;
+  if(scId==='dash') elId='DASH-RUTA';
+  if(scId==='cob') elId='COB-RUTA';
+  var el=document.getElementById(elId); if(!el) return;
+  var cur=window['_ruta'+varName]||'';
+  el.innerHTML='<option value="">Todas las rutas</option>'+
+    ST.rutas.map(function(r){return '<option value="'+r.id+'"'+(r.id===cur?' selected':'')+'>'+r.nombre+'</option>';}).join('');
+  // Mostrar u ocultar barra
+  var barId='FIL-'+varName;
+  if(scId==='dash') barId='DASH-RUTA-FIL';
+  if(scId==='cob') barId='COB-RUTA-FIL';
+  var bar=document.getElementById(barId);
+  if(bar) bar.style.display=ST.rutas.length>1?'flex':'none';
+}
+
 function goto(id){
   document.querySelectorAll('.sc').forEach(function(s){s.classList.remove('active');});
   document.querySelectorAll('.ni').forEach(function(b){b.classList.remove('active');});
   var sc=document.getElementById('sc-'+id), btn=document.getElementById('ni-'+id);
   if(sc)sc.classList.add('active'); if(btn)btn.classList.add('active');
+  actualizarFiltroRuta(id);
   if(SCRS[id])SCRS[id](); cSB();
 }
 
@@ -992,7 +1039,7 @@ function goto(id){
 function rDash(){
   // Inicializar filtros de ruta para admin
   initRutaFiltros();
-  var rutaFil = CU.rol==='admin' ? (document.getElementById('DASH-RUTA')?document.getElementById('DASH-RUTA').value:'') : CU.rutaId;
+  var rutaFil = CU.rol==='admin' ? _rutaDash : CU.rutaId;
 
   document.getElementById('DF').textContent=HOY.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long'});
   var pres = CU.rol==='admin'
@@ -1034,7 +1081,9 @@ function rDash(){
       '<div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:8px;margin-bottom:.75rem">'+
         '<div><div style="font-size:14px;font-weight:700;color:'+r.color+'">Ruta '+r.nombre+'</div>'+
         '<div class="ts">Saldo de caja</div></div>'+
-        '<div style="font-size:22px;font-weight:700;color:'+(s>=0?'var(--gn)':'var(--rd)')+'">'+fm(s)+'</div>'+
+        '<div style="text-align:right">'+
+          '<div style="font-size:22px;font-weight:700;color:'+(s>=0?'var(--gn)':'var(--rd)')+'">'+fm(s)+'</div>'+
+        '</div>'+
       '</div>'+
       '<div style="background:var(--bll);border-radius:var(--rs);padding:10px 12px;border:1px solid var(--bb)">'+
         '<div style="font-size:10px;font-weight:700;color:var(--bl);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Disponible para préstamos hoy</div>'+
@@ -1061,7 +1110,7 @@ function rDash(){
 
 function rCob(){
   initRutaFiltros();
-  var rutaFil = CU.rol==='admin' ? (document.getElementById('COB-RUTA')?document.getElementById('COB-RUTA').value:'') : CU.rutaId;
+  var rutaFil = CU.rol==='admin' ? _rutaCob : CU.rutaId;
   var pres = rutaFil
     ? ST.prestamos.filter(function(p){var c=gC(p.clienteId);return c&&c.rutaId===rutaFil;})
     : myP();
@@ -1095,9 +1144,6 @@ function rCob(){
 
 function rCli(){
   var q=(document.getElementById('SCI')||{}).value||'';
-  var todosCli=myC();
-  var todosPres=myP();
-
   // ── Mini dashboard ──────────────────────────
   var totalCli = todosCli.length;
   var creditosActivos = todosPres.filter(function(p){
@@ -1137,6 +1183,13 @@ function rCli(){
     '<div class="me"><div class="lb">Reembolsos hoy</div><div class="vl" style="color:#6A1B9A">'+reembolsosHoy+'</div><div class="sb2">Cancelado + nuevo mismo día</div></div>';
 
   // ── Lista de clientes ──────────────────────
+  var rutaFil = CU.rol==='admin' ? _rutaCli : CU.rutaId;
+  var todosCli = rutaFil
+    ? ST.clientes.filter(function(c){return c.rutaId===rutaFil;})
+    : myC();
+  var todosPres = rutaFil
+    ? ST.prestamos.filter(function(p){var c=gC(p.clienteId);return c&&c.rutaId===rutaFil;})
+    : myP();
   var list = todosCli.filter(function(c){
     return c.nombre.toLowerCase().indexOf(q.toLowerCase())>=0 || (c.cedula||'').indexOf(q)>=0;
   }).sort(function(a,b){
@@ -1186,7 +1239,11 @@ function rRec(){
   var dEl=document.getElementById('REC-DIA');
   if(!dEl.value)dEl.value=ISO;
   var dia=dEl.value;
-  var pres=myP(); var totC=0,cntC=0,totP=0,cntP=0;
+  var rutaFil = CU.rol==='admin' ? _rutaRec : CU.rutaId;
+  var pres = rutaFil
+    ? ST.prestamos.filter(function(p){var c=gC(p.clienteId);return c&&c.rutaId===rutaFil;})
+    : myP();
+  var totC=0,cntC=0,totP=0,cntP=0;
   var rowsC=[],rowsP=[];
   pres.forEach(function(p){
     var c=gC(p.clienteId);if(!c)return;
@@ -1388,7 +1445,10 @@ function fd2(d){try{return new Date(d+'T12:00:00').toLocaleDateString('es-CO',{d
 
 function rCie(){
   document.getElementById('CF').textContent=HOY.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  var rutas = CU.rol==='admin' ? ST.rutas : ST.rutas.filter(function(r){return r.id===CU.rutaId;});
+  var rutaFil = CU.rol==='admin' ? _rutaCie : CU.rutaId;
+  var rutas = CU.rol==='admin'
+    ? (rutaFil ? ST.rutas.filter(function(r){return r.id===rutaFil;}) : ST.rutas)
+    : ST.rutas.filter(function(r){return r.id===CU.rutaId;});
   var html='';
   rutas.forEach(function(ruta){
     var ckey=ruta.id+'_'+ISO;
@@ -1464,9 +1524,14 @@ function rCie(){
 
 
 function rMor(){
-  var pres=myP(); var tm=0,tc2=0,tcu=0;
+  var rutaFil = CU.rol==='admin' ? _rutaMor : CU.rutaId;
+  var rutas = rutaFil ? ST.rutas.filter(function(r){return r.id===rutaFil;}) : ST.rutas;
+  var pres = rutaFil
+    ? ST.prestamos.filter(function(p){var c=gC(p.clienteId);return c&&c.rutaId===rutaFil;})
+    : myP();
+  var tm=0,tc2=0,tcu=0;
   var html='';
-  ST.rutas.forEach(function(ruta){
+  rutas.forEach(function(ruta){
     var cIds=ST.clientes.filter(function(c){return c.rutaId===ruta.id;}).map(function(c){return c.id;});
     var moraR=[];
     pres.filter(function(p){return cIds.indexOf(p.clienteId)>=0;}).forEach(function(p){
@@ -1494,7 +1559,7 @@ function rMor(){
     '<div class="me"><div class="lb">Cuotas vencidas</div><div class="vl">'+tcu+'</div></div>'+
     '<div class="me"><div class="lb">Monto mora</div><div class="vl">'+fm(tc2)+'</div></div>'+
     '<div class="me"><div class="lb">Prom. cuotas</div><div class="vl">'+(tm>0?Math.round(tcu/tm):0)+'</div></div>';
-  document.getElementById('ML').innerHTML=html||'<div class="empty">Sin clientes morosos (3+ cuotas vencidas sin domingos)</div>';
+  document.getElementById('ML').innerHTML=html||'<div class="empty">Sin morosos'+(rutaFil?' en esta ruta':'')+' (3+ cuotas vencidas)</div>';
 }
 
 function rRut(){
@@ -2051,9 +2116,11 @@ function rGas(){
   var fecha=dEl.value;
   var esHoy=fecha===ISO;
   document.getElementById('GAS-FECHA').textContent='Gastos del '+new Date(fecha+'T12:00:00').toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long'});
+  var rutaFil = CU.rol==='admin' ? _rutaGas : CU.rutaId;
   var gasD=ST.gastos.filter(function(g){
     if(!g.fecha||g.fecha!==fecha)return false;
-    if(CU.rol==='ruta')return g.rutaId===CU.rutaId;
+    if(rutaFil) return g.rutaId===rutaFil;
+    if(CU.rol==='ruta') return g.rutaId===CU.rutaId;
     return true;
   });
   var total=gasD.reduce(function(s,g){return s+(g.monto||0);},0);
@@ -2309,8 +2376,9 @@ function rOrden(){
       '<div style="font-size:11px;color:var(--tm)">'+( c.ciudad||'')+'</div>'+
     '</div>';
   }).join('');
-  // Drag & drop
+  // Drag & drop (desktop) + Touch (móvil)
   el.querySelectorAll('.orden-row').forEach(function(row){
+    // Desktop drag
     row.addEventListener('dragstart',function(e){_ordenDrag=this;this.style.opacity='.5';});
     row.addEventListener('dragend',function(){this.style.opacity='';_ordenDrag=null;actualizarNums();});
     row.addEventListener('dragover',function(e){e.preventDefault();
@@ -2319,6 +2387,27 @@ function rOrden(){
       else if(this.nextSibling) this.parentNode.insertBefore(_ordenDrag,this.nextSibling);
       else this.parentNode.appendChild(_ordenDrag);
     });
+    // Touch móvil
+    row.addEventListener('touchstart',function(e){
+      _ordenDrag=this;this.style.opacity='.5';this.style.background='var(--bli)';
+    },{passive:true});
+    row.addEventListener('touchmove',function(e){
+      e.preventDefault();
+      if(!_ordenDrag)return;
+      var t=e.touches[0];
+      var below=document.elementFromPoint(t.clientX,t.clientY);
+      if(!below)return;
+      var target=below.closest('.orden-row');
+      if(!target||target===_ordenDrag)return;
+      var bnd=target.getBoundingClientRect(),mid=bnd.top+bnd.height/2;
+      if(t.clientY<mid) target.parentNode.insertBefore(_ordenDrag,target);
+      else if(target.nextSibling) target.parentNode.insertBefore(_ordenDrag,target.nextSibling);
+      else target.parentNode.appendChild(_ordenDrag);
+    },{passive:false});
+    row.addEventListener('touchend',function(){
+      if(_ordenDrag){_ordenDrag.style.opacity='';_ordenDrag.style.background='';_ordenDrag=null;}
+      actualizarNums();
+    },{passive:true});
   });
 }
 function actualizarNums(){
@@ -2457,14 +2546,25 @@ function prestamosEfNq(rutaId, fecha){
 }
 
 // ── Inicializar selectores de ruta en admin ───
+// Variables globales de filtro de ruta por módulo
+var _rutaDash='', _rutaCob='', _rutaCli='', _rutaRec='', _rutaMor='', _rutaGas='', _rutaCie='';
+
 function initRutaFiltros(){
   if(CU.rol!=='admin') return;
-  var opts='<option value="">Todas las rutas</option>'+ST.rutas.map(function(r){return '<option value="'+r.id+'">'+r.nombre+'</option>';}).join('');
-  ['DASH-RUTA','COB-RUTA'].forEach(function(id){
-    var el=document.getElementById(id); if(el) el.innerHTML=opts;
-  });
-  document.getElementById('DASH-RUTA-FIL').style.display=ST.rutas.length>1?'flex':'none';
-  document.getElementById('COB-RUTA-FIL').style.display=ST.rutas.length>1?'flex':'none';
+}
+
+function poblarRutaSel(elId, varName){
+  var el=document.getElementById(elId); if(!el)return;
+  var cur=window['_ruta'+varName]||'';
+  el.innerHTML='<option value="">Todas las rutas</option>'+
+    ST.rutas.map(function(r){return '<option value="'+r.id+'"'+(r.id===cur?' selected':'')+'>'+r.nombre+'</option>';}).join('');
+}
+
+function setRutaFil(varName, val){
+  window['_ruta'+varName]=val;
+  // Refrescar el módulo correspondiente
+  var fn={Dash:rDash,Cob:rCob,Cli:rCli,Rec:rRec,Mor:rMor,Gas:rGas,Cie:rCie}[varName];
+  if(fn)fn();
 }
 
 // INIT
