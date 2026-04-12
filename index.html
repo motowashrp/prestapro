@@ -868,6 +868,17 @@ function saldoCaja(rutaId, hastaFecha) {
   return saldo;
 }
 
+// Primer día de operaciones de una ruta
+function primerDiaRuta(rutaId){
+  var fechas=[];
+  var cIds=ST.clientes.filter(function(c){return c.rutaId===rutaId;}).map(function(c){return c.id;});
+  ST.prestamos.filter(function(p){return cIds.indexOf(p.clienteId)>=0&&p.fechaInicio;}).forEach(function(p){fechas.push(p.fechaInicio);});
+  ST.bases.filter(function(b){return b.rutaId===rutaId&&b.fecha;}).forEach(function(b){fechas.push(b.fecha);});
+  ST.cierres.filter(function(ci){return ci.rutaId===rutaId&&ci.fecha;}).forEach(function(ci){fechas.push(ci.fecha);});
+  ST.gastos.filter(function(g){return g.rutaId===rutaId&&g.fecha;}).forEach(function(g){fechas.push(g.fecha);});
+  return fechas.length>0 ? fechas.slice().sort()[0] : null;
+}
+
 // Total recaudado en una fecha por ruta
 function recaudoDia(rutaId, fecha) {
   var tot = 0;
@@ -1314,8 +1325,8 @@ function rRec(){
 function rFlujo(){
   // Selector de mes
   var meses=getMeses(); if(!meses.includes(fcMes))fcMes=meses[0]||ISO.slice(0,7);
-  document.getElementById('FC-MES').innerHTML=meses.slice(0,8).map(function(m){
-    return '<button class="mb'+(m===fcMes?' active':'')+'" onclick="setFCMes(this.dataset.m)" data-m="'+m+'>'+MESES[parseInt(m.slice(5,7))-1]+' '+m.slice(0,4)+'</button>';
+  document.getElementById('FC-MES').innerHTML=meses.map(function(m){
+    return '<button class="mb'+(m===fcMes?' active':'')+'" onclick="setFCMes(this.dataset.m)" data-m="'+m+'">'+(MESES[parseInt(m.slice(5,7))-1]||'')+' '+m.slice(0,4)+'</button>';
   }).join('');
 
   // Filtro ruta
@@ -1435,10 +1446,16 @@ function rFlujo(){
       if(ci.rutaId===ruta.id&&ci.fecha<primerDia) saldoAcum+=(ci.diferencia||0);
     });
 
-    // Mostrar TODOS los días del mes
+    // Determinar desde qué día mostrar según el inicio de operaciones de la ruta
+    var inicioOps=primerDiaRuta(ruta.id);
+    var mesPrimero=inicioOps?inicioOps.slice(0,7):fcMes;
+    // Primer mes de la ruta → mostrar desde el día de inicio; meses siguientes → desde día 1
+    var desdeFecha=(fcMes===mesPrimero&&inicioOps)?inicioOps:(fcMes+'-01');
+
     dias.forEach(function(fecha){
-      // No mostrar días futuros (después de hoy)
+      // No mostrar días futuros ni antes del inicio de operaciones de esta ruta
       if(fecha>ISO) return;
+      if(fecha<desdeFecha) return;
 
       var b=baseDia(ruta.id,fecha);
       var aporte=b.aporte, retE=b.retiros, baseAsig=b.base;
@@ -1461,7 +1478,6 @@ function rFlujo(){
         rec:rec, pre:pre, gas:gas,
         dif:dif, difVal:difVal, seg:seg,
         saldo:saldoAcum, esHoy:fecha===ISO,
-        // ¿Tiene algún movimiento?
         tieneMovs:!!(aporte||retE||baseAsig||rec||pre||gas||dif!==null||seg)
       });
     });
