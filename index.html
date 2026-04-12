@@ -768,6 +768,18 @@ firebase.initializeApp({
 });
 var db = firebase.firestore();
 
+// Persistencia offline — los datos se guardan localmente
+// y se sincronizan automáticamente cuando vuelve internet
+db.enablePersistence({synchronizeTabs:true}).catch(function(err){
+  if(err.code==='failed-precondition'){
+    // Múltiples pestañas abiertas — solo funciona en una a la vez
+    console.warn('Persistencia offline: múltiples pestañas abiertas.');
+  } else if(err.code==='unimplemented'){
+    // El navegador no soporta persistencia offline
+    console.warn('Este navegador no soporta modo offline.');
+  }
+});
+
 var HOY = new Date();
 var ISO = HOY.toISOString().slice(0,10);
 var MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -970,8 +982,21 @@ function setSy(s){
   var d=document.getElementById('SYD'),t=document.getElementById('SYT');
   if(!d)return;
   d.className='syd'+(s==='online'?'':s==='offline'?' off':' cn');
-  t.textContent=s==='online'?'Sincronizado':s==='offline'?'Sin conexión':'Conectando...';
+  if(s==='online') t.textContent='Sincronizado';
+  else if(s==='offline') t.textContent='Sin internet — datos locales activos';
+  else t.textContent='Conectando...';
 }
+
+// Detectar cambios de conexión en tiempo real
+window.addEventListener('online', function(){
+  setSy('cn');
+  setTimeout(function(){setSy('online');},2000);
+  toast('Conexión restaurada — sincronizando datos','ok');
+});
+window.addEventListener('offline', function(){
+  setSy('offline');
+  toast('Sin internet — trabajando con datos locales','err');
+});
 
 // ── Sidebar móvil ─────────────────────────────
 function tSB(){var sb=document.getElementById('SB'),b=document.getElementById('HBG'),ov=document.getElementById('SBOV'),op=sb.classList.toggle('open');b.classList.toggle('open',op);ov.classList.toggle('show',op);}
@@ -2102,60 +2127,124 @@ function expFlujo(){
   var wb=XLSX.utils.book_new();
   var rutaFil=document.getElementById('FC-RUTA')?document.getElementById('FC-RUTA').value:'';
   var rutas=rutaFil?ST.rutas.filter(function(r){return r.id===rutaFil;}):ST.rutas;
-  var data=[['Fecha','Ruta','Base entrada','Recaudo','Préstamos entregados','Gastos','Dif. cierre','Retiros','Seguros','Saldo acum. caja']];
+
+  // ── Hoja 1: Flujo de caja (misma lógica que la tabla en pantalla) ──
+  var data=[['Fecha','Ruta','Aporte Inv.','Recaudo','Préstamos','Gastos','Dif. Cierre','Retiro Inv.','Base Asig.','Seguros','Saldo Caja']];
+  var totBase=0,totRec=0,totPre=0,totGas=0,totDif=0,totRet=0,totSeg=0,totBase2=0;
 
   rutas.forEach(function(ruta){
+    var inicioOps=primerDiaRuta(ruta.id);
+    var mesPrimero=inicioOps?inicioOps.slice(0,7):fcMes;
+    var desdeFecha=(fcMes===mesPrimero&&inicioOps)?inicioOps:(fcMes+'-01');
+
+    // Saldo acumulado antes del mes
     var saldoAcum=0;
-    var primerDia=fcMes+'-01';
-    ST.bases.forEach(function(b){if(b.rutaId===ruta.id&&b.fecha<primerDia){if(b.tipo==='retiro')saldoAcum-=(b.monto||0);else saldoAcum+=(b.monto||0);}});
-    ST.cierres.forEach(function(ci){if(ci.rutaId===ruta.id&&ci.fecha<primerDia)saldoAcum+=(ci.diferencia||0);});
+    var primerDiaMes=fcMes+'-01';
+    ST.bases.forEach(function(b){
+      if(b.rutaId!==ruta.id||b.fecha>=primerDiaMes)return;
+      if(b.tipo==='aporte') saldoAcum+=(b.monto||0);
+      else if(b.tipo==='retiro') saldoAcum-=(b.monto||0);
+      else if(b.tipo==='base') saldoAcum-=(b.monto||0);
+    });
+    ST.cierres.forEach(function(ci){if(ci.rutaId===ruta.id&&ci.fecha<primerDiaMes)saldoAcum+=(ci.diferencia||0);});
+
     diasDelMes(fcMes).forEach(function(fecha){
+      if(fecha>ISO||fecha<desdeFecha) return;
       var b=baseDia(ruta.id,fecha);
+      var aporte=b.aporte,retE=b.retiros,baseAsig=b.base;
       var rec=recaudoDia(ruta.id,fecha);
       var pre=prestamosDia(ruta.id,fecha);
       var gas=gastosDia(ruta.id,fecha);
       var dif=difCierre(ruta.id,fecha);
       var difVal=dif!==null?dif:0;
-      saldoAcum+=b.entradas-b.retiros+difVal;
-      if(!b.entradas&&!b.retiros&&!rec&&!pre&&!gas&&dif===null)return;
-      var seg2=segurosDia(ruta.id,fecha);
-      data.push([fecha,ruta.nombre,Math.round(b.entradas),Math.round(rec),Math.round(pre),Math.round(gas),dif!==null?Math.round(difVal):'',Math.round(b.retiros),Math.round(seg2),Math.round(saldoAcum)]);
+      var seg=segurosDia(ruta.id,fecha);
+      saldoAcum+=aporte-retE-baseAsig+difVal;
+      totBase+=aporte;totRec+=rec;totPre+=pre;totGas+=gas;totDif+=difVal;totRet+=retE;totSeg+=seg;totBase2+=baseAsig;
+      data.push([fecha,ruta.nombre,
+        aporte||0, rec||0, pre||0, gas||0,
+        dif!==null?Math.round(difVal):0,
+        retE||0, baseAsig||0, seg||0,
+        Math.round(saldoAcum)
+      ]);
     });
   });
+  // Fila totales
+  data.push(['TOTAL MES','',totBase,totRec,totPre,totGas,Math.round(totDif),totRet,totBase2,totSeg,'']);
 
   var ws=XLSX.utils.aoa_to_sheet(data);
-  ws['!cols']=[{wch:12},{wch:12},{wch:14},{wch:14},{wch:20},{wch:12},{wch:14},{wch:12},{wch:12},{wch:16}];
+  ws['!cols']=[{wch:12},{wch:16},{wch:12},{wch:12},{wch:12},{wch:10},{wch:12},{wch:12},{wch:12},{wch:10},{wch:14}];
+  // Formato moneda para columnas numéricas
+  var fmt='#,##0';
+  for(var ri=1;ri<data.length;ri++){
+    for(var ci=2;ci<=10;ci++){
+      var cell=XLSX.utils.encode_cell({r:ri,c:ci});
+      if(ws[cell]) ws[cell].z=fmt;
+    }
+  }
   XLSX.utils.book_append_sheet(wb,ws,'Flujo de Caja');
 
-  // Hoja resumen por ruta
-  var dataR=[['Ruta','Saldo caja actual','Base total','Recaudo total','Préstamos total','Gastos total','Retiros total']];
+  // ── Hoja 2: Resumen por ruta ──
+  var dataR=[['Ruta','Saldo Caja','Aportes','Retiros','Base Asig.','Recaudo','Préstamos','Gastos','Seguros','Dif. Cierres']];
   rutas.forEach(function(r){
     var s=saldoCaja(r.id);
-    var b=0,rec=0,pre=0,gas=0,ret=0;
+    var ap=0,ret=0,ba=0,rec=0,pre=0,gas=0,seg=0,dif2=0;
     diasDelMes(fcMes).forEach(function(fecha){
-      var bd=baseDia(r.id,fecha);
-      b+=bd.entradas; ret+=bd.retiros;
+      var b=baseDia(r.id,fecha);
+      ap+=b.aporte; ret+=b.retiros; ba+=b.base;
       rec+=recaudoDia(r.id,fecha);
       pre+=prestamosDia(r.id,fecha);
       gas+=gastosDia(r.id,fecha);
+      seg+=segurosDia(r.id,fecha);
+      var d=difCierre(r.id,fecha); if(d!==null)dif2+=d;
     });
-    dataR.push([r.nombre,Math.round(s),Math.round(b),Math.round(rec),Math.round(pre),Math.round(gas),Math.round(ret)]);
+    dataR.push([r.nombre,Math.round(s),ap,ret,ba,rec,pre,gas,seg,Math.round(dif2)]);
   });
   var wsR=XLSX.utils.aoa_to_sheet(dataR);
-  wsR['!cols']=[{wch:12},{wch:16},{wch:14},{wch:14},{wch:16},{wch:14},{wch:14}];
+  wsR['!cols']=[{wch:16},{wch:14},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:10},{wch:10},{wch:14}];
   XLSX.utils.book_append_sheet(wb,wsR,'Resumen por Ruta');
-  // Hoja seguros
-  var dataSeg=[['Fecha','Ruta','Tipo','Concepto','Monto']];
-  var rutaFilEx=document.getElementById('FC-RUTA')?document.getElementById('FC-RUTA').value:'';
-  ST.seguros.filter(function(s){return s.fecha&&s.fecha.slice(0,7)===fcMes&&(!rutaFilEx||s.rutaId===rutaFilEx);})
+
+  // ── Hoja 3: Seguros del mes ──
+  var dataSeg=[['Fecha','Tipo','Concepto','Ruta','Monto']];
+  var rutaFilEx=rutaFil||'';
+  ST.seguros
+    .filter(function(s){return s.fecha&&s.fecha.slice(0,7)===fcMes&&(!rutaFilEx||s.rutaId===rutaFilEx);})
     .sort(function(a,b){return (a.fecha||'').localeCompare(b.fecha||'');})
-    .forEach(function(s){var r=gR(s.rutaId);dataSeg.push([s.fecha,r?r.nombre:'General',s.tipo==='ingreso'?'Ingreso':'Retiro',s.concepto,Math.round(s.monto)]);});
+    .forEach(function(s){
+      var r=gR(s.rutaId);
+      dataSeg.push([s.fecha, s.tipo==='ingreso'?'Ingreso':'Retiro', s.concepto, r?r.nombre:'General', s.monto||0]);
+    });
   var wsSeg=XLSX.utils.aoa_to_sheet(dataSeg);
-  wsSeg['!cols']=[{wch:12},{wch:12},{wch:10},{wch:35},{wch:14}];
+  wsSeg['!cols']=[{wch:12},{wch:10},{wch:35},{wch:16},{wch:12}];
   XLSX.utils.book_append_sheet(wb,wsSeg,'Seguros');
-  XLSX.writeFile(wb,'RutaCobro_Flujo_'+fcMes+'.xlsx');
-  toast('Excel descargado','ok');
+
+  // ── Hoja 4: Clientes y cartera activa ──
+  var dataCli=[['Cliente','Cédula','Teléfono','Ciudad','Ruta','Capital','Interés%','Días','Pagadas','Vencidas','Saldo','Estado']];
+  ST.clientes.forEach(function(c){
+    var r=gR(c.rutaId);
+    if(rutaFilEx&&c.rutaId!==rutaFilEx)return;
+    var pres=ST.prestamos.filter(function(p){return p.clienteId===c.id;});
+    pres.forEach(function(p){
+      var i=pI(p);
+      var B={completado:'Completado',moroso:'Moroso',atraso:'Atraso',activo:'Activo'};
+      dataCli.push([
+        c.nombre, c.cedula||'', c.tel||'', c.ciudad||'',
+        r?r.nombre:'Sin ruta',
+        p.capital, p.interes||0, p.dias,
+        i.pag, i.venc.length,
+        Math.round(saldoPendiente(p)),
+        B[i.est]||i.est
+      ]);
+    });
+  });
+  var wsCli=XLSX.utils.aoa_to_sheet(dataCli);
+  wsCli['!cols']=[{wch:22},{wch:12},{wch:14},{wch:14},{wch:16},{wch:12},{wch:10},{wch:8},{wch:8},{wch:8},{wch:12},{wch:12}];
+  XLSX.utils.book_append_sheet(wb,wsCli,'Cartera');
+
+  var mes=MESES[parseInt(fcMes.slice(5,7))-1]||fcMes;
+  XLSX.writeFile(wb,'RutaCobro_'+mes+'_'+fcMes.slice(0,4)+'.xlsx');
+  toast('Excel descargado: '+mes+' '+fcMes.slice(0,4),'ok');
 }
+
 
 // MODALES
 function oM(id){
@@ -2783,6 +2872,72 @@ function leerYGuardarParams(){
   guardarParams();
 }
 
+
+// ══════════════════════════════════════════════
+// BACKUP COMPLETO DE DATOS
+// ══════════════════════════════════════════════
+async function generarBackup(){
+  toast('Generando backup...','');
+  try{
+    var backup={
+      fecha: new Date().toISOString(),
+      version: '1.0',
+      colecciones: {}
+    };
+    var cols=['rutas','clientes','prestamos','gastos','cierres','bases','seguros','usuarios'];
+    for(var i=0;i<cols.length;i++){
+      var col=cols[i];
+      var snap=await db.collection(col).get();
+      backup.colecciones[col]=snap.docs.map(function(d){
+        return Object.assign({_id:d.id},d.data());
+      });
+    }
+    // Descargar como JSON
+    var json=JSON.stringify(backup,null,2);
+    var blob=new Blob([json],{type:'application/json'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    var fechaStr=new Date().toISOString().slice(0,10);
+    a.href=url; a.download='RutaCobro_Backup_'+fechaStr+'.json';
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+    // Contar registros
+    var total=Object.values(backup.colecciones).reduce(function(s,c){return s+c.length;},0);
+    toast('Backup descargado: '+total+' registros','ok');
+  }catch(e){
+    toast('Error al generar backup','err');
+    console.error(e);
+  }
+}
+
+async function restaurarBackup(archivo){
+  if(!archivo){toast('Selecciona un archivo de backup','err');return;}
+  try{
+    var texto=await archivo.text();
+    var backup=JSON.parse(texto);
+    if(!backup.colecciones){toast('Archivo de backup inválido','err');return;}
+    if(!confirm('¿Restaurar backup del '+new Date(backup.fecha).toLocaleDateString('es-CO')+'?\n\nEsto SOBREESCRIBIRÁ los datos actuales. ¿Continuar?'))return;
+    toast('Restaurando backup...','');
+    var cols=Object.keys(backup.colecciones);
+    var total=0;
+    for(var i=0;i<cols.length;i++){
+      var col=cols[i];
+      var docs=backup.colecciones[col]||[];
+      var batch=db.batch();
+      docs.forEach(function(doc){
+        var id=doc._id;
+        var data=Object.assign({},doc); delete data._id;
+        batch.set(db.collection(col).doc(id),data);
+        total++;
+      });
+      if(docs.length>0) await batch.commit();
+    }
+    toast('Backup restaurado: '+total+' registros','ok');
+  }catch(e){
+    toast('Error al restaurar backup','err');
+    console.error(e);
+  }
+}
 // INIT
 buildU(); setSy('cn');
 db.collection('usuarios').get()
