@@ -1329,9 +1329,7 @@ function rFlujo(){
   // ── CAJA vs BASE por ruta ────────────────────
   var cajasH='';
   rutas.forEach(function(r){
-    // Saldo al fin del mes seleccionado (o a hoy si es el mes actual)
-    var ultimoDiaMes=fcMes===ISO.slice(0,7)?ISO:(function(){var y=parseInt(fcMes.slice(0,4)),m=parseInt(fcMes.slice(5,7));return new Date(y,m,0).toISOString().slice(0,10);})();
-    var saldoCajaR=saldoCaja(r.id,ultimoDiaMes);
+    var saldoCajaR=saldoCaja(r.id);
     // Movimientos de la caja en el mes
     var aportesMes=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='aporte';}).reduce(function(s,b){return s+(b.monto||0);},0);
     var retirosMes=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='retiro';}).reduce(function(s,b){return s+(b.monto||0);},0);
@@ -1375,7 +1373,7 @@ function rFlujo(){
   // ── SEGUROS ─────────────────────────────────
   var rutaFilSeg = rutaFil||null;
 
-  // Acumulado histórico total (todo el tiempo)
+  // Totales globales (todo el historial)
   var segTotalAcum = ST.seguros.filter(function(s){
     return s.tipo==='ingreso' && (!rutaFilSeg||s.rutaId===rutaFilSeg);
   }).reduce(function(s,x){return s+(x.monto||0);},0);
@@ -1386,16 +1384,7 @@ function rFlujo(){
 
   var segSaldoTotal = segTotalAcum - segTotalRet;
 
-  // Del mes seleccionado
-  var segIngMes = ST.seguros.filter(function(s){
-    return s.tipo==='ingreso' && s.fecha && s.fecha.slice(0,7)===fcMes && (!rutaFilSeg||s.rutaId===rutaFilSeg);
-  }).reduce(function(s,x){return s+(x.monto||0);},0);
-
-  var segRetMes = ST.seguros.filter(function(s){
-    return s.tipo==='retiro' && s.fecha && s.fecha.slice(0,7)===fcMes && (!rutaFilSeg||s.rutaId===rutaFilSeg);
-  }).reduce(function(s,x){return s+(x.monto||0);},0);
-
-  // Solo del día de hoy para el detalle
+  // Solo del día de hoy
   var segHoy = ST.seguros.filter(function(s){
     return s.tipo==='ingreso' && s.fecha===ISO && (!rutaFilSeg||s.rutaId===rutaFilSeg);
   }).reduce(function(s,x){return s+(x.monto||0);},0);
@@ -1405,25 +1394,25 @@ function rFlujo(){
   document.getElementById('SEG-MET').innerHTML=
     '<div class="me"><div class="lb">Acumulado del día</div><div class="vl" style="color:#6A1B9A">'+fm(segHoy)+'</div><div class="sb2">Solo hoy</div></div>'+
     '<div class="me"><div class="lb">Acumulado total</div><div class="vl" style="color:#6A1B9A">'+fm(segTotalAcum)+'</div><div class="sb2">Histórico</div></div>'+
-    '<div class="me"><div class="lb">Retiros totales</div><div class="vl gn2">'+fm(segTotalRet)+'</div></div>'+
-    '<div class="me"><div class="lb">Saldo disponible</div><div class="vl" style="color:#6A1B9A;font-size:18px">'+fm(segSaldoTotal)+'</div></div>';
+    '<div class="me"><div class="lb">Retiros</div><div class="vl gn2">'+fm(segTotalRet)+'</div><div class="sb2">Total retirado</div></div>'+
+    '<div class="me"><div class="lb">Saldo total</div><div class="vl" style="color:#6A1B9A;font-size:18px">'+fm(segSaldoTotal)+'</div><div class="sb2">Disponible</div></div>';
 
-  // Movimientos del mes seleccionado (no solo hoy)
-  var movsSegMes = ST.seguros.filter(function(s){
-    return s.fecha && s.fecha.slice(0,7)===fcMes && (!rutaFilSeg||s.rutaId===rutaFilSeg);
-  }).sort(function(a,b){return (b.fecha||'').localeCompare(a.fecha||'')||(b.createdAt||0)-(a.createdAt||0);});
+  // Detalle: SOLO movimientos del día de hoy
+  var movsHoy = ST.seguros.filter(function(s){
+    return s.fecha===ISO && (!rutaFilSeg||s.rutaId===rutaFilSeg);
+  }).sort(function(a,b){return (b.createdAt||0)-(a.createdAt||0);});
 
-  document.getElementById('SEG-MOVS').innerHTML = movsSegMes.length===0
-    ? '<div class="empty">Sin movimientos de seguros en '+MESES[parseInt(fcMes.slice(5,7))-1]+'</div>'
-    : movsSegMes.map(function(s){
+  document.getElementById('SEG-MOVS').innerHTML = movsHoy.length===0
+    ? '<div class="empty">Sin movimientos de seguros hoy</div>'
+    : movsHoy.map(function(s){
         var r=gR(s.rutaId);
         return '<div class="seg-row">'+
-          '<div style="width:30px;height:30px;border-radius:50%;background:'+(s.tipo==='ingreso'?'#F3E5F5':'#FFEBEE')+';display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">'+(s.tipo==='ingreso'?'&#x1F6E1;':'&#x1F4B8;')+'</div>'+
+          '<div style="width:30px;height:30px;border-radius:50%;background:'+(s.tipo==='ingreso'?'#F3E5F5':'#FFEBEE')+';display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">'+(s.tipo==='ingreso'?'🛡':'💸')+'</div>'+
           '<div style="flex:1;min-width:0">'+
             '<div class="tn">'+s.concepto+'</div>'+
-            '<div class="ts">'+fd2(s.fecha)+(r?' · Ruta '+r.nombre:'')+'</div>'+
+            '<div class="ts">'+(r?'Ruta '+r.nombre:'')+'</div>'+
           '</div>'+
-          '<div style="font-size:14px;font-weight:700;color:'+(s.tipo==='ingreso'?'#6A1B9A':'var(--rd)')+'">'+(s.tipo==='ingreso'?'+':'-')+fm(s.monto)+'</div>'+
+          '<div style="font-size:14px;font-weight:700;color:'+(s.tipo==='ingreso'?'#6A1B9A':'var(--rd)')+'">'+(s.tipo==='ingreso'?'+':'−')+fm(s.monto)+'</div>'+
         '</div>';
       }).join('');
 
@@ -1446,15 +1435,10 @@ function rFlujo(){
       if(ci.rutaId===ruta.id&&ci.fecha<primerDia) saldoAcum+=(ci.diferencia||0);
     });
 
-    // Determinar desde qué día mostrar: primer mes → desde inicio ops; meses siguientes → desde día 1
-    var inicioOps=primerDiaRuta(ruta.id);
-    var mesPrimero=inicioOps?inicioOps.slice(0,7):fcMes;
-    var desdeFecha=(fcMes===mesPrimero&&inicioOps)?inicioOps:fcMes+'-01';
-
+    // Mostrar TODOS los días del mes
     dias.forEach(function(fecha){
-      // No mostrar días futuros ni antes del inicio de operaciones
+      // No mostrar días futuros (después de hoy)
       if(fecha>ISO) return;
-      if(fecha<desdeFecha) return;
 
       var b=baseDia(ruta.id,fecha);
       var aporte=b.aporte, retE=b.retiros, baseAsig=b.base;
