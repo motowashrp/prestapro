@@ -927,16 +927,24 @@ function diasDelMes(mes) {
 
 function getMeses(){
   var s={};
-  ST.prestamos.forEach(function(p){
-    if(!p.fechaInicio)return;
-    var y=parseInt(p.fechaInicio.slice(0,4)),m=parseInt(p.fechaInicio.slice(5,7));
-    for(var i=0;i<Math.ceil(p.dias/26)+1;i++){
-      var mo=m+i; var yr=y+Math.floor((mo-1)/12); mo=((mo-1)%12)+1;
-      s[yr+'-'+String(mo).padStart(2,'0')]=1;
+  // Incluir todos los meses desde el primer movimiento hasta hoy
+  var fechas=[];
+  ST.prestamos.forEach(function(p){if(p.fechaInicio)fechas.push(p.fechaInicio);});
+  ST.bases.forEach(function(b){if(b.fecha)fechas.push(b.fecha);});
+  ST.cierres.forEach(function(ci){if(ci.fecha)fechas.push(ci.fecha);});
+  ST.gastos.forEach(function(g){if(g.fecha)fechas.push(g.fecha);});
+
+  if(fechas.length>0){
+    var primerFecha=fechas.slice().sort()[0];
+    var primerMes=primerFecha.slice(0,7);
+    // Generar todos los meses desde primerMes hasta el mes actual
+    var cur=new Date(primerMes+'-01T12:00:00');
+    var hoyMes=new Date(ISO.slice(0,7)+'-01T12:00:00');
+    while(cur<=hoyMes){
+      s[cur.toISOString().slice(0,7)]=1;
+      cur.setMonth(cur.getMonth()+1);
     }
-  });
-  ST.bases.forEach(function(b){if(b.fecha)s[b.fecha.slice(0,7)]=1;});
-  ST.cierres.forEach(function(ci){if(ci.fecha)s[ci.fecha.slice(0,7)]=1;});
+  }
   s[ISO.slice(0,7)]=1;
   return Object.keys(s).sort().reverse();
 }
@@ -1414,52 +1422,78 @@ function rFlujo(){
   var rows=[];
 
   rutas.forEach(function(ruta){
-    var saldoAcum=0;
+    // Saldo acumulado hasta el primer día del mes (histórico completo)
     var primerDia=fcMes+'-01';
+    var saldoAcum=0;
     ST.bases.forEach(function(b){
       if(b.rutaId!==ruta.id||b.fecha>=primerDia)return;
       if(b.tipo==='aporte') saldoAcum+=(b.monto||0);
       else if(b.tipo==='retiro') saldoAcum-=(b.monto||0);
       else if(b.tipo==='base') saldoAcum-=(b.monto||0);
     });
-    ST.cierres.forEach(function(ci){if(ci.rutaId===ruta.id&&ci.fecha<primerDia)saldoAcum+=(ci.diferencia||0);});
+    ST.cierres.forEach(function(ci){
+      if(ci.rutaId===ruta.id&&ci.fecha<primerDia) saldoAcum+=(ci.diferencia||0);
+    });
 
+    // Mostrar TODOS los días del mes
     dias.forEach(function(fecha){
+      // No mostrar días futuros (después de hoy)
+      if(fecha>ISO) return;
+
       var b=baseDia(ruta.id,fecha);
-      var aporte=b.aporte,retE=b.retiros,baseAsig=b.base;
+      var aporte=b.aporte, retE=b.retiros, baseAsig=b.base;
       var rec=recaudoDia(ruta.id,fecha);
       var pre=prestamosDia(ruta.id,fecha);
       var gas=gastosDia(ruta.id,fecha);
       var dif=difCierre(ruta.id,fecha);
       var difVal=dif!==null?dif:0;
       var seg=segurosDia(ruta.id,fecha);
-      // Caja: +aporte +difCierre -retiro -base
+
+      // Actualizar saldo acumulado solo con lo que afecta la caja
       saldoAcum+=aporte-retE-baseAsig+difVal;
-      // Mostrar todos los días (con ceros si no hay movimientos)
-      totBase+=aporte;totRec+=rec;totPre+=pre;totGas+=gas;totDif+=difVal;totRet+=retE;totSeg+=seg;
-      rows.push({fecha:fecha,ruta:ruta,aporte:aporte,retE:retE,baseAsig:baseAsig,rec:rec,pre:pre,gas:gas,dif:dif,difVal:difVal,seg:seg,saldo:saldoAcum,esHoy:fecha===ISO});
+
+      totBase+=aporte; totRec+=rec; totPre+=pre; totGas+=gas;
+      totDif+=difVal; totRet+=retE; totSeg+=seg;
+
+      rows.push({
+        fecha:fecha, ruta:ruta,
+        aporte:aporte, retE:retE, baseAsig:baseAsig,
+        rec:rec, pre:pre, gas:gas,
+        dif:dif, difVal:difVal, seg:seg,
+        saldo:saldoAcum, esHoy:fecha===ISO,
+        // ¿Tiene algún movimiento?
+        tieneMovs:!!(aporte||retE||baseAsig||rec||pre||gas||dif!==null||seg)
+      });
     });
   });
 
   var bodyH=rows.map(function(r){
-    return '<tr class="'+(r.esHoy?'hoy-row':'')+'" >'+
-      '<td><span class="rd2" style="background:'+r.ruta.color+'"></span>'+fds(r.fecha)+(rutas.length>1?' <span style="font-size:10px;color:var(--tm)">'+r.ruta.nombre+'</span>':'')+'</td>'+
+    var fila_cls=r.esHoy?'hoy-row':'';
+    // Si no hay movimientos, mostrar en gris suave
+    var noMov=!r.tieneMovs;
+    return '<tr class="'+fila_cls+'" style="'+(noMov?'opacity:.45':'')+'">'+
+      '<td><span class="rd2" style="background:'+r.ruta.color+'"></span>'+fds(r.fecha)+
+        (rutas.length>1?' <span style="font-size:10px;color:var(--tm)">'+r.ruta.nombre+'</span>':'')+
+        (r.esHoy?' <span class="badge bb" style="font-size:9px">HOY</span>':'')+
+      '</td>'+
       '<td>'+(r.aporte?'<span class="flujo-entry">+'+fm(r.aporte)+'</span>':'—')+'</td>'+
       '<td>'+(r.rec?'<span class="flujo-entry">+'+fm(r.rec)+'</span>':'—')+'</td>'+
-      '<td>'+(r.pre?'<span class="flujo-exit">−'+fm(r.pre)+'</span>':'—')+'</td>'+
-      '<td>'+(r.gas?'<span class="flujo-exit">−'+fm(r.gas)+'</span>':'—')+'</td>'+
-      '<td>'+(r.dif!==null?'<span class="'+(r.difVal>=0?'flujo-entry':'flujo-exit')+'">'+(r.difVal>=0?'+':'−')+fm(Math.abs(r.difVal))+'</span>':'—')+'</td>'+
-      '<td>'+(r.retE?'<span class="flujo-exit">−'+fm(r.retE)+'</span>':'—')+'</td>'+
-      '<td>'+(r.baseAsig?'<span style="color:var(--bl);font-weight:700">−'+fm(r.baseAsig)+'</span>':'—')+'</td>'+
+      '<td>'+(r.pre?'<span class="flujo-exit">-'+fm(r.pre)+'</span>':'—')+'</td>'+
+      '<td>'+(r.gas?'<span class="flujo-exit">-'+fm(r.gas)+'</span>':'—')+'</td>'+
+      '<td>'+(r.dif!==null?'<span class="'+(r.difVal>=0?'flujo-entry':'flujo-exit')+'">'+(r.difVal>=0?'+':'-')+fm(Math.abs(r.difVal))+'</span>':'—')+'</td>'+
+      '<td>'+(r.retE?'<span class="flujo-exit">-'+fm(r.retE)+'</span>':'—')+'</td>'+
+      '<td>'+(r.baseAsig?'<span style="color:var(--bl);font-weight:700">-'+fm(r.baseAsig)+'</span>':'—')+'</td>'+
       '<td>'+(r.seg?'<span style="color:#6A1B9A;font-weight:700">+'+fm(r.seg)+'</span>':'—')+'</td>'+
-      '<td class="'+(r.saldo>=0?'flujo-saldo-pos':'flujo-saldo-neg')+'">'+fm(r.saldo)+'</td>'+
+      '<td class="'+(r.saldo>=0?'flujo-saldo-pos':'flujo-saldo-neg')+'"><strong>'+fm(r.saldo)+'</strong></td>'+
     '</tr>';
   }).join('');
 
-  document.getElementById('FC-BODY').innerHTML=bodyH||'<tr><td colspan="9"><div class="empty">Sin movimientos este mes</div></td></tr>';
-  // totBase ahora = aportes
+  document.getElementById('FC-BODY').innerHTML=bodyH||'<tr><td colspan="10"><div class="empty">Sin datos para este período</div></td></tr>';
+
+  // Fila de totales del mes
+  var saldoFinal=rows.length>0?rows[rows.length-1].saldo:0;
   document.getElementById('FC-FOOT').innerHTML='<tr class="total-row">'+
-    '<td>TOTAL</td>'+
+    '<td>TOTAL MES</td>'+
     '<td><span class="flujo-entry">'+fm(totBase)+'</span></td>'+
     '<td><span class="flujo-entry">'+fm(totRec)+'</span></td>'+
     '<td><span class="flujo-exit">'+fm(totPre)+'</span></td>'+
@@ -1468,7 +1502,8 @@ function rFlujo(){
     '<td><span class="flujo-exit">'+fm(totRet)+'</span></td>'+
     '<td style="color:var(--bl);font-weight:700">'+fm(rows.reduce(function(s,r){return s+(r.baseAsig||0);},0))+'</td>'+
     '<td style="color:#6A1B9A;font-weight:700">'+fm(totSeg)+'</td>'+
-    '<td></td></tr>';
+    '<td class="'+(saldoFinal>=0?'flujo-saldo-pos':'flujo-saldo-neg')+'"><strong>'+fm(saldoFinal)+'</strong></td>'+
+  '</tr>';
 }
 
 // helper fd para seguros
