@@ -432,10 +432,7 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
       </div>
       <!-- COBROS DEL DÍA -->
       <div class="sc" id="sc-cob">
-        <div class="tb">
-          <h2>Cobros del día</h2>
-          <button class="bg2 bs" onclick="abrirOrden()">&#9776; Orden de ruta</button>
-        </div>
+        <div class="tb"><h2>Cobros del día</h2><button class="bg2 bs" onclick="abrirOrden()">&#9776; Orden de ruta</button></div>
         <div id="COB-RUTA-FIL" class="ruta-fil-bar" style="display:none">
           <label>Filtrar ruta:</label>
           <select id="COB-RUTA" onchange="setRutaFil('Cob',this.value)"><option value="">Todas las rutas</option></select>
@@ -601,7 +598,7 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
   <h3>Nuevo cliente y crédito</h3>
   <div style="background:var(--bll);border-radius:var(--rs);padding:10px 14px;margin-bottom:1rem;font-size:12px;color:var(--bl);font-weight:600">Datos del cliente</div>
   <div class="fr"><div class="fg2"><label>Nombre completo *</label><input id="NC-NOM" type="text"></div><div class="fg2"><label>Cédula</label><input id="NC-CED" type="text" oninput="checkCed(this.value)"><div id="CED-WARN" style="font-size:11px;color:var(--am);margin-top:3px;display:none"></div></div></div>
-  <div class="fr"><div class="fg2"><label>Teléfono</label><input id="NC-TEL" type="text"></div><div class="fg2"><label>Ruta *</label><select id="NC-RUT" onchange="mostrarDisponibleCred(this.value,'NC-DISP');calcPrev2()"></select></div></div>
+  <div class="fr"><div class="fg2"><label>Teléfono</label><input id="NC-TEL" type="text"></div><div class="fg2"><label>Ruta *</label><select id="NC-RUT" onchange="_showDisp(this.value,'NC-DISP');calcPrev2()"></select></div></div>
   <div class="fr"><div class="fg2"><label>Ciudad / Municipio</label><input id="NC-CIU" type="text" placeholder="Ej: Bogotá, Medellín..."></div><div class="fg2"><label>Dirección / notas</label><input id="NC-DIR" type="text"></div></div>
   <div style="background:var(--bll);border-radius:var(--rs);padding:10px 14px;margin:1rem 0;font-size:12px;color:var(--bl);font-weight:600">Datos del crédito</div>
   <div class="fr"><div class="fg2"><label>Capital ($) * <span style="font-size:10px;color:var(--tm);font-weight:400">mín $100.000</span></label><input id="NC-CAP" type="text" inputmode="numeric" placeholder="100.000" oninput="fmtCap(this,'NC-CAP-VAL');calcPrev2()" style="font-weight:700"><input type="hidden" id="NC-CAP-VAL"></div><div class="fg2"><label>Interés (%)</label><input id="NC-INT" type="number" value="20" oninput="calcPrev2()"></div></div>
@@ -869,17 +866,6 @@ function saldoCaja(rutaId, hastaFecha) {
     saldo += (ci.diferencia||0);
   });
   return saldo;
-}
-
-// Primer día de operaciones de una ruta
-function primerDiaRuta(rutaId){
-  var fechas=[];
-  var cIds=ST.clientes.filter(function(c){return c.rutaId===rutaId;}).map(function(c){return c.id;});
-  ST.prestamos.filter(function(p){return cIds.indexOf(p.clienteId)>=0&&p.fechaInicio;}).forEach(function(p){fechas.push(p.fechaInicio);});
-  ST.bases.filter(function(b){return b.rutaId===rutaId&&b.fecha;}).forEach(function(b){fechas.push(b.fecha);});
-  ST.cierres.filter(function(ci){return ci.rutaId===rutaId&&ci.fecha;}).forEach(function(ci){fechas.push(ci.fecha);});
-  ST.gastos.filter(function(g){return g.rutaId===rutaId&&g.fecha;}).forEach(function(g){fechas.push(g.fecha);});
-  return fechas.length>0 ? fechas.slice().sort()[0] : null;
 }
 
 // Total recaudado en una fecha por ruta
@@ -1328,8 +1314,8 @@ function rRec(){
 function rFlujo(){
   // Selector de mes
   var meses=getMeses(); if(!meses.includes(fcMes))fcMes=meses[0]||ISO.slice(0,7);
-  document.getElementById('FC-MES').innerHTML=meses.map(function(m){
-    return '<button class="mb'+(m===fcMes?' active':'')+'" onclick="setFCMes(this.dataset.m)" data-m="'+m+'">'+(MESES[parseInt(m.slice(5,7))-1]||'')+' '+m.slice(0,4)+'</button>';
+  document.getElementById('FC-MES').innerHTML=meses.slice(0,8).map(function(m){
+    return '<button class="mb'+(m===fcMes?' active':'')+'" onclick="setFCMes(this.dataset.m)" data-m="'+m+'>'+MESES[parseInt(m.slice(5,7))-1]+' '+m.slice(0,4)+'</button>';
   }).join('');
 
   // Filtro ruta
@@ -1449,16 +1435,10 @@ function rFlujo(){
       if(ci.rutaId===ruta.id&&ci.fecha<primerDia) saldoAcum+=(ci.diferencia||0);
     });
 
-    // Determinar desde qué día mostrar según el inicio de operaciones de la ruta
-    var inicioOps=primerDiaRuta(ruta.id);
-    var mesPrimero=inicioOps?inicioOps.slice(0,7):fcMes;
-    // Primer mes de la ruta → mostrar desde el día de inicio; meses siguientes → desde día 1
-    var desdeFecha=(fcMes===mesPrimero&&inicioOps)?inicioOps:(fcMes+'-01');
-
+    // Mostrar TODOS los días del mes
     dias.forEach(function(fecha){
-      // No mostrar días futuros ni antes del inicio de operaciones de esta ruta
+      // No mostrar días futuros (después de hoy)
       if(fecha>ISO) return;
-      if(fecha<desdeFecha) return;
 
       var b=baseDia(ruta.id,fecha);
       var aporte=b.aporte, retE=b.retiros, baseAsig=b.base;
@@ -1481,6 +1461,7 @@ function rFlujo(){
         rec:rec, pre:pre, gas:gas,
         dif:dif, difVal:difVal, seg:seg,
         saldo:saldoAcum, esHoy:fecha===ISO,
+        // ¿Tiene algún movimiento?
         tieneMovs:!!(aporte||retE||baseAsig||rec||pre||gas||dif!==null||seg)
       });
     });
@@ -1707,8 +1688,38 @@ function aCob(pid,n,cuota,nomCli){
   document.getElementById('m-cob').style.display='flex';
 }
 function sMp(mp){_cobMp=mp;document.getElementById('MP-EF').className='mpo'+(mp==='efectivo'?' sef':'');document.getElementById('MP-NQ').className='mpo'+(mp==='nequi'?' snq':'');}
-// vCob reemplazado arriba
-// cfCob reemplazado por versión múltiple cuotas arriba
+function vCob(){
+  var v=parseFloat(document.getElementById('COB-VAL').value)||0;
+  var w=document.getElementById('COB-WARN'),b=document.getElementById('COB-OK');
+  if(v>0&&v<_cobMin){
+    w.style.display='block';w.style.color='var(--rd)';
+    w.textContent='Valor menor a la cuota pactada';
+    b.disabled=true;b.style.opacity='.5';
+  } else {
+    b.disabled=false;b.style.opacity='';
+    if(v>=_cobMin*2){
+      var q=Math.floor(v/_cobMin);
+      w.style.display='block';w.style.color='var(--gn)';
+      w.textContent='✓ Cubre '+q+' cuotas ('+fm(_cobMin)+' c/u)';
+    } else {w.style.display='none';}
+  }
+}
+function cfCob(){
+  var val=parseFloat(document.getElementById('COB-VAL').value)||0;
+  if(val<_cobMin){toast('El valor no puede ser menor a la cuota pactada','err');return;}
+  var p=gP(_cobPid);if(!p)return;
+  var i=pI(p),q=Math.max(1,Math.floor(val/_cobMin));
+  var pg=Object.assign({},p.pagos||{});
+  var marcadas=0;
+  if(!pg[_cobN]){pg[_cobN]={valor:Math.round(_cobMin),metodo:_cobMp,fecha:ISO};marcadas++;}
+  if(q>1){
+    var nums=Object.keys(i.fechas).map(Number).filter(function(n){return n!==_cobN&&!pg[n];}).sort(function(a,b){return a-b;});
+    for(var k=0;k<nums.length&&marcadas<q;k++){pg[nums[k]]={valor:Math.round(_cobMin),metodo:_cobMp,fecha:ISO};marcadas++;}
+  }
+  db.collection('prestamos').doc(_cobPid).update({pagos:pg,updatedAt:Date.now()})
+    .then(function(){cM('m-cob');toast(marcadas>1?marcadas+' cuotas marcadas':'Cuota '+_cobN+' registrada','ok');})
+    .catch(function(e){toast('Error','err');console.error(e);});
+}
 
 // CIERRE
 function sCierre(rutaId,rec,base,pre,gas,dif){
@@ -1898,7 +1909,12 @@ function oCred(cliId,nomCli){
   document.getElementById('CR-DIA').readOnly=!esAdmin;
   document.getElementById('CR-INT').style.background=esAdmin?'':'var(--bll)';
   document.getElementById('CR-DIA').style.background=esAdmin?'':'var(--bll)';
-  selMpPre('CR','efectivo'); // reset método por defecto
+  selMpPre('CR','efectivo');
+  document.getElementById('CR-DISP').innerHTML='';
+  document.getElementById('CR-PREV').innerHTML='';
+  var _cli=ST.clientes.find(function(c){return c.id===cliId;});
+  var _rid=_cli?_cli.rutaId:(CU.rol==='ruta'?CU.rutaId:(ST.rutas[0]?ST.rutas[0].id:null));
+  if(_rid) _showDisp(_rid,'CR-DISP');
   document.getElementById('m-credito').style.display='flex';
 }
 function calcPrev3(){
@@ -2072,7 +2088,7 @@ function verCli(id){
       '<div class="cal-grid">'+cuotasH+'</div></div>';
   }).join('');
 
-    _detCliId = id;
+  _detCliId=id;
   document.getElementById('DET-C').innerHTML=
     '<div style="margin-bottom:1rem">'+
       '<div style="font-size:17px;font-weight:700;color:var(--bd);margin-bottom:4px">'+c.nombre+'</div>'+
@@ -2085,7 +2101,7 @@ function verCli(id){
     '</div>'+
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">'+
       '<h3 style="text-transform:uppercase;font-size:11px;font-weight:700;color:var(--bd);letter-spacing:.05em">Créditos ('+pres.length+')</h3>'+
-      '<button class="bc" onclick="_abrirNuevoCred()">+ Nuevo crédito</button>'+
+      '<button class="bc" onclick="_ncred()">+ Nuevo crédito</button>'+
     '</div>'+
     (credHtml||'<div class="empty">Sin créditos</div>');
   document.getElementById('m-det').style.display='flex';
@@ -2169,12 +2185,8 @@ function oM(id){
     document.getElementById('NC-DIA').style.background=esAdmin?'':'var(--bll)';
     document.getElementById('NC-PREV').innerHTML='';
     document.getElementById('NC-DISP').innerHTML='';
-    // Mostrar disponible de la ruta seleccionada inmediatamente
-    var rutIni=CU.rol==='ruta'?CU.rutaId:(ST.rutas[0]?ST.rutas[0].id:'');
-    if(rutIni){
-      document.getElementById('NC-RUT').value=rutIni;
-      mostrarDisponibleCred(rutIni,'NC-DISP');
-    }
+    var _ri=CU.rol==='ruta'?CU.rutaId:(ST.rutas[0]?ST.rutas[0].id:'');
+    if(_ri){document.getElementById('NC-RUT').value=_ri;_showDisp(_ri,'NC-DISP');}
   }
   if(id==='m-gas'){
     document.getElementById('GAS-CONC').value='';
@@ -2546,10 +2558,10 @@ function checkCed(val){
     btn.className='bc bs';
     btn.style.cssText='font-size:11px;padding:2px 8px;margin-left:8px';
     btn.textContent='Asignar crédito';
-    var _cid=existe.id, _cnom=existe.nombre;
+    var _cid=existe.id,_cnom=existe.nombre;
     btn.onclick=function(){
       cM('m-nuevo-cli');
-      setTimeout(function(){ oCred(_cid, _cnom); }, 400);
+      setTimeout(function(){oCred(_cid,_cnom);},400);
     };
     w.appendChild(btn);
   }else{
@@ -2787,111 +2799,34 @@ function leerYGuardarParams(){
 }
 
 
-// ── Abrir crédito desde detalle del cliente ──────────
-function _abrirNuevoCred(){
-  var cli=ST.clientes.find(function(c){return c.id===_detCliId;});
-  var nom=cli?cli.nombre:'Cliente';
+function _ncred(){
+  var c=ST.clientes.find(function(x){return x.id===_detCliId;});
   cM('m-det');
-  setTimeout(function(){ oCred(_detCliId, nom); }, 350);
+  setTimeout(function(){oCred(_detCliId,c?c.nombre:'Cliente');},350);
 }
 
-// ── Mostrar disponible en modal de crédito ────────────
-function mostrarDisponibleCred(rutaId, elId){
-  if(!rutaId) return;
-  var el=document.getElementById(elId); if(!el) return;
+function _showDisp(rutaId,elId){
+  if(!rutaId)return;
+  var el=document.getElementById(elId);if(!el)return;
   var bd=baseDia(rutaId,ISO);
-  var rEnq=recaudoEfNq(rutaId,ISO);
-  var pEnq=prestamosEfNq(rutaId,ISO);
-  var gasH=gastosDia(rutaId,ISO);
-  var disp=bd.base+(rEnq.ef+rEnq.nq)-(pEnq.ef+pEnq.nq)-gasH;
-  var dispEf=bd.base+rEnq.ef-pEnq.ef-gasH;
-  var dispNq=rEnq.nq-pEnq.nq;
+  var rn=recaudoEfNq(rutaId,ISO);
+  var pn=prestamosEfNq(rutaId,ISO);
+  var gas=gastosDia(rutaId,ISO);
+  var disp=bd.base+(rn.ef+rn.nq)-(pn.ef+pn.nq)-gas;
   el.innerHTML=
-    '<div style="margin-top:8px;background:'+(disp>=0?'var(--bli)':'#FFEBEE')+';border-radius:var(--rs);padding:10px 14px">'+
-    '<div style="font-size:10px;font-weight:700;color:var(--bl);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Disponible para prestar hoy</div>'+
-    '<div style="display:flex;flex-direction:column;gap:4px;font-size:13px">'+
-      '<div style="display:flex;justify-content:space-between"><span style="color:var(--tm)">Base asignada</span><span class="gp">+'+fm(bd.base)+'</span></div>'+
-      '<div style="display:flex;justify-content:space-between"><span style="color:var(--tm)">Recaudo cobrado hoy</span>'+
-        '<div style="text-align:right"><span class="gp">+'+fm(rEnq.ef+rEnq.nq)+'</span>'+
-        '<div style="font-size:10px;color:var(--tm)">&#x1F4B5;'+fm(rEnq.ef)+' &#x1F4F1;'+fm(rEnq.nq)+'</div></div></div>'+
-      '<div style="display:flex;justify-content:space-between;border-top:1px solid var(--br);padding-top:4px"><span style="color:var(--tm)">Préstamos otorgados</span><span class="gn2">-'+fm(pEnq.ef+pEnq.nq)+'</span></div>'+
-      '<div style="display:flex;justify-content:space-between"><span style="color:var(--tm)">Gastos del día</span><span class="gn2">-'+fm(gasH)+'</span></div>'+
-      '<div style="display:flex;justify-content:space-between;font-weight:700;font-size:15px;border-top:1px solid var(--br);padding-top:4px;margin-top:2px">'+
-        '<span style="color:var(--bd)">Disponible</span>'+
-        '<div style="text-align:right">'+
-          '<span style="color:'+(disp>=0?'var(--gn)':'var(--rd)')+'">'+fm(disp)+'</span>'+
-          '<div style="font-size:10px;color:var(--tm)">&#x1F4B5;'+fm(Math.max(0,dispEf))+' &#x1F4F1;'+fm(Math.max(0,dispNq))+'</div>'+
-        '</div>'+
-      '</div>'+
+    '<div style="margin:8px 0;padding:10px 14px;background:'+(disp>=0?'#E3F2FD':'#FFEBEE')+';border-radius:8px">'+
+    '<div style="font-size:10px;font-weight:700;color:#1565C0;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Disponible para prestar hoy</div>'+
+    '<div style="font-size:13px;display:flex;flex-direction:column;gap:3px">'+
+    '<div style="display:flex;justify-content:space-between"><span style="color:#666">Base asignada</span><span style="color:var(--gn)">+'+fm(bd.base)+'</span></div>'+
+    '<div style="display:flex;justify-content:space-between"><span style="color:#666">Recaudo hoy</span>'+
+      '<div style="text-align:right"><span style="color:var(--gn)">+'+fm(rn.ef+rn.nq)+'</span>'+
+      '<div style="font-size:10px;color:#999">Ef:'+fm(rn.ef)+' Nq:'+fm(rn.nq)+'</div></div></div>'+
+    '<div style="display:flex;justify-content:space-between;border-top:1px solid #ddd;padding-top:3px"><span style="color:#666">Préstamos</span><span style="color:var(--rd)">-'+fm(pn.ef+pn.nq)+'</span></div>'+
+    '<div style="display:flex;justify-content:space-between"><span style="color:#666">Gastos</span><span style="color:var(--rd)">-'+fm(gas)+'</span></div>'+
+    '<div style="display:flex;justify-content:space-between;font-weight:700;font-size:15px;border-top:1px solid #ddd;padding-top:3px">'+
+      '<span>Disponible</span><span style="color:'+(disp>=0?'var(--gn)':'var(--rd)')+'">'+fm(disp)+'</span></div>'+
     '</div></div>';
 }
-
-// ── cfCob: registrar múltiples cuotas según valor pagado ──
-function cfCob(){
-  var val=parseFloat(document.getElementById('COB-VAL').value)||0;
-  if(val<_cobMin){toast('El valor no puede ser menor a la cuota pactada','err');return;}
-  var p=gP(_cobPid); if(!p)return;
-  var i=pI(p);
-  var cuota=i.c;
-  var cuotasACubrir=Math.floor(val/cuota);
-  if(cuotasACubrir<1) cuotasACubrir=1;
-  var pg=Object.assign({},p.pagos||{});
-  var marcadas=0;
-  // Marcar cuota actual
-  if(!pg[_cobN]){
-    pg[_cobN]={valor:Math.round(cuota),metodo:_cobMp,fecha:ISO};
-    marcadas++;
-  }
-  // Marcar cuotas vencidas pendientes en orden
-  if(cuotasACubrir>1){
-    var vencPend=Object.keys(i.fechas)
-      .map(function(n){return parseInt(n);})
-      .filter(function(n){return n!==_cobN&&!pg[n]&&i.fechas[n]<ISO;})
-      .sort(function(a,b){return a-b;});
-    for(var k=0;k<vencPend.length&&marcadas<cuotasACubrir;k++){
-      pg[vencPend[k]]={valor:Math.round(cuota),metodo:_cobMp,fecha:ISO};
-      marcadas++;
-    }
-    // Si aún sobra, marcar cuotas futuras
-    if(marcadas<cuotasACubrir){
-      var futuras=Object.keys(i.fechas)
-        .map(function(n){return parseInt(n);})
-        .filter(function(n){return n!==_cobN&&!pg[n]&&i.fechas[n]>=ISO;})
-        .sort(function(a,b){return a-b;});
-      for(var j=0;j<futuras.length&&marcadas<cuotasACubrir;j++){
-        pg[futuras[j]]={valor:Math.round(cuota),metodo:_cobMp,fecha:ISO};
-        marcadas++;
-      }
-    }
-  }
-  db.collection('prestamos').doc(_cobPid).update({pagos:pg,updatedAt:Date.now()})
-    .then(function(){
-      cM('m-cob');
-      toast(marcadas>1?marcadas+' cuotas marcadas — '+fm(val)+' ('+_cobMp+')':'Cuota '+_cobN+' registrada — '+fm(val)+' ('+_cobMp+')','ok');
-    })
-    .catch(function(e){toast('Error','err');console.error(e);});
-}
-
-// ── vCob: mostrar cuántas cuotas cubre el valor ──────
-function vCob(){
-  var v=parseFloat(document.getElementById('COB-VAL').value)||0;
-  var w=document.getElementById('COB-WARN'),b=document.getElementById('COB-OK');
-  if(v>0&&v<_cobMin){
-    w.style.display='block'; w.style.color='var(--rd)';
-    w.textContent='El valor no puede ser inferior a la cuota pactada';
-    b.disabled=true; b.style.opacity='.5';
-  } else {
-    b.disabled=false; b.style.opacity='';
-    if(v>0&&_cobMin>0){
-      var q=Math.floor(v/_cobMin);
-      if(q>1){
-        w.style.display='block'; w.style.color='var(--gn)';
-        w.textContent='✓ Cubre '+q+' cuotas de '+fm(_cobMin)+' ('+fm(v)+' total)';
-      } else { w.style.display='none'; }
-    } else { w.style.display='none'; }
-  }
-}
-
 // INIT
 buildU(); setSy('cn');
 db.collection('usuarios').get()
