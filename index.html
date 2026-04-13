@@ -593,11 +593,12 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
   <h3>Nuevo cliente y crédito</h3>
   <div style="background:var(--bll);border-radius:var(--rs);padding:10px 14px;margin-bottom:1rem;font-size:12px;color:var(--bl);font-weight:600">Datos del cliente</div>
   <div class="fr"><div class="fg2"><label>Nombre completo *</label><input id="NC-NOM" type="text"></div><div class="fg2"><label>Cédula</label><input id="NC-CED" type="text" oninput="checkCed(this.value)"><div id="CED-WARN" style="font-size:11px;color:var(--am);margin-top:3px;display:none"></div></div></div>
-  <div class="fr"><div class="fg2"><label>Teléfono</label><input id="NC-TEL" type="text"></div><div class="fg2"><label>Ruta *</label><select id="NC-RUT" onchange="calcPrev2()"></select></div></div>
+  <div class="fr"><div class="fg2"><label>Teléfono</label><input id="NC-TEL" type="text"></div><div class="fg2"><label>Ruta *</label><select id="NC-RUT" onchange="calcPrev2();mostrarDisponibleCred(this.value,'NC-DISP')"></select></div></div>
   <div class="fr"><div class="fg2"><label>Ciudad / Municipio</label><input id="NC-CIU" type="text" placeholder="Ej: Bogotá, Medellín..."></div><div class="fg2"><label>Dirección / notas</label><input id="NC-DIR" type="text"></div></div>
   <div style="background:var(--bll);border-radius:var(--rs);padding:10px 14px;margin:1rem 0;font-size:12px;color:var(--bl);font-weight:600">Datos del crédito</div>
   <div class="fr"><div class="fg2"><label>Capital ($) * <span style="font-size:10px;color:var(--tm);font-weight:400">mín $100.000</span></label><input id="NC-CAP" type="text" inputmode="numeric" placeholder="100.000" oninput="fmtCap(this,'NC-CAP-VAL');calcPrev2()" style="font-weight:700"><input type="hidden" id="NC-CAP-VAL"></div><div class="fg2"><label>Interés (%)</label><input id="NC-INT" type="number" value="20" oninput="calcPrev2()"></div></div>
   <div class="fg2"><label>Plazo (días) *</label><input id="NC-DIA" type="number" value="30" oninput="calcPrev2()"></div>
+  <div id="NC-DISP"></div>
   <div id="NC-PREV"></div>
   <div class="fg2"><label>Método de entrega del dinero</label>
     <div class="mp-pre">
@@ -613,6 +614,7 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
   <h3 id="CRED-TITLE">Nuevo crédito</h3>
   <div class="fr"><div class="fg2"><label>Capital ($) * <span style="font-size:10px;color:var(--tm);font-weight:400">mín $100.000</span></label><input id="CR-CAP" type="text" inputmode="numeric" placeholder="100.000" oninput="fmtCap(this,'CR-CAP-VAL');calcPrev3()" style="font-weight:700"><input type="hidden" id="CR-CAP-VAL"></div><div class="fg2"><label>Interés (%)</label><input id="CR-INT" type="number" value="20" oninput="calcPrev3()"></div></div>
   <div class="fg2"><label>Plazo (días) *</label><input id="CR-DIA" type="number" value="30" oninput="calcPrev3()"></div>
+  <div id="CR-DISP"></div>
   <div id="CR-PREV"></div>
   <div class="fg2"><label>Método de entrega del dinero</label>
     <div class="mp-pre">
@@ -780,6 +782,7 @@ var CU = null, fcMes = ISO.slice(0,7);
 var ST = {usuarios:[],rutas:[],clientes:[],prestamos:[],gastos:[],cierres:[],bases:[],seguros:[]};
 var unsubs = [];
 var _cobPid=null,_cobN=null,_cobMin=0,_cobMp='efectivo';
+var _detCliId=null; // ID del cliente en el modal de detalle
 var _cliEditId=null, _rutaEditId=null, _creditoCliId=null;
 
 // ── Helpers ───────────────────────────────────
@@ -1900,12 +1903,12 @@ function calcPrev2(){
     var alcanza=cap<=disp;
     // Desglose ef/nq del disponible
     var bd2=baseDia(rutPrev,ISO);
-    var recH=recaudoDia(rutPrev,ISO);
-    var preH=prestamosDia(rutPrev,ISO);
-    var gasH=gastosDia(rutPrev,ISO);
     var rEnq2=recaudoEfNq(rutPrev,ISO);
     var pEnq2=prestamosEfNq(rutPrev,ISO);
+    var gasH=gastosDia(rutPrev,ISO);
+    // Base ef + recaudo ef - prestamos ef - gastos
     var dispEf=bd2.base+rEnq2.ef-pEnq2.ef-gasH;
+    // Nequi: recaudo nq - prestamos nq
     var dispNq=rEnq2.nq-pEnq2.nq;
     document.getElementById('NC-PREV').innerHTML+=
       '<div style="margin-top:8px;background:'+(alcanza?'#E8F5E9':'#FFEBEE')+';border-radius:var(--rs);padding:10px 14px">'+
@@ -1992,10 +1995,10 @@ var _creditoCliId=null;
 function oCred(cliId,nomCli){
   _creditoCliId=cliId;
   document.getElementById('CRED-TITLE').textContent='Nuevo crédito — '+nomCli;
-  document.getElementById('CR-CAP').value='';document.getElementById('CR-CAP-VAL').value='';document.getElementById('CR-INT').value=PAR.interesDef;
+  document.getElementById('CR-CAP').value='';
+  document.getElementById('CR-CAP-VAL').value='';
+  document.getElementById('CR-INT').value=PAR.interesDef;
   document.getElementById('CR-DIA').value=PAR.plazoDef;
-  // Fecha inicio = hoy (la primera cuota corre desde mañana automáticamente)
-  document.getElementById('CR-FEC').value=ISO;
   document.getElementById('CR-PREV').innerHTML='';
   // Para cobrador: plazo e interés fijos (solo lectura)
   var esAdmin=CU.rol==='admin';
@@ -2003,7 +2006,10 @@ function oCred(cliId,nomCli){
   document.getElementById('CR-DIA').readOnly=!esAdmin;
   document.getElementById('CR-INT').style.background=esAdmin?'':'var(--bll)';
   document.getElementById('CR-DIA').style.background=esAdmin?'':'var(--bll)';
-  selMpPre('CR','efectivo'); // reset método por defecto
+  selMpPre('CR','efectivo');
+  // Mostrar disponible inmediatamente al abrir
+  var c_disp=gC(_creditoCliId);
+  if(c_disp&&c_disp.rutaId) mostrarDisponibleCred(c_disp.rutaId,'CR-DISP');
   document.getElementById('m-credito').style.display='flex';
 }
 function calcPrev3(){
@@ -2189,9 +2195,10 @@ function verCli(id){
       '<div class="cal-grid">'+cuotasH+'</div></div>';
   }).join('');
 
+  _detCliId = id; // guardar para botón nuevo crédito
   document.getElementById('DET-C').innerHTML=
     '<div style="margin-bottom:1rem">'+
-      '<div style="font-size:17px;font-weight:700;color:var(--bd);margin-bottom:4px">'+c.nombre+'</div>'+
+      '<div style="font-size:17px;font-weight:700;color:var(--bd);margin-bottom:4px" id="DET-NOM">'+c.nombre+'</div>'+
       '<div class="ts">'+
         (c.cedula?'CC: '+c.cedula+' · ':'')+
         (c.tel||'')+
@@ -2201,16 +2208,11 @@ function verCli(id){
     '</div>'+
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">'+
       '<h3 style="text-transform:uppercase;font-size:11px;font-weight:700;color:var(--bd);letter-spacing:.05em">Créditos ('+pres.length+')</h3>'+
-      '<button class="bc btn-nuevo-cred" data-cid="'+id+'" data-nom="'+c.nombre+'">+ Nuevo crédito</button>'+
+      '<button class="bc" onclick="cM('m-det');setTimeout(function(){oCred(_detCliId,document.getElementById('DET-NOM').textContent);},200)">+ Nuevo crédito</button>'+
     '</div>'+
     (credHtml||'<div class="empty">Sin créditos</div>');
   document.getElementById('m-det').style.display='flex';
-  // Delegación para botón nuevo crédito
-  var detC=document.getElementById('DET-C');
-  detC.onclick=function(e){
-    var btn=e.target.closest('.btn-nuevo-cred');
-    if(btn){ cM('m-det'); setTimeout(function(){oCred(btn.dataset.cid,btn.dataset.nom);},200); }
-  };
+
 }
 
 
@@ -2354,6 +2356,12 @@ function oM(id){
     document.getElementById('NC-INT').style.background=esAdmin?'':'var(--bll)';
     document.getElementById('NC-DIA').style.background=esAdmin?'':'var(--bll)';
     document.getElementById('NC-PREV').innerHTML='';
+    document.getElementById('NC-DISP').innerHTML='';
+    // Mostrar disponible de la ruta preseleccionada
+    setTimeout(function(){
+      var rutSel=document.getElementById('NC-RUT');
+      if(rutSel&&rutSel.value) mostrarDisponibleCred(rutSel.value,'NC-DISP');
+    },50);
   }
   if(id==='m-gas'){
     document.getElementById('GAS-CONC').value='';
@@ -2546,6 +2554,7 @@ function setFCMes(m){fcMes=m;rFlujo();}
 
 // Disponible para prestar en una ruta hoy
 function disponibleRuta(rutaId){
+  // Base asignada hoy + recaudo cobrado hoy - préstamos otorgados hoy - gastos hoy
   var bd=baseDia(rutaId,ISO);
   var base=bd.base;
   var recaudo=recaudoDia(rutaId,ISO);
@@ -5959,6 +5968,38 @@ async function restaurarBackup(archivo){
     toast('Error al restaurar backup','err');
     console.error(e);
   }
+}
+
+// Mostrar disponible al abrir modal de crédito (sin necesitar el capital)
+function mostrarDisponibleCred(rutaId, elId){
+  if(!rutaId) return;
+  var disp=disponibleRuta(rutaId);
+  var bd=baseDia(rutaId,ISO);
+  var rEnq=recaudoEfNq(rutaId,ISO);
+  var pEnq=prestamosEfNq(rutaId,ISO);
+  var gasH=gastosDia(rutaId,ISO);
+  var dispEf=bd.base+rEnq.ef-pEnq.ef-gasH;
+  var dispNq=rEnq.nq-pEnq.nq;
+  var el=document.getElementById(elId); if(!el) return;
+  el.innerHTML=
+    '<div style="margin-top:8px;background:'+(disp>=0?'var(--bli)':'#FFEBEE')+';border-radius:var(--rs);padding:10px 14px">'+
+    '<div style="font-size:10px;font-weight:700;color:var(--bl);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Disponible para prestar hoy</div>'+
+    '<div style="display:flex;flex-direction:column;gap:4px;font-size:13px">'+
+      '<div style="display:flex;justify-content:space-between"><span style="color:var(--tm)">Base asignada</span><span class="gp">+'+fm(bd.base)+'</span></div>'+
+      '<div style="display:flex;justify-content:space-between"><span style="color:var(--tm)">Recaudo cobrado hoy</span>'+
+        '<div style="text-align:right"><span class="gp">+'+fm(rEnq.ef+rEnq.nq)+'</span>'+
+        '<div style="font-size:10px;color:var(--tm)">&#x1F4B5;'+fm(rEnq.ef)+' &#x1F4F1;'+fm(rEnq.nq)+'</div></div></div>'+
+      '<div style="display:flex;justify-content:space-between;border-top:1px solid var(--br);padding-top:4px;margin-top:2px"><span style="color:var(--tm)">Préstamos otorgados</span><span class="gn2">-'+fm(pEnq.ef+pEnq.nq)+'</span></div>'+
+      '<div style="display:flex;justify-content:space-between"><span style="color:var(--tm)">Gastos del día</span><span class="gn2">-'+fm(gasH)+'</span></div>'+
+      '<div style="display:flex;justify-content:space-between;font-weight:700;font-size:15px;border-top:1px solid var(--br);padding-top:4px;margin-top:2px">'+
+        '<span style="color:var(--bd)">Disponible</span>'+
+        '<div style="text-align:right">'+
+          '<span style="color:'+(disp>=0?'var(--gn)':'var(--rd)')+'">'+fm(disp)+'</span>'+
+          '<div style="font-size:10px;color:var(--tm)">&#x1F4B5;'+fm(Math.max(0,dispEf))+' &#x1F4F1;'+fm(Math.max(0,dispNq))+'</div>'+
+        '</div>'+
+      '</div>'+
+    '</div>'+
+    '</div>';
 }
 // INIT
 buildU(); setSy('cn');
