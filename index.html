@@ -1992,7 +1992,7 @@ function sNuevoCli(){
 
 // CRÉDITO A CLIENTE EXISTENTE
 var _creditoCliId=null;
-function oCred(cliId,nomCli){
+function oCred(cliId, nomCli){
   _creditoCliId=cliId;
   document.getElementById('CRED-TITLE').textContent='Nuevo crédito — '+nomCli;
   document.getElementById('CR-CAP').value='';
@@ -2000,16 +2000,17 @@ function oCred(cliId,nomCli){
   document.getElementById('CR-INT').value=PAR.interesDef;
   document.getElementById('CR-DIA').value=PAR.plazoDef;
   document.getElementById('CR-PREV').innerHTML='';
-  // Para cobrador: plazo e interés fijos (solo lectura)
+  document.getElementById('CR-DISP').innerHTML='';
   var esAdmin=CU.rol==='admin';
   document.getElementById('CR-INT').readOnly=!esAdmin;
   document.getElementById('CR-DIA').readOnly=!esAdmin;
   document.getElementById('CR-INT').style.background=esAdmin?'':'var(--bll)';
   document.getElementById('CR-DIA').style.background=esAdmin?'':'var(--bll)';
   selMpPre('CR','efectivo');
-  // Mostrar disponible inmediatamente al abrir
-  var c_disp=gC(_creditoCliId);
-  if(c_disp&&c_disp.rutaId) mostrarDisponibleCred(c_disp.rutaId,'CR-DISP');
+  // Buscar rutaId del cliente — intentar de ST.clientes o de _detCliId
+  var cli=ST.clientes.find(function(c){return c.id===cliId;});
+  var rutaId=cli?cli.rutaId:(CU.rol==='ruta'?CU.rutaId:null);
+  if(rutaId) mostrarDisponibleCred(rutaId,'CR-DISP');
   document.getElementById('m-credito').style.display='flex';
 }
 function calcPrev3(){
@@ -2208,7 +2209,7 @@ function verCli(id){
     '</div>'+
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">'+
       '<h3 style="text-transform:uppercase;font-size:11px;font-weight:700;color:var(--bd);letter-spacing:.05em">Créditos ('+pres.length+')</h3>'+
-      '<button class="bc" onclick="cM('m-det');setTimeout(function(){oCred(_detCliId,document.getElementById('DET-NOM').textContent);},200)">+ Nuevo crédito</button>'+
+      '<button class="bc" onclick="_abrirNuevoCred()">+ Nuevo crédito</button>'+
     '</div>'+
     (credHtml||'<div class="empty">Sin créditos</div>');
   document.getElementById('m-det').style.display='flex';
@@ -2345,6 +2346,12 @@ function expFlujo(){
 function oM(id){
   if(id==='m-nuevo-cli'){
     document.getElementById('NC-RUT').innerHTML=ST.rutas.map(function(r){return '<option value="'+r.id+'">'+r.nombre+'</option>';}).join('');
+    // Mostrar disponible de la primera ruta disponible (o la del cobrador)
+    var rutInicial=CU.rol==='ruta'?CU.rutaId:(ST.rutas[0]?ST.rutas[0].id:'');
+    if(rutInicial){
+      document.getElementById('NC-RUT').value=rutInicial;
+      mostrarDisponibleCred(rutInicial,'NC-DISP');
+    }
     ['NC-NOM','NC-CED','NC-TEL','NC-DIR','NC-CAP','NC-CIU','NC-CAP-VAL'].forEach(function(f){document.getElementById(f).value='';});
     selMpPre('NC','efectivo'); // reset método por defecto
     document.getElementById('NC-INT').value=PAR.interesDef;
@@ -2357,11 +2364,6 @@ function oM(id){
     document.getElementById('NC-DIA').style.background=esAdmin?'':'var(--bll)';
     document.getElementById('NC-PREV').innerHTML='';
     document.getElementById('NC-DISP').innerHTML='';
-    // Mostrar disponible de la ruta preseleccionada
-    setTimeout(function(){
-      var rutSel=document.getElementById('NC-RUT');
-      if(rutSel&&rutSel.value) mostrarDisponibleCred(rutSel.value,'NC-DISP');
-    },50);
   }
   if(id==='m-gas'){
     document.getElementById('GAS-CONC').value='';
@@ -2742,7 +2744,7 @@ function checkCed(val){
     btn.addEventListener('click', function(){
       var cid=w.dataset.cid, cnom=w.dataset.cnom;
       cM('m-nuevo-cli');
-      setTimeout(function(){ oCred(cid, cnom); }, 350);
+      setTimeout(function(){ oCred(cid, cnom); }, 500);
     });
     w.appendChild(btn);
   }else{
