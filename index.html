@@ -307,17 +307,6 @@ tr:hover td{background:var(--bll)}
 #BASE-TIPOS .mp-opt.sel-ap{border-color:var(--gn);background:#E8F5E9}
 #BASE-TIPOS .mp-opt.sel-re{border-color:var(--rd);background:#FFEBEE}
 #BASE-TIPOS .mp-opt.sel-ba{border-color:var(--bl);background:var(--bli)}
-
-/* ORDEN RUTA */
-.orden-row{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--wh);border:1px solid var(--br);border-radius:var(--rs);margin-bottom:6px;cursor:grab}
-.orden-row:active{cursor:grabbing;background:var(--bll)}
-.orden-handle{color:var(--tm);font-size:16px;flex-shrink:0;cursor:grab}
-.orden-num{width:22px;height:22px;border-radius:50%;background:var(--bl);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-/* EDIT PRESTAMO */
-.edit-pre-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bll)}
-/* FORMATO NÚMERO */
-.num-fmt{position:relative}
-.num-fmt-disp{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--tx);pointer-events:none;background:var(--wh);padding:0 2px}
 </style>
 </head>
 <body>
@@ -388,10 +377,7 @@ tr:hover td{background:var(--bll)}
         <div class="mini-dash" id="CLI-DASH"></div>
         <div class="sh">
           <div class="sr"><input type="text" placeholder="Buscar por nombre o cédula..." id="SCI" oninput="rCli()"></div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap">
-            <button class="bg2 bs" onclick="abrirOrden()">&#9776; Orden de ruta</button>
-            <button class="bp bs" onclick="oM('m-nuevo-cli')">+ Nuevo cliente / crédito</button>
-          </div>
+          <button class="bp bs" onclick="oM('m-nuevo-cli')">+ Nuevo cliente / crédito</button>
         </div>
         <div class="card" style="padding:0 1.25rem">
           <div id="CLI-LIST"></div>
@@ -476,16 +462,11 @@ tr:hover td{background:var(--bll)}
       </div>
       <!-- GASTOS DIARIOS -->
       <div class="sc" id="sc-gas">
-        <div class="tb"><h2>Gastos</h2></div>
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem;flex-wrap:wrap">
-          <label style="font-size:11px;font-weight:700;color:var(--bl);text-transform:uppercase;letter-spacing:.05em">Fecha:</label>
-          <input type="date" id="GAS-DIA" style="padding:6px 10px;font-size:13px;font-family:inherit;border:1px solid var(--br);border-radius:var(--rs);" onchange="rGas()">
-          <button class="bp bs" onclick="document.getElementById('GAS-DIA').value=ISO;rGas()">Hoy</button>
-        </div>
+        <div class="tb"><h2>Gastos del día</h2><span class="tbd" id="GAS-FECHA"></span></div>
         <div class="met" id="GAS-MET"></div>
         <div class="card">
           <div class="chr">
-            <h3 id="GAS-FECHA">Gastos del día</h3>
+            <h3>Registrar gasto</h3>
             <button class="bp bs" onclick="oM('m-gas')">+ Agregar gasto</button>
           </div>
           <div id="GAS-LIST"></div>
@@ -517,11 +498,11 @@ tr:hover td{background:var(--bll)}
 <div id="m-nuevo-cli" class="mov" style="display:none" onclick="cM('m-nuevo-cli')"><div class="modal mlg" onclick="event.stopPropagation()">
   <h3>Nuevo cliente y crédito</h3>
   <div style="background:var(--bll);border-radius:var(--rs);padding:10px 14px;margin-bottom:1rem;font-size:12px;color:var(--bl);font-weight:600">Datos del cliente</div>
-  <div class="fr"><div class="fg2"><label>Nombre completo *</label><input id="NC-NOM" type="text"></div><div class="fg2"><label>Cédula</label><input id="NC-CED" type="text" oninput="checkCed(this.value)"><div id="CED-WARN" style="font-size:11px;color:var(--am);margin-top:3px;display:none"></div></div></div>
+  <div class="fr"><div class="fg2"><label>Nombre completo *</label><input id="NC-NOM" type="text"></div><div class="fg2"><label>Cédula</label><input id="NC-CED" type="text"></div></div>
   <div class="fr"><div class="fg2"><label>Teléfono</label><input id="NC-TEL" type="text"></div><div class="fg2"><label>Ruta *</label><select id="NC-RUT"></select></div></div>
-  <div class="fr"><div class="fg2"><label>Ciudad / Municipio</label><input id="NC-CIU" type="text" placeholder="Ej: Bogotá, Medellín..."></div><div class="fg2"><label>Dirección / notas</label><input id="NC-DIR" type="text"></div></div>
+  <div class="fg2"><label>Dirección / notas</label><input id="NC-DIR" type="text"></div>
   <div style="background:var(--bll);border-radius:var(--rs);padding:10px 14px;margin:1rem 0;font-size:12px;color:var(--bl);font-weight:600">Datos del crédito</div>
-  <div class="fr"><div class="fg2"><label>Capital ($) * <span style="font-size:10px;color:var(--tm);font-weight:400">mín $100.000</span></label><input id="NC-CAP" type="text" inputmode="numeric" placeholder="100.000" oninput="fmtCap(this,'NC-CAP-VAL');calcPrev2()" style="font-weight:700"><input type="hidden" id="NC-CAP-VAL"></div><div class="fg2"><label>Interés (%)</label><input id="NC-INT" type="number" value="20" oninput="calcPrev2()"></div></div>
+  <div class="fr"><div class="fg2"><label>Capital ($) *</label><input id="NC-CAP" type="number" oninput="calcPrev2()"></div><div class="fg2"><label>Interés (%)</label><input id="NC-INT" type="number" value="20" oninput="calcPrev2()"></div></div>
   <div class="fr"><div class="fg2"><label>Plazo (días) *</label><input id="NC-DIA" type="number" value="30" oninput="calcPrev2()"></div><div class="fg2"><label>Fecha inicio *</label><input id="NC-FEC" type="date"></div></div>
   <div id="NC-PREV"></div>
   <div class="mf"><button class="bg2 bs" onclick="cM('m-nuevo-cli')">Cancelar</button><button class="bp bs" onclick="sNuevoCli()">Crear cliente y crédito</button></div>
@@ -530,7 +511,7 @@ tr:hover td{background:var(--bll)}
 <!-- AGREGAR CRÉDITO A CLIENTE EXISTENTE -->
 <div id="m-credito" class="mov" style="display:none" onclick="cM('m-credito')"><div class="modal" onclick="event.stopPropagation()">
   <h3 id="CRED-TITLE">Nuevo crédito</h3>
-  <div class="fr"><div class="fg2"><label>Capital ($) * <span style="font-size:10px;color:var(--tm);font-weight:400">mín $100.000</span></label><input id="CR-CAP" type="text" inputmode="numeric" placeholder="100.000" oninput="fmtCap(this,'CR-CAP-VAL');calcPrev3()" style="font-weight:700"><input type="hidden" id="CR-CAP-VAL"></div><div class="fg2"><label>Interés (%)</label><input id="CR-INT" type="number" value="20" oninput="calcPrev3()"></div></div>
+  <div class="fr"><div class="fg2"><label>Capital ($) *</label><input id="CR-CAP" type="number" oninput="calcPrev3()"></div><div class="fg2"><label>Interés (%)</label><input id="CR-INT" type="number" value="20" oninput="calcPrev3()"></div></div>
   <div class="fr"><div class="fg2"><label>Plazo (días) *</label><input id="CR-DIA" type="number" value="30" oninput="calcPrev3()"></div><div class="fg2"><label>Fecha inicio *</label><input id="CR-FEC" type="date"></div></div>
   <div id="CR-PREV"></div>
   <div class="mf"><button class="bg2 bs" onclick="cM('m-credito')">Cancelar</button><button class="bp bs" onclick="sCredito()">Crear crédito</button></div>
@@ -611,28 +592,6 @@ tr:hover td{background:var(--bll)}
   <div class="fg2"><label>Ruta</label><select id="RS-RUT"></select></div>
   <div id="RS-WARN" style="font-size:12px;color:var(--rd);margin-top:4px;display:none">El valor supera el saldo disponible del fondo</div>
   <div class="mf"><button class="bg2 bs" onclick="cM('m-retiro-seg')">Cancelar</button><button class="bp bs" id="RS-OK" onclick="sRetiroSeg()" style="background:#6A1B9A">Registrar retiro</button></div>
-</div></div>
-
-<!-- EDITAR PRÉSTAMO -->
-<div id="m-edit-pre" class="mov" style="display:none" onclick="cM('m-edit-pre')"><div class="modal" onclick="event.stopPropagation()">
-  <h3>Editar préstamo</h3>
-  <input type="hidden" id="EP-ID">
-  <div class="fr"><div class="fg2"><label>Capital ($)</label><input id="EP-CAP" type="text" inputmode="numeric" placeholder="100.000" oninput="fmtCap(this,'EP-CAP-VAL');calcPrevEdit()" style="font-weight:700"><input type="hidden" id="EP-CAP-VAL"></div><div class="fg2"><label>Interés (%)</label><input id="EP-INT" type="number" oninput="calcPrevEdit()"></div></div>
-  <div class="fr"><div class="fg2"><label>Plazo (días)</label><input id="EP-DIA" type="number" oninput="calcPrevEdit()"></div><div class="fg2"><label>Fecha inicio</label><input id="EP-FEC" type="date"></div></div>
-  <div id="EP-PREV" style="margin-top:8px"></div>
-  <div class="mf"><button class="bg2 bs" onclick="cM('m-edit-pre')">Cancelar</button><button class="bp bs" onclick="sEditPre()">Guardar cambios</button></div>
-</div></div>
-
-<!-- ORDEN DE RUTA -->
-<div id="m-orden" class="mov" style="display:none" onclick="cM('m-orden')"><div class="modal mlg" onclick="event.stopPropagation()">
-  <h3>Orden de ruta</h3>
-  <p style="font-size:12px;color:var(--tm);margin-bottom:1rem">Arrastra los clientes para definir el orden de visita.</p>
-  <div style="margin-bottom:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-    <label style="font-size:11px;font-weight:700;color:var(--bl);text-transform:uppercase;letter-spacing:.05em">Ruta:</label>
-    <select id="ORDEN-RUT" onchange="rOrden()" style="padding:6px 10px;font-size:13px;font-family:inherit;border:1px solid var(--br);border-radius:var(--rs);background:var(--wh)"></select>
-  </div>
-  <div id="ORDEN-LIST"></div>
-  <div class="mf"><button class="bg2 bs" onclick="cM('m-orden')">Cerrar</button><button class="bp bs" onclick="sOrden()">Guardar orden</button></div>
 </div></div>
 
 <!-- DETALLE CLIENTE -->
@@ -1093,11 +1052,6 @@ function rCli(){
   // ── Lista de clientes ──────────────────────
   var list = todosCli.filter(function(c){
     return c.nombre.toLowerCase().indexOf(q.toLowerCase())>=0 || (c.cedula||'').indexOf(q)>=0;
-  }).sort(function(a,b){
-    // Ordenar por campo 'orden' si existe, luego por nombre
-    if(a.orden&&b.orden) return a.orden-b.orden;
-    if(a.orden) return -1; if(b.orden) return 1;
-    return (a.nombre||'').localeCompare(b.nombre||'');
   });
 
   if(!list.length){
@@ -1122,7 +1076,7 @@ function rCli(){
       '<div class="cli-avatar" style="background:'+color+'">'+inicial+'</div>'+
       '<div class="cli-info">'+
         '<div class="cli-name">'+c.nombre+(esReembolso?' <span class="badge" style="background:#F3E5F5;color:#6A1B9A">Reembolso</span>':'')+'</div>'+
-        '<div class="cli-sub">'+(c.cedula?'CC '+c.cedula+' · ':'')+''+(c.tel||'')+(c.ciudad?' · '+c.ciudad:'')+(r?' · '+r.nombre:'')+'</div>'+
+        '<div class="cli-sub">'+(c.cedula?'CC '+c.cedula+' · ':'')+''+(c.tel||'')+(r?' · Ruta '+r.nombre:'')+'</div>'+
       '</div>'+
       '<div class="cli-right">'+
         '<div class="cli-saldo">'+fm(saldo)+'</div>'+
@@ -1568,7 +1522,7 @@ function sBase() {
 
 // NUEVO CLIENTE + CRÉDITO
 function calcPrev2(){
-  var cap=getCapVal('NC-CAP','NC-CAP-VAL');
+  var cap=parseFloat(document.getElementById('NC-CAP').value)||0;
   var int=parseFloat(document.getElementById('NC-INT').value)||0;
   var dias=parseInt(document.getElementById('NC-DIA').value)||0;
   if(!cap||!dias){document.getElementById('NC-PREV').innerHTML='';return;}
@@ -1601,24 +1555,11 @@ function calcPrev2(){
 }
 function sNuevoCli(){
   var nom=document.getElementById('NC-NOM').value.trim();
-  var ced=document.getElementById('NC-CED').value.trim();
-  var cap=getCapVal('NC-CAP','NC-CAP-VAL');
+  var cap=parseFloat(document.getElementById('NC-CAP').value);
   var dias=parseInt(document.getElementById('NC-DIA').value);
   var fec=document.getElementById('NC-FEC').value;
   var rut=document.getElementById('NC-RUT').value;
   if(!nom||!cap||!dias||!fec||!rut){toast('Complete nombre, ruta y datos del crédito','err');return;}
-  // Validar mínimo
-  if(cap<100000){toast('El capital mínimo es $100.000','err');return;}
-  // Verificar cédula duplicada
-  if(ced){
-    var existe=ST.clientes.find(function(c){return c.cedula&&c.cedula===ced;});
-    if(existe){
-      cM('m-nuevo-cli');
-      toast('Cliente ya existe con esa cédula. Abriendo para agregar crédito...','ok');
-      setTimeout(function(){oCred(existe.id,existe.nombre);},600);
-      return;
-    }
-  }
   var int=parseFloat(document.getElementById('NC-INT').value)||0;
   // Validar disponible antes de crear
   var disp=disponibleRuta(rut);
@@ -1633,7 +1574,6 @@ function sNuevoCli(){
   db.collection('clientes').add({
     nombre:nom,cedula:document.getElementById('NC-CED').value,
     tel:document.getElementById('NC-TEL').value,
-    ciudad:document.getElementById('NC-CIU').value,
     dir:document.getElementById('NC-DIR').value,
     rutaId:rut,createdAt:Date.now()
   }).then(function(cRef){
@@ -1667,7 +1607,7 @@ var _creditoCliId=null;
 function oCred(cliId,nomCli){
   _creditoCliId=cliId;
   document.getElementById('CRED-TITLE').textContent='Nuevo crédito — '+nomCli;
-  document.getElementById('CR-CAP').value='';document.getElementById('CR-CAP-VAL').value='';document.getElementById('CR-INT').value='20';
+  document.getElementById('CR-CAP').value='';document.getElementById('CR-INT').value='20';
   document.getElementById('CR-DIA').value='30';
   // Fecha inicio = hoy (la primera cuota corre desde mañana automáticamente)
   document.getElementById('CR-FEC').value=ISO;
@@ -1681,7 +1621,7 @@ function oCred(cliId,nomCli){
   document.getElementById('m-credito').style.display='flex';
 }
 function calcPrev3(){
-  var cap=getCapVal('CR-CAP','CR-CAP-VAL');
+  var cap=parseFloat(document.getElementById('CR-CAP').value)||0;
   var int=parseFloat(document.getElementById('CR-INT').value)||0;
   var dias=parseInt(document.getElementById('CR-DIA').value)||0;
   if(!cap||!dias){document.getElementById('CR-PREV').innerHTML='';return;}
@@ -1715,12 +1655,11 @@ function calcPrev3(){
   }
 }
 function sCredito(){
-  var cap=getCapVal('CR-CAP','CR-CAP-VAL');
+  var cap=parseFloat(document.getElementById('CR-CAP').value);
   var int=parseFloat(document.getElementById('CR-INT').value)||0;
   var dias=parseInt(document.getElementById('CR-DIA').value);
   var fec=document.getElementById('CR-FEC').value;
   if(!_creditoCliId||!cap||!dias||!fec){toast('Complete todos los campos','err');return;}
-  if(cap<100000){toast('El capital mínimo es $100.000','err');return;}
   var c2=gC(_creditoCliId);
   var rutaId2=c2?c2.rutaId:null;
   if(rutaId2){
@@ -1799,65 +1738,42 @@ function sRuta(){
 
 // VER CLIENTE
 function verCli(id){
-  var c=gC(id); if(!c)return;
+  var c=gC(id);if(!c)return;
   var r=gR(c.rutaId);
-  var pres=ST.prestamos.filter(function(p){return p.clienteId===id;})
-    .sort(function(a,b){return (b.createdAt||0)-(a.createdAt||0);});
+  var pres=myP().filter(function(p){return p.clienteId===id;});
   var B={completado:'bg3',moroso:'br2',atraso:'ba',activo:'bb'};
   var T={completado:'Completado',moroso:'Moroso',atraso:'Atraso',activo:'Activo'};
-
-  // Agrupar: activos primero, luego completados
-  var activos=pres.filter(function(p){return pI(p).est!=='completado';});
-  var completados=pres.filter(function(p){return pI(p).est==='completado';});
-  var ordenados=activos.concat(completados);
-
-  var credHtml=ordenados.map(function(p){
+  var credHtml=pres.map(function(p){
     var i=pI(p);
     var saldo=saldoPendiente(p);
-    var esHoy=p.fechaInicio===ISO;
+    // Grid de cuotas
     var cuotasH='';
     for(var n=1;n<=p.dias;n++){
       var pg=p.pagos||{},paid=pg[n],fecha=i.fechas[n]||'';
-      var cls='ppend',ttl='Pendiente';
-      if(paid){cls='pok';ttl='Pagado '+fd(fecha)+' '+fm(paid.valor||i.c);}
-      else if(fecha<ISO){cls='pvec';ttl='Vencida '+fd(fecha);}
-      else if(fecha===ISO){cls='phoy';ttl='Hoy';}
-      cuotasH+='<div class="cuota-cell '+cls+'" title="'+ttl+'">'+n+'</div>';
+      var cls='ppend',title='Pendiente';
+      if(paid){cls='pok';title='Pagado '+fd(fecha)+' '+fm(paid.valor||i.c);}
+      else if(fecha<ISO){cls='pvec';title='Vencida '+fd(fecha);}
+      else if(fecha===ISO){cls='phoy';title='Hoy';}
+      cuotasH+='<div class="cuota-cell '+cls+'" title="'+title+'">'+n+'</div>';
     }
-    return '<div style="background:var(--bll);border-radius:var(--rs);padding:12px;margin-bottom:10px;border:1px solid '+(esHoy?'var(--bl)':'var(--bll)')+'">'+
-      '<div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:6px;margin-bottom:8px">'+
-        '<div><div style="font-size:13px;font-weight:700;color:var(--bd)">'+fm(p.capital)+' — '+p.dias+' días <span class="badge '+B[i.est]+'">'+T[i.est]+'</span>'+(esHoy?'<span class="badge bb" style="margin-left:4px">Hoy</span>':'')+'</div>'+
-        '<div class="ts">Desde '+fd(p.fechaInicio)+' · Cuota: '+fm(i.c)+'/día · Seguro: '+fm(p.seguro||i.c)+'</div></div>'+
-        '<div style="text-align:right">'+
-          '<div style="font-size:15px;font-weight:700;color:var(--bd)">'+fm(saldo)+'</div>'+
-          '<div class="ts">Saldo pendiente</div>'+
-          (esHoy?'<div style="display:flex;gap:4px;margin-top:4px;justify-content:flex-end">'+
-            '<button class="bv" style="font-size:11px;padding:3px 8px" data-pid="'+p.id+'" onclick="abrirEditPre(this.dataset.pid);cM(&quot;m-det&quot;)">Editar</button>'+
-            '<button class="bd2" data-pid="'+p.id+'" onclick="eliminarPre(this.dataset.pid)">Eliminar</button></div>':'')+'</div>'+
-      '</div>'+
+    return '<div style="background:var(--bll);border-radius:var(--rs);padding:12px;margin-bottom:10px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:8px;margin-bottom:8px">'+
+      '<div><div style="font-size:13px;font-weight:700;color:var(--bd)">'+fm(p.capital)+' — '+p.dias+' días <span class="badge '+B[i.est]+'">'+T[i.est]+'</span></div>'+
+      '<div class="ts">Desde '+fd(p.fechaInicio)+' · Cuota: '+fm(i.c)+'/día</div></div>'+
+      '<div style="text-align:right"><div style="font-size:15px;font-weight:700;color:var(--bd)">'+fm(saldo)+'</div><div class="ts">Saldo pendiente</div></div></div>'+
       '<div class="pb"><div class="pf" style="width:'+i.prog.toFixed(0)+'%"></div></div>'+
       '<div class="ts" style="margin-bottom:8px">'+i.pag+' pagadas · '+i.venc.length+' vencidas · '+(p.dias-i.pag)+' restantes</div>'+
       '<div class="cuotas-grid">'+cuotasH+'</div></div>';
   }).join('');
-
   document.getElementById('DET-C').innerHTML=
-    '<div style="margin-bottom:1rem">'+
-      '<div style="font-size:17px;font-weight:700;color:var(--bd);margin-bottom:4px">'+c.nombre+'</div>'+
-      '<div class="ts">'+
-        (c.cedula?'CC: '+c.cedula+' · ':'')+
-        (c.tel||'')+
-        (c.ciudad?' · '+c.ciudad:'')+
-        (r?' · Ruta '+r.nombre:'')+
-      '</div>'+
-    '</div>'+
+    '<div style="margin-bottom:1rem"><div style="font-size:17px;font-weight:700;color:var(--bd);margin-bottom:4px">'+c.nombre+'</div>'+
+    '<div class="ts">'+(c.cedula?'CC: '+c.cedula+' · ':'')+c.tel+(r?' · Ruta '+r.nombre:'')+'</div></div>'+
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">'+
-      '<h3 style="text-transform:uppercase;font-size:11px;font-weight:700;color:var(--bd);letter-spacing:.05em">Créditos ('+pres.length+')</h3>'+
-      '<button class="bc" data-cid="'+id+'" data-nom="'+c.nombre+'" onclick="oCred(this.dataset.cid,this.dataset.nom);cM(&quot;m-det&quot;)">+ Nuevo crédito</button>'+
-    '</div>'+
+    '<h3 style="text-transform:uppercase;font-size:11px;font-weight:700;color:var(--bd);letter-spacing:.05em">Créditos ('+pres.length+')</h3>'+
+    '<button class="bc" onclick="oCred(\''+id+'\',\''+c.nombre.replace(/'/g,"\\'")+'\');cM(\'m-det\')">+ Nuevo crédito</button></div>'+
     (credHtml||'<div class="empty">Sin créditos</div>');
   document.getElementById('m-det').style.display='flex';
 }
-
 
 // EXPORTAR FLUJO
 function expFlujo(){
@@ -1924,7 +1840,7 @@ function expFlujo(){
 function oM(id){
   if(id==='m-nuevo-cli'){
     document.getElementById('NC-RUT').innerHTML=ST.rutas.map(function(r){return '<option value="'+r.id+'">'+r.nombre+'</option>';}).join('');
-    ['NC-NOM','NC-CED','NC-TEL','NC-DIR','NC-CAP','NC-CIU','NC-CAP-VAL'].forEach(function(f){document.getElementById(f).value='';});
+    ['NC-NOM','NC-CED','NC-TEL','NC-DIR','NC-CAP'].forEach(function(f){document.getElementById(f).value='';});
     document.getElementById('NC-INT').value='20';document.getElementById('NC-DIA').value='30';
     // Para cobrador: plazo e interés fijos (solo lectura)
     var esAdmin=CU.rol==='admin';
@@ -1969,33 +1885,34 @@ function cM(id){document.getElementById(id).style.display='none';}
 // GASTOS DIARIOS
 // ══════════════════════════════════════════════
 function rGas(){
-  var dEl=document.getElementById('GAS-DIA');
-  if(!dEl.value) dEl.value=ISO;
-  var fecha=dEl.value;
-  var esHoy=fecha===ISO;
-  document.getElementById('GAS-FECHA').textContent='Gastos del '+new Date(fecha+'T12:00:00').toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long'});
-  var gasD=ST.gastos.filter(function(g){
-    if(!g.fecha||g.fecha!==fecha)return false;
-    if(CU.rol==='ruta')return g.rutaId===CU.rutaId;
+  var fecha = ISO;
+  document.getElementById('GAS-FECHA').textContent = HOY.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long'});
+  // Gastos del día — todos los de la ruta del usuario o todos si es admin
+  var gasHoy = ST.gastos.filter(function(g){
+    if(!g.fecha || g.fecha!==fecha) return false;
+    if(CU.rol==='ruta') return g.rutaId===CU.rutaId;
     return true;
   });
-  var total=gasD.reduce(function(s,g){return s+(g.monto||0);},0);
-  var cnt=gasD.length;
-  document.getElementById('GAS-MET').innerHTML=
-    '<div class="me"><div class="lb">Total del día</div><div class="vl gn2">'+fm(total)+'</div></div>'+
-    '<div class="me"><div class="lb">Gastos</div><div class="vl">'+cnt+'</div></div>'+
-    '<div class="me"><div class="lb">Promedio</div><div class="vl">'+(cnt>0?fm(Math.round(total/cnt)):fm(0))+'</div></div>'+
-    '<div class="me"><div class="lb">Fecha</div><div class="vl" style="font-size:14px">'+new Date(fecha+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short'})+'</div></div>';
-  if(!gasD.length){
-    document.getElementById('GAS-LIST').innerHTML='<div class="empty">Sin gastos para este día.</div>';
+  var total = gasHoy.reduce(function(s,g){return s+(g.monto||0);},0);
+  var cnt = gasHoy.length;
+  document.getElementById('GAS-MET').innerHTML =
+    '<div class="me"><div class="lb">Total gastos hoy</div><div class="vl gn2">'+fm(total)+'</div></div>'+
+    '<div class="me"><div class="lb">Número de gastos</div><div class="vl">'+cnt+'</div></div>'+
+    '<div class="me"><div class="lb">Promedio por gasto</div><div class="vl">'+(cnt>0?fm(Math.round(total/cnt)):fm(0))+'</div></div>'+
+    '<div class="me"><div class="lb">Día</div><div class="vl" style="font-size:14px">'+HOY.toLocaleDateString('es-CO',{day:'2-digit',month:'short'})+'</div></div>';
+
+  if(!gasHoy.length){
+    document.getElementById('GAS-LIST').innerHTML='<div class="empty">Sin gastos registrados hoy. Agrega el primero.</div>';
     return;
   }
-  document.getElementById('GAS-LIST').innerHTML=gasD.sort(function(a,b){return(b.createdAt||0)-(a.createdAt||0);}).map(function(g){
-    var r=gR(g.rutaId);
+  document.getElementById('GAS-LIST').innerHTML = gasHoy.map(function(g){
+    var r = gR(g.rutaId);
     return '<div class="gasto-row2">'+
       '<div class="gasto-icon">💸</div>'+
-      '<div style="flex:1;min-width:0"><div class="tn">'+g.concepto+'</div>'+
-      '<div class="ts">'+(r?'Ruta '+r.nombre:'General')+'</div></div>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div class="tn">'+g.concepto+'</div>'+
+        '<div class="ts">'+(r?'Ruta '+r.nombre:'General')+'</div>'+
+      '</div>'+
       '<div style="font-size:14px;font-weight:700;color:var(--rd);flex-shrink:0">'+fm(g.monto||0)+'</div>'+
       (CU.rol==='admin'?'<button class="bd2" onclick="dGasto(&quot;'+g.id+'&quot;)">&#10005;</button>':'')+
     '</div>';
@@ -2130,190 +2047,6 @@ function disponibleRuta(rutaId){
   var prest=prestamosDia(rutaId,ISO);
   var gastos=gastosDia(rutaId,ISO);
   return base+recaudo-prest-gastos;
-}
-
-// ══════════════════════════════════════════════
-// EDITAR / ELIMINAR PRÉSTAMO (solo del mismo día)
-// ══════════════════════════════════════════════
-function abrirEditPre(pid){
-  var p=gP(pid); if(!p)return;
-  // Solo si fue creado hoy
-  if(p.fechaInicio!==ISO){toast('Solo se pueden editar préstamos creados hoy','err');return;}
-  document.getElementById('EP-ID').value=pid;
-  document.getElementById('EP-CAP').value=Math.round(p.capital).toLocaleString('es-CO');document.getElementById('EP-CAP-VAL').value=p.capital;
-  document.getElementById('EP-INT').value=p.interes||20;
-  document.getElementById('EP-DIA').value=p.dias;
-  document.getElementById('EP-FEC').value=p.fechaInicio;
-  calcPrevEdit();
-  document.getElementById('m-edit-pre').style.display='flex';
-}
-
-function calcPrevEdit(){
-  var cap=getCapVal('EP-CAP','EP-CAP-VAL');
-  var int=parseFloat(document.getElementById('EP-INT').value)||0;
-  var dias=parseInt(document.getElementById('EP-DIA').value)||0;
-  if(!cap||!dias){document.getElementById('EP-PREV').innerHTML='';return;}
-  var tot=cap*(1+int/100),c=Math.round(tot/dias);
-  document.getElementById('EP-PREV').innerHTML=
-    '<div class="pvb" style="margin-top:0">'+
-    '<div class="pvi"><div class="lb">Total a pagar</div><div class="vl">'+fm(tot)+'</div></div>'+
-    '<div class="pvi"><div class="lb">Cuota diaria</div><div class="vl">'+fm(c)+'</div></div>'+
-    '<div class="pvi"><div class="lb">Seguro (1 cuota)</div><div class="vl" style="color:#6A1B9A">'+fm(c)+'</div></div>'+
-    '</div>';
-}
-
-function sEditPre(){
-  var pid=document.getElementById('EP-ID').value;
-  var cap=getCapVal('EP-CAP','EP-CAP-VAL');
-  var int=parseFloat(document.getElementById('EP-INT').value)||0;
-  var dias=parseInt(document.getElementById('EP-DIA').value);
-  var fec=document.getElementById('EP-FEC').value;
-  if(!cap||!dias||!fec){toast('Complete todos los campos','err');return;}
-  if(cap<100000){toast('Capital mínimo $100.000','err');return;}
-  var tot=cap*(1+int/100), cuota=Math.round(tot/dias), recibe=cap-cuota;
-  var p=gP(pid); if(!p)return;
-  var c=gC(p.clienteId);
-  // Actualizar seguro: eliminar el anterior y crear nuevo
-  var segAnt=ST.seguros.find(function(s){return s.prestamoId===pid&&s.tipo==='ingreso';});
-  var batch=[];
-  db.collection('prestamos').doc(pid).update({
-    capital:cap,interes:int,dias:dias,fechaInicio:fec,
-    seguro:cuota,recibeCliente:recibe,updatedAt:Date.now()
-  }).then(function(){
-    // Actualizar seguro
-    if(segAnt){
-      return db.collection('seguros').doc(segAnt.id).update({
-        monto:cuota,concepto:'Seguro préstamo — '+(c?c.nombre:''),updatedAt:Date.now()
-      });
-    }else{
-      return db.collection('seguros').add({
-        prestamoId:pid,clienteId:p.clienteId,rutaId:c?c.rutaId:null,
-        monto:cuota,fecha:fec,tipo:'ingreso',
-        concepto:'Seguro préstamo — '+(c?c.nombre:''),createdAt:Date.now()
-      });
-    }
-  }).then(function(){cM('m-edit-pre');toast('Préstamo actualizado','ok');})
-    .catch(function(e){toast('Error','err');console.error(e);});
-}
-
-function eliminarPre(pid){
-  var p=gP(pid); if(!p)return;
-  if(p.fechaInicio!==ISO){toast('Solo se pueden eliminar préstamos creados hoy','err');return;}
-  if(!confirm('¿Eliminar este préstamo? También se eliminará el seguro asociado.'))return;
-  var segAnt=ST.seguros.find(function(s){return s.prestamoId===pid&&s.tipo==='ingreso';});
-  db.collection('prestamos').doc(pid).delete().then(function(){
-    if(segAnt) return db.collection('seguros').doc(segAnt.id).delete();
-  }).then(function(){toast('Préstamo eliminado','ok');cM('m-det');})
-    .catch(function(e){toast('Error','err');console.error(e);});
-}
-
-// ══════════════════════════════════════════════
-// ORDEN DE RUTA (drag & drop)
-// ══════════════════════════════════════════════
-var _ordenDrag=null;
-function abrirOrden(){
-  var sel=document.getElementById('ORDEN-RUT');
-  sel.innerHTML=ST.rutas.map(function(r){return '<option value="'+r.id+'">'+r.nombre+'</option>';}).join('');
-  if(CU.rol==='ruta'&&CU.rutaId) sel.value=CU.rutaId;
-  rOrden();
-  document.getElementById('m-orden').style.display='flex';
-}
-function rOrden(){
-  var rutaId=document.getElementById('ORDEN-RUT').value;
-  var clis=ST.clientes.filter(function(c){return c.rutaId===rutaId;})
-    .sort(function(a,b){return (a.orden||999)-(b.orden||999)||(a.nombre||'').localeCompare(b.nombre||'');});
-  var el=document.getElementById('ORDEN-LIST');
-  el.innerHTML=clis.map(function(c,i){
-    return '<div class="orden-row" draggable="true" data-id="'+c.id+'" id="or-'+c.id+'">'+
-      '<span class="orden-handle">&#8597;</span>'+
-      '<div class="orden-num">'+(i+1)+'</div>'+
-      '<div style="flex:1;font-size:13px;font-weight:600;color:var(--bd)">'+c.nombre+'</div>'+
-      '<div style="font-size:11px;color:var(--tm)">'+( c.ciudad||'')+'</div>'+
-    '</div>';
-  }).join('');
-  // Drag & drop
-  el.querySelectorAll('.orden-row').forEach(function(row){
-    row.addEventListener('dragstart',function(e){_ordenDrag=this;this.style.opacity='.5';});
-    row.addEventListener('dragend',function(){this.style.opacity='';_ordenDrag=null;actualizarNums();});
-    row.addEventListener('dragover',function(e){e.preventDefault();
-      var bnd=this.getBoundingClientRect(),mid=bnd.top+bnd.height/2;
-      if(e.clientY<mid) this.parentNode.insertBefore(_ordenDrag,this);
-      else if(this.nextSibling) this.parentNode.insertBefore(_ordenDrag,this.nextSibling);
-      else this.parentNode.appendChild(_ordenDrag);
-    });
-  });
-}
-function actualizarNums(){
-  document.getElementById('ORDEN-LIST').querySelectorAll('.orden-num').forEach(function(el,i){el.textContent=i+1;});
-}
-function sOrden(){
-  var rutaId=document.getElementById('ORDEN-RUT').value;
-  var rows=document.getElementById('ORDEN-LIST').querySelectorAll('.orden-row');
-  var batch=db.batch();
-  rows.forEach(function(row,i){
-    batch.update(db.collection('clientes').doc(row.dataset.id),{orden:i+1});
-  });
-  batch.commit().then(function(){cM('m-orden');toast('Orden guardado','ok');})
-    .catch(function(e){toast('Error','err');console.error(e);});
-}
-
-// ══════════════════════════════════════════════
-// FORMATO DE NÚMERO CON PUNTOS
-// ══════════════════════════════════════════════
-function fmInput(val){
-  // Formatea número con puntos para display
-  if(!val||isNaN(val))return '';
-  return Math.round(val).toLocaleString('es-CO');
-}
-
-
-function checkCed(val){
-  var w=document.getElementById('CED-WARN'); if(!w)return;
-  if(!val||val.length<4){w.style.display='none';return;}
-  var existe=ST.clientes.find(function(c){return c.cedula&&c.cedula===val;});
-  if(existe){
-    w.style.display='block';
-    // Guardar ids en atributos del propio div para acceso desde el onclick
-    w.dataset.cid=existe.id;
-    w.dataset.cnom=existe.nombre;
-    w.innerHTML='<span>&#9888; Ya existe: <strong>'+existe.nombre+'</strong></span>';
-    var btn=document.createElement('button');
-    btn.className='bc bs';
-    btn.style.cssText='font-size:11px;padding:2px 8px;margin-left:8px';
-    btn.textContent='Asignar crédito';
-    btn.onclick=function(){
-      var cid=w.dataset.cid, cnom=w.dataset.cnom;
-      cM('m-nuevo-cli');
-      setTimeout(function(){ oCred(cid, cnom); }, 350);
-    };
-    w.appendChild(btn);
-  }else{
-    w.style.display='none';
-    w.dataset.cid=''; w.dataset.cnom='';
-  }
-}
-
-// Formato de miles en inputs de capital
-function fmtCap(el, hiddenId){
-  // Quitar todo excepto dígitos
-  var raw=el.value.replace(/[^0-9]/g,'');
-  // Guardar valor numérico en hidden
-  if(hiddenId) document.getElementById(hiddenId).value=raw;
-  // Mostrar con puntos de miles
-  if(raw){
-    el.value=parseInt(raw,10).toLocaleString('es-CO');
-  }else{
-    el.value='';
-  }
-}
-
-function getCapVal(visId, hiddenId){
-  // Leer el valor numérico real
-  var h=document.getElementById(hiddenId);
-  if(h&&h.value) return parseFloat(h.value)||0;
-  // Fallback: limpiar el visible
-  var v=(document.getElementById(visId)||{}).value||'';
-  return parseFloat(v.replace(/[^0-9]/g,''))||0;
 }
 // INIT
 buildU(); setSy('cn');
