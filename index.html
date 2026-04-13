@@ -424,7 +424,10 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
       </div>
       <!-- COBROS DEL DÍA -->
       <div class="sc" id="sc-cob">
-        <div class="tb"><h2>Cobros del día</h2></div>
+        <div class="tb">
+          <h2>Cobros del día</h2>
+          <button class="bg2 bs" onclick="abrirOrden()">&#9776; Orden de ruta</button>
+        </div>
         <div id="COB-RUTA-FIL" class="ruta-fil-bar" style="display:none">
           <label>Filtrar ruta:</label>
           <select id="COB-RUTA" onchange="setRutaFil('Cob',this.value)"><option value="">Todas las rutas</option></select>
@@ -442,10 +445,7 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
         </div>
         <div class="sh">
           <div class="sr"><input type="text" placeholder="Buscar por nombre o cédula..." id="SCI" oninput="rCli()"></div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap">
-            <button class="bg2 bs" onclick="abrirOrden()">&#9776; Orden de ruta</button>
-            <button class="bp bs" onclick="oM('m-nuevo-cli')">+ Nuevo cliente / crédito</button>
-          </div>
+          <button class="bp bs" onclick="oM('m-nuevo-cli')">+ Nuevo cliente / crédito</button>
         </div>
         <div class="card" style="padding:0 1.25rem">
           <div id="CLI-LIST"></div>
@@ -593,7 +593,7 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
   <h3>Nuevo cliente y crédito</h3>
   <div style="background:var(--bll);border-radius:var(--rs);padding:10px 14px;margin-bottom:1rem;font-size:12px;color:var(--bl);font-weight:600">Datos del cliente</div>
   <div class="fr"><div class="fg2"><label>Nombre completo *</label><input id="NC-NOM" type="text"></div><div class="fg2"><label>Cédula</label><input id="NC-CED" type="text" oninput="checkCed(this.value)"><div id="CED-WARN" style="font-size:11px;color:var(--am);margin-top:3px;display:none"></div></div></div>
-  <div class="fr"><div class="fg2"><label>Teléfono</label><input id="NC-TEL" type="text"></div><div class="fg2"><label>Ruta *</label><select id="NC-RUT"></select></div></div>
+  <div class="fr"><div class="fg2"><label>Teléfono</label><input id="NC-TEL" type="text"></div><div class="fg2"><label>Ruta *</label><select id="NC-RUT" onchange="calcPrev2()"></select></div></div>
   <div class="fr"><div class="fg2"><label>Ciudad / Municipio</label><input id="NC-CIU" type="text" placeholder="Ej: Bogotá, Medellín..."></div><div class="fg2"><label>Dirección / notas</label><input id="NC-DIR" type="text"></div></div>
   <div style="background:var(--bll);border-radius:var(--rs);padding:10px 14px;margin:1rem 0;font-size:12px;color:var(--bl);font-weight:600">Datos del crédito</div>
   <div class="fr"><div class="fg2"><label>Capital ($) * <span style="font-size:10px;color:var(--tm);font-weight:400">mín $100.000</span></label><input id="NC-CAP" type="text" inputmode="numeric" placeholder="100.000" oninput="fmtCap(this,'NC-CAP-VAL');calcPrev2()" style="font-weight:700"><input type="hidden" id="NC-CAP-VAL"></div><div class="fg2"><label>Interés (%)</label><input id="NC-INT" type="number" value="20" oninput="calcPrev2()"></div></div>
@@ -1720,17 +1720,86 @@ function aCob(pid,n,cuota,nomCli){
   document.getElementById('m-cob').style.display='flex';
 }
 function sMp(mp){_cobMp=mp;document.getElementById('MP-EF').className='mpo'+(mp==='efectivo'?' sef':'');document.getElementById('MP-NQ').className='mpo'+(mp==='nequi'?' snq':'');}
-function vCob(){var v=parseFloat(document.getElementById('COB-VAL').value)||0,w=document.getElementById('COB-WARN'),b=document.getElementById('COB-OK');if(v>0&&v<_cobMin){w.style.display='block';b.disabled=true;b.style.opacity='.5';}else{w.style.display='none';b.disabled=false;b.style.opacity='';}}
+function vCob(){
+  var v=parseFloat(document.getElementById('COB-VAL').value)||0;
+  var w=document.getElementById('COB-WARN'),b=document.getElementById('COB-OK');
+  if(v>0&&v<_cobMin){
+    w.style.display='block';
+    w.style.color='var(--rd)';
+    w.textContent='El valor no puede ser inferior a la cuota pactada';
+    b.disabled=true;b.style.opacity='.5';
+  }else{
+    b.disabled=false;b.style.opacity='';
+    if(v>0&&_cobMin>0){
+      var cuotasQ=Math.floor(v/_cobMin);
+      if(cuotasQ>1){
+        w.style.display='block';
+        w.style.color='var(--gn)';
+        w.textContent='✓ Cubre '+cuotasQ+' cuotas de '+fm(_cobMin)+' ('+fm(v)+' total)';
+      }else{
+        w.style.display='none';
+      }
+    }else{
+      w.style.display='none';
+    }
+  }
+}
 function cfCob(){
   var val=parseFloat(document.getElementById('COB-VAL').value)||0;
   if(val<_cobMin){toast('El valor no puede ser menor a la cuota pactada','err');return;}
-  var p=gP(_cobPid);if(!p)return;
+  var p=gP(_cobPid); if(!p)return;
+  var i=pI(p);
+  var cuota=i.c;
   var pg=Object.assign({},p.pagos||{});
-  pg[_cobN]={valor:val,metodo:_cobMp,fecha:ISO};
+
+  // Calcular cuántas cuotas cubre el valor pagado
+  var cuotasACubrir=Math.floor(val/cuota);
+  if(cuotasACubrir<1) cuotasACubrir=1;
+
+  // Marcar la cuota actual y las siguientes pendientes hasta cubrir el valor
+  var marcadas=0;
+  var restante=val;
+  // Primero marcar la cuota solicitada (_cobN)
+  if(!pg[_cobN]){
+    pg[_cobN]={valor:Math.round(cuota),metodo:_cobMp,fecha:ISO};
+    marcadas++; restante-=cuota;
+  }
+  // Si sobra dinero para más cuotas, marcar las siguientes pendientes en orden
+  if(cuotasACubrir>1){
+    var orden=Object.keys(i.fechas)
+      .map(function(n){return parseInt(n);})
+      .filter(function(n){return n!==_cobN && !pg[n] && i.fechas[n]<=ISO;})
+      .sort(function(a,b){return a-b;});
+    for(var k=0;k<orden.length&&marcadas<cuotasACubrir;k++){
+      var nExtra=orden[k];
+      pg[nExtra]={valor:Math.round(cuota),metodo:_cobMp,fecha:ISO};
+      marcadas++; restante-=cuota;
+    }
+    // Si aún sobra y hay cuotas futuras
+    if(marcadas<cuotasACubrir){
+      var ordenFut=Object.keys(i.fechas)
+        .map(function(n){return parseInt(n);})
+        .filter(function(n){return n!==_cobN && !pg[n] && i.fechas[n]>ISO;})
+        .sort(function(a,b){return a-b;});
+      for(var j=0;j<ordenFut.length&&marcadas<cuotasACubrir;j++){
+        var nFut=ordenFut[j];
+        pg[nFut]={valor:Math.round(cuota),metodo:_cobMp,fecha:ISO};
+        marcadas++;
+      }
+    }
+  }
+
   db.collection('prestamos').doc(_cobPid).update({pagos:pg,updatedAt:Date.now()})
-    .then(function(){cM('m-cob');toast('Cuota '+_cobN+' registrada — '+fm(val)+' ('+_cobMp+')','ok');})
+    .then(function(){
+      cM('m-cob');
+      var msg=marcadas>1
+        ? marcadas+' cuotas marcadas — '+fm(val)+' ('+_cobMp+')'
+        : 'Cuota '+_cobN+' registrada — '+fm(val)+' ('+_cobMp+')';
+      toast(msg,'ok');
+    })
     .catch(function(e){toast('Error','err');console.error(e);});
 }
+
 
 // CIERRE
 function sCierre(rutaId,rec,base,pre,gas,dif){
@@ -1829,14 +1898,28 @@ function calcPrev2(){
   if(rutPrev){
     var disp=disponibleRuta(rutPrev);
     var alcanza=cap<=disp;
+    // Desglose ef/nq del disponible
+    var bd2=baseDia(rutPrev,ISO);
+    var recH=recaudoDia(rutPrev,ISO);
+    var preH=prestamosDia(rutPrev,ISO);
+    var gasH=gastosDia(rutPrev,ISO);
+    var rEnq2=recaudoEfNq(rutPrev,ISO);
+    var pEnq2=prestamosEfNq(rutPrev,ISO);
+    var dispEf=bd2.base+rEnq2.ef-pEnq2.ef-gasH;
+    var dispNq=rEnq2.nq-pEnq2.nq;
     document.getElementById('NC-PREV').innerHTML+=
-      '<div style="margin-top:8px;background:'+(alcanza?'#E8F5E9':'#FFEBEE')+';border-radius:var(--rs);padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'+
-      '<div style="font-size:12px;font-weight:700;color:'+(alcanza?'var(--gn)':'var(--rd)')+'">'+
-        (alcanza?'✓ Saldo disponible suficiente':'✗ Saldo insuficiente')+'</div>'+
-      '<div style="text-align:right">'+
-        '<div style="font-size:13px;font-weight:700;color:'+(alcanza?'var(--gn)':'var(--rd)')+'">Disponible: '+fm(disp)+'</div>'+
-        (alcanza?'':'<div style="font-size:11px;color:var(--rd)">Faltan: '+fm(cap-disp)+'</div>')+
-      '</div></div>';
+      '<div style="margin-top:8px;background:'+(alcanza?'#E8F5E9':'#FFEBEE')+';border-radius:var(--rs);padding:10px 14px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'+
+        '<div style="font-size:12px;font-weight:700;color:'+(alcanza?'var(--gn)':'var(--rd)')+'">'+
+          (alcanza?'✓ Saldo disponible suficiente':'✗ Saldo insuficiente')+'</div>'+
+        '<div style="font-size:13px;font-weight:700;color:'+(alcanza?'var(--gn)':'var(--rd)')+'">'+fm(disp)+'</div>'+
+      '</div>'+
+      '<div style="display:flex;gap:12px;font-size:11px;color:var(--tm)">'+
+        '<span>&#x1F4B5; Efectivo: <strong style="color:var(--gn)">'+fm(Math.max(0,dispEf))+'</strong></span>'+
+        '<span>&#x1F4F1; Nequi: <strong style="color:#6A1B9A">'+fm(Math.max(0,dispNq))+'</strong></span>'+
+      '</div>'+
+      (alcanza?'':'<div style="font-size:11px;color:var(--rd);margin-top:4px">Faltan: '+fm(cap-disp)+'</div>')+
+      '</div>';
   }
 }
 function sNuevoCli(){
@@ -1946,16 +2029,28 @@ function calcPrev3(){
   if(_creditoCliId){
     var c3=gC(_creditoCliId);
     if(c3&&c3.rutaId){
-      var disp3=disponibleRuta(c3.rutaId);
+      var rutId3=c3.rutaId;
+      var disp3=disponibleRuta(rutId3);
       var alcanza3=cap<=disp3;
+      var bd3=baseDia(rutId3,ISO);
+      var rEnq3=recaudoEfNq(rutId3,ISO);
+      var pEnq3=prestamosEfNq(rutId3,ISO);
+      var gasH3=gastosDia(rutId3,ISO);
+      var dispEf3=bd3.base+rEnq3.ef-pEnq3.ef-gasH3;
+      var dispNq3=rEnq3.nq-pEnq3.nq;
       document.getElementById('CR-PREV').innerHTML+=
-        '<div style="margin-top:8px;background:'+(alcanza3?'#E8F5E9':'#FFEBEE')+';border-radius:var(--rs);padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'+
-        '<div style="font-size:12px;font-weight:700;color:'+(alcanza3?'var(--gn)':'var(--rd)')+'">'+
-          (alcanza3?'✓ Saldo disponible suficiente':'✗ Saldo insuficiente')+'</div>'+
-        '<div style="text-align:right">'+
-          '<div style="font-size:13px;font-weight:700;color:'+(alcanza3?'var(--gn)':'var(--rd)')+'">Disponible: '+fm(disp3)+'</div>'+
-          (alcanza3?'':'<div style="font-size:11px;color:var(--rd)">Faltan: '+fm(cap-disp3)+'</div>')+
-        '</div></div>';
+        '<div style="margin-top:8px;background:'+(alcanza3?'#E8F5E9':'#FFEBEE')+';border-radius:var(--rs);padding:10px 14px">'+
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'+
+          '<div style="font-size:12px;font-weight:700;color:'+(alcanza3?'var(--gn)':'var(--rd)')+'">'+
+            (alcanza3?'✓ Saldo disponible suficiente':'✗ Saldo insuficiente')+'</div>'+
+          '<div style="font-size:13px;font-weight:700;color:'+(alcanza3?'var(--gn)':'var(--rd)')+'">'+fm(disp3)+'</div>'+
+        '</div>'+
+        '<div style="display:flex;gap:12px;font-size:11px;color:var(--tm)">'+
+          '<span>&#x1F4B5; Efectivo: <strong style="color:var(--gn)">'+fm(Math.max(0,dispEf3))+'</strong></span>'+
+          '<span>&#x1F4F1; Nequi: <strong style="color:#6A1B9A">'+fm(Math.max(0,dispNq3))+'</strong></span>'+
+        '</div>'+
+        (alcanza3?'':'<div style="font-size:11px;color:var(--rd);margin-top:4px">Faltan: '+fm(cap-disp3)+'</div>')+
+        '</div>';
     }
   }
 }
@@ -2106,10 +2201,16 @@ function verCli(id){
     '</div>'+
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">'+
       '<h3 style="text-transform:uppercase;font-size:11px;font-weight:700;color:var(--bd);letter-spacing:.05em">Créditos ('+pres.length+')</h3>'+
-      '<button class="bc" data-cid="'+id+'" data-nom="'+c.nombre+'" onclick="oCred(this.dataset.cid,this.dataset.nom);cM(&quot;m-det&quot;)">+ Nuevo crédito</button>'+
+      '<button class="bc btn-nuevo-cred" data-cid="'+id+'" data-nom="'+c.nombre+'">+ Nuevo crédito</button>'+
     '</div>'+
     (credHtml||'<div class="empty">Sin créditos</div>');
   document.getElementById('m-det').style.display='flex';
+  // Delegación para botón nuevo crédito
+  var detC=document.getElementById('DET-C');
+  detC.onclick=function(e){
+    var btn=e.target.closest('.btn-nuevo-cred');
+    if(btn){ cM('m-det'); setTimeout(function(){oCred(btn.dataset.cid,btn.dataset.nom);},200); }
+  };
 }
 
 
@@ -2612,29 +2713,35 @@ function fmInput(val){
 
 function checkCed(val){
   var w=document.getElementById('CED-WARN'); if(!w)return;
-  if(!val||val.length<4){w.style.display='none';return;}
+  if(!val||val.length<4){w.style.display='none';w.dataset.cid='';w.dataset.cnom='';return;}
   var existe=ST.clientes.find(function(c){return c.cedula&&c.cedula===val;});
   if(existe){
-    w.style.display='block';
-    // Guardar ids en atributos del propio div para acceso desde el onclick
+    w.style.display='flex';
+    w.style.alignItems='center';
+    w.style.gap='8px';
     w.dataset.cid=existe.id;
     w.dataset.cnom=existe.nombre;
-    w.innerHTML='<span>&#9888; Ya existe: <strong>'+existe.nombre+'</strong></span>';
+    // Limpiar y construir con createElement para evitar problemas de quotes
+    w.innerHTML='';
+    var sp=document.createElement('span');
+    sp.innerHTML='&#9888; Ya existe: <strong>'+existe.nombre+'</strong>';
+    w.appendChild(sp);
     var btn=document.createElement('button');
     btn.className='bc bs';
-    btn.style.cssText='font-size:11px;padding:2px 8px;margin-left:8px';
+    btn.style.cssText='font-size:11px;padding:2px 10px;flex-shrink:0';
     btn.textContent='Asignar crédito';
-    btn.onclick=function(){
+    btn.addEventListener('click', function(){
       var cid=w.dataset.cid, cnom=w.dataset.cnom;
       cM('m-nuevo-cli');
       setTimeout(function(){ oCred(cid, cnom); }, 350);
-    };
+    });
     w.appendChild(btn);
   }else{
     w.style.display='none';
     w.dataset.cid=''; w.dataset.cnom='';
   }
 }
+
 
 // Formato de miles en inputs de capital
 function fmtCap(el, hiddenId){
