@@ -603,8 +603,8 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
   <div id="NC-PREV"></div>
   <div class="fg2"><label>Método de entrega del dinero</label>
     <div class="mp-pre">
-      <div class="mp-opt" id="NC-EF" onclick="selMpPre('NC','efectivo')"><div class="mi">💵</div><div class="ml2" style="color:var(--gn)">Efectivo</div></div>
-      <div class="mp-opt" id="NC-NQ" onclick="selMpPre('NC','nequi')"><div class="mi">📱</div><div class="ml2" style="color:#6A1B9A">Nequi</div></div>
+      <div class="mpo" id="NC-EF" onclick="selMpPre('NC','efectivo')"><div class="mi">💵</div><div class="ml2" style="color:var(--gn)">Efectivo</div></div>
+      <div class="mpo" id="NC-NQ" onclick="selMpPre('NC','nequi')"><div class="mi">📱</div><div class="ml2" style="color:#6A1B9A">Nequi</div></div>
     </div>
   </div>
   <div class="mf"><button class="bg2 bs" onclick="cM('m-nuevo-cli')">Cancelar</button><button class="bp bs" onclick="sNuevoCli()">Crear cliente y crédito</button></div>
@@ -619,8 +619,8 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
   <div id="CR-PREV"></div>
   <div class="fg2"><label>Método de entrega del dinero</label>
     <div class="mp-pre">
-      <div class="mp-opt" id="CR-EF" onclick="selMpPre('CR','efectivo')"><div class="mi">💵</div><div class="ml2" style="color:var(--gn)">Efectivo</div></div>
-      <div class="mp-opt" id="CR-NQ" onclick="selMpPre('CR','nequi')"><div class="mi">📱</div><div class="ml2" style="color:#6A1B9A">Nequi</div></div>
+      <div class="mpo" id="CR-EF" onclick="selMpPre('CR','efectivo')"><div class="mi">💵</div><div class="ml2" style="color:var(--gn)">Efectivo</div></div>
+      <div class="mpo" id="CR-NQ" onclick="selMpPre('CR','nequi')"><div class="mi">📱</div><div class="ml2" style="color:#6A1B9A">Nequi</div></div>
     </div>
   </div>
   <div class="mf"><button class="bg2 bs" onclick="cM('m-credito')">Cancelar</button><button class="bp bs" onclick="sCredito()">Crear crédito</button></div>
@@ -650,6 +650,12 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
   <div class="fg2"><label>Concepto</label><input id="GAS-CONC" type="text" placeholder="Ej: Gasolina, alimentación, papelería..."></div>
   <div class="fg2"><label>Valor ($)</label><input id="GAS-VAL" type="number" placeholder="50000"></div>
   <div class="fg2"><label>Fecha</label><input id="GAS-FEC" type="date"></div>
+  <div class="fg2"><label>Método de pago</label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="mpo" id="GAS-EF" onclick="selMpGas('efectivo')"><div class="mi">💵</div><div class="ml2" style="color:var(--gn)">Efectivo</div></div>
+      <div class="mpo" id="GAS-NQ" onclick="selMpGas('nequi')"><div class="mi">📱</div><div class="ml2" style="color:#6A1B9A">Nequi</div></div>
+    </div>
+  </div>
   <div class="mf"><button class="bg2 bs" onclick="cM('m-gas')">Cancelar</button><button class="bp bs" onclick="sGasto()">Guardar gasto</button></div>
 </div></div>
 
@@ -679,8 +685,8 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
   <div class="fg2"><label>Ruta *</label><select id="B-RUT"></select></div>
   <div class="fg2"><label>Método</label>
     <div class="mp-pre">
-      <div class="mp-opt" id="B-EF" onclick="selMpBase('efectivo')"><div class="mi">💵</div><div class="ml2" style="color:var(--gn)">Efectivo</div></div>
-      <div class="mp-opt" id="B-NQ" onclick="selMpBase('nequi')"><div class="mi">📱</div><div class="ml2" style="color:#6A1B9A">Nequi</div></div>
+      <div class="mpo" id="B-EF" onclick="selMpBase('efectivo')"><div class="mi">💵</div><div class="ml2" style="color:var(--gn)">Efectivo</div></div>
+      <div class="mpo" id="B-NQ" onclick="selMpBase('nequi')"><div class="mi">📱</div><div class="ml2" style="color:#6A1B9A">Nequi</div></div>
     </div>
   </div>
   <div class="fg2"><label>Descripción</label><input id="B-DESC" type="text" placeholder="Ej: Aporte enero, Retiro utilidades..."></div>
@@ -903,6 +909,20 @@ function prestamosDia(rutaId, fecha) {
   return tot;
 }
 
+// Gastos ef/nq
+function gastosDiaEfNq(rutaId, fecha){
+  var ef=0,nq=0;
+  ST.gastos.filter(function(g){
+    if(g.fecha!==fecha)return false;
+    if(rutaId) return g.rutaId===rutaId||!g.rutaId;
+    return true;
+  }).forEach(function(g){
+    if(g.metodo==='nequi') nq+=(g.monto||0);
+    else ef+=(g.monto||0);
+  });
+  return {ef:ef,nq:nq};
+}
+
 // Gastos en fecha por ruta
 function gastosDia(rutaId, fecha) {
   // Incluye gastos de la ruta Y gastos sin ruta asignada del mismo día
@@ -1103,19 +1123,13 @@ function goto(id){
 
 function rDash(){
   actualizarFiltroRuta('dash');
-  var rutaFil = CU.rol==='admin' ? _rutaDash : CU.rutaId;
-
+  var rutaFil=CU.rol==='admin'?_rutaDash:CU.rutaId;
   document.getElementById('DF').textContent=HOY.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long'});
-
-  var pres = CU.rol==='admin'
-    ? (rutaFil ? ST.prestamos.filter(function(p){var c=gC(p.clienteId);return c&&c.rutaId===rutaFil;}) : ST.prestamos)
-    : myP();
-
+  var pres=CU.rol==='admin'?(rutaFil?ST.prestamos.filter(function(p){var c=gC(p.clienteId);return c&&c.rutaId===rutaFil;}):ST.prestamos):myP();
   var capitalCalle=0; pres.forEach(function(p){if(pI(p).est!=='completado')capitalCalle+=saldoPendiente(p);});
   var recHoy=0; pres.forEach(function(p){var i=pI(p);Object.keys(i.fechas).forEach(function(n){if(i.fechas[n]===ISO)recHoy+=i.c;});});
   var pendHoy=0; pres.forEach(function(p){var i=pI(p),pg=p.pagos||{};Object.keys(i.fechas).forEach(function(n){if(i.fechas[n]===ISO&&!pg[n])pendHoy++;});});
   var mora=0; pres.forEach(function(p){if(pI(p).est==='moroso')mora++;});
-
   document.getElementById('DT').textContent=CU.rol==='admin'?'Resumen general':'Ruta '+(gR(CU.rutaId)?gR(CU.rutaId).nombre:'');
   document.getElementById('DM').innerHTML=
     '<div class="me"><div class="lb">Capital en calle</div><div class="vl">'+fm(capitalCalle)+'</div><div class="sb2">Saldo pendiente</div></div>'+
@@ -1123,39 +1137,47 @@ function rDash(){
     '<div class="me"><div class="lb">Cobros pend. hoy</div><div class="vl">'+pendHoy+'</div></div>'+
     '<div class="me"><div class="lb">Clientes morosos</div><div class="vl gn2">'+mora+'</div><div class="sb2">3+ cuotas vencidas</div></div>';
   document.getElementById('DA').innerHTML=mora>0?'<div class="alb">&#9888; <strong>'+mora+' moroso(s).</strong> <button class="bc" onclick="goto(&quot;mor&quot;)">Ver</button></div>':'';
-
-  var rutas = rutaFil ? ST.rutas.filter(function(r){return r.id===rutaFil;}) : ST.rutas;
+  var rutas=rutaFil?ST.rutas.filter(function(r){return r.id===rutaFil;}):ST.rutas;
   if(CU.rol!=='admin') rutas=ST.rutas.filter(function(r){return r.id===CU.rutaId;});
-  if(rutaFil && !rutas.length) rutas=ST.rutas;
-
+  if(rutaFil&&!rutas.length) rutas=ST.rutas;
   var cajasH='';
   rutas.forEach(function(r){
     var s=saldoCaja(r.id);
+    var cen=saldoCajaEfNq(r.id);
     var bd=baseDia(r.id,ISO);
-    var recaudoHoy=recaudoDia(r.id,ISO);
-    var prestHoy=prestamosDia(r.id,ISO);
-    var gastosHoy=gastosDia(r.id,ISO);
-    var disponible=bd.base+recaudoHoy-prestHoy-gastosHoy;
-
+    var recEfNq=recaudoEfNq(r.id,ISO);
+    var preEfNq=prestamosEfNq(r.id,ISO);
+    var gasEfNq=gastosDiaEfNq(r.id,ISO);
+    var rec=recEfNq.ef+recEfNq.nq;
+    var pre=preEfNq.ef+preEfNq.nq;
+    var gas=gasEfNq.ef+gasEfNq.nq;
+    var disponible=bd.base+rec-pre-gas;
     cajasH+=
       '<div class="caja-card" style="border-left-color:'+r.color+'">'+
       '<div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:8px;margin-bottom:.75rem">'+
-        '<div><div style="font-size:14px;font-weight:700;color:'+r.color+'">Ruta '+r.nombre+'</div>'+
-        '<div class="ts">Saldo de caja</div></div>'+
-        '<div style="font-size:22px;font-weight:700;color:'+(s>=0?'var(--gn)':'var(--rd)')+'">'+fm(s)+'</div>'+
+        '<div><div style="font-size:14px;font-weight:700;color:'+r.color+'">Ruta '+r.nombre+'</div><div class="ts">Saldo de caja</div></div>'+
+        '<div style="text-align:right">'+
+          '<div style="font-size:22px;font-weight:700;color:'+(s>=0?'var(--gn)':'var(--rd)')+'">'+fm(s)+'</div>'+
+          '<div style="font-size:11px;color:var(--tm)">&#x1F4B5; '+fm(Math.max(0,cen.ef))+' &nbsp; &#x1F4F1; '+fm(Math.max(0,cen.nq))+'</div>'+
+        '</div>'+
       '</div>'+
       '<div style="background:var(--bll);border-radius:var(--rs);padding:10px 12px;border:1px solid var(--bb)">'+
         '<div style="font-size:10px;font-weight:700;color:var(--bl);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Disponible para préstamos hoy</div>'+
-        '<div style="display:flex;flex-direction:column;gap:4px;font-size:13px">'+
+        '<div style="font-size:13px;display:flex;flex-direction:column;gap:4px">'+
           '<div style="display:flex;justify-content:space-between"><span style="color:var(--tm)">Base asignada</span><span class="gp">+'+fm(bd.base)+'</span></div>'+
-          '<div style="display:flex;justify-content:space-between"><span style="color:var(--tm)">Recaudo cobrado hoy</span><span class="gp">+'+fm(recaudoHoy)+'</span></div>'+
-          '<div style="display:flex;justify-content:space-between;border-top:1px solid var(--br);padding-top:4px;margin-top:2px"><span style="color:var(--tm)">Préstamos otorgados</span><span class="gn2">-'+fm(prestHoy)+'</span></div>'+
-          '<div style="display:flex;justify-content:space-between"><span style="color:var(--tm)">Gastos del día</span><span class="gn2">-'+fm(gastosHoy)+'</span></div>'+
-          '<div style="display:flex;justify-content:space-between;font-weight:700;font-size:15px;margin-top:4px;border-top:1px solid var(--br);padding-top:4px">'+
+          '<div style="display:flex;justify-content:space-between"><span style="color:var(--tm)">Recaudo hoy</span>'+
+            '<div style="text-align:right"><span class="gp">+'+fm(rec)+'</span>'+
+            '<div style="font-size:10px;color:var(--tm)">&#x1F4B5; '+fm(recEfNq.ef)+' · &#x1F4F1; '+fm(recEfNq.nq)+'</div></div></div>'+
+          '<div style="display:flex;justify-content:space-between;border-top:1px solid var(--br);padding-top:4px"><span style="color:var(--tm)">Préstamos</span>'+
+            '<div style="text-align:right"><span class="gn2">-'+fm(pre)+'</span>'+
+            '<div style="font-size:10px;color:var(--tm)">&#x1F4B5; '+fm(preEfNq.ef)+' · &#x1F4F1; '+fm(preEfNq.nq)+'</div></div></div>'+
+          '<div style="display:flex;justify-content:space-between"><span style="color:var(--tm)">Gastos</span>'+
+            '<div style="text-align:right"><span class="gn2">-'+fm(gas)+'</span>'+
+            '<div style="font-size:10px;color:var(--tm)">&#x1F4B5; '+fm(gasEfNq.ef)+' · &#x1F4F1; '+fm(gasEfNq.nq)+'</div></div></div>'+
+          '<div style="display:flex;justify-content:space-between;font-weight:700;font-size:15px;border-top:1px solid var(--br);padding-top:4px;margin-top:2px">'+
             '<span style="color:var(--bd)">Disponible</span><span style="color:'+(disponible>=0?'var(--gn)':'var(--rd)')+'">'+fm(disponible)+'</span></div>'+
         '</div>'+
-      '</div>'+
-      '</div>';
+      '</div></div>';
   });
   document.getElementById('DC2').innerHTML=cajasH||'<div class="empty">Sin rutas</div>';
 }
@@ -1163,18 +1185,19 @@ function rDash(){
 
 function rCob(){
   actualizarFiltroRuta('cob');
-  var rutaFil = CU.rol==='admin' ? _rutaCob : CU.rutaId;
-  var pres = rutaFil
-    ? ST.prestamos.filter(function(p){var c=gC(p.clienteId);return c&&c.rutaId===rutaFil;})
-    : myP();
+  var rutaFil=CU.rol==='admin'?_rutaCob:CU.rutaId;
+  var pres=rutaFil?ST.prestamos.filter(function(p){var c=gC(p.clienteId);return c&&c.rutaId===rutaFil;}):myP();
   var ph=0,pc=0,th=0,tc=0,html='';
+  var totEf=0,totNq=0;
   pres.forEach(function(p){
     var c=gC(p.clienteId); if(!c)return;
     var i=pI(p),r=gR(c.rutaId),pg=p.pagos||{};
     Object.keys(i.fechas).forEach(function(n){
       if(i.fechas[n]===ISO){
         var paid=pg[n]; var val=paid?(paid.valor||i.c):0;
-        th+=i.c; if(paid){pc++;tc+=val;}else ph++;
+        th+=i.c;
+        if(paid){pc++;tc+=val;if(paid.metodo==='nequi')totNq+=val;else totEf+=val;}
+        else ph++;
         html+='<div class="pr"><div class="pnb '+(paid?'pok':'phoy')+'">'+n+'</div>'+
           '<div style="flex:1;min-width:0"><div class="pnm">'+c.nombre+'</div>'+
           '<div class="psb">Cuota '+n+'/'+p.dias+(r?' · '+r.nombre:'')+'</div></div>'+
@@ -1186,10 +1209,11 @@ function rCob(){
     });
   });
   document.getElementById('CM').innerHTML=
-    '<div class="me"><div class="lb">Por cobrar hoy</div><div class="vl">'+fm(th)+'</div></div>'+
-    '<div class="me"><div class="lb">Cobrado</div><div class="vl gp">'+fm(tc)+'</div></div>'+
-    '<div class="me"><div class="lb">Pendientes</div><div class="vl">'+ph+'</div></div>'+
-    '<div class="me"><div class="lb">Completados</div><div class="vl">'+pc+'</div></div>';
+    '<div class="me"><div class="lb">Cobrado hoy</div><div class="vl gp">'+fm(tc)+'</div>'+
+      '<div class="sb2">&#x1F4B5; '+fm(totEf)+' · &#x1F4F1; '+fm(totNq)+'</div></div>'+
+    '<div class="me"><div class="lb">Pendiente</div><div class="vl">'+fm(th-tc)+'</div><div class="sb2">'+ph+' cobros</div></div>'+
+    '<div class="me"><div class="lb">Efectivo cobrado</div><div class="vl" style="color:var(--gn)">'+fm(totEf)+'</div></div>'+
+    '<div class="me"><div class="lb">Nequi cobrado</div><div class="vl" style="color:#6A1B9A">'+fm(totNq)+'</div></div>';
   document.getElementById('CL').innerHTML=html||'<div class="empty">Sin cobros para hoy</div>';
 }
 
@@ -2218,6 +2242,7 @@ function oM(id){
     document.getElementById('GAS-CONC').value='';
     document.getElementById('GAS-VAL').value='';
     document.getElementById('GAS-FEC').value=ISO;
+    selMpGas('efectivo');
   }
   if(id==='m-retiro-seg'){
     document.getElementById('RS-FEC').value=ISO;
@@ -2291,6 +2316,7 @@ function sGasto(){
   var rutaId = CU.rol==='ruta' ? CU.rutaId : null;
   db.collection('gastos').add({
     concepto:conc, monto:val, fecha:fec,
+    metodo:_mpGasto,
     rutaId:rutaId, user:CU.nombre, createdAt:Date.now()
   }).then(function(){cM('m-gas');toast('Gasto registrado','ok');rGas();})
     .catch(function(e){toast('Error','err');console.error(e);});
@@ -2624,15 +2650,21 @@ var _mpNuevoCli='efectivo', _mpCredito='efectivo', _mpBase='efectivo';
 function selMpPre(prefix, mp){
   if(prefix==='NC') _mpNuevoCli=mp;
   else _mpCredito=mp;
-  document.getElementById(prefix+'-EF').className='mp-opt'+(mp==='efectivo'?' sef':'');
-  document.getElementById(prefix+'-NQ').className='mp-opt'+(mp==='nequi'?' snq':'');
+  document.getElementById(prefix+'-EF').className='mpo'+(mp==='efectivo'?' sef':'');
+  document.getElementById(prefix+'-NQ').className='mpo'+(mp==='nequi'?' snq':'');
 }
 
 // ── Selector método de pago en base ──────────
+function selMpGas(mp){
+  _mpGasto=mp;
+  document.getElementById('GAS-EF').className='mpo'+(mp==='efectivo'?' sef':'');
+  document.getElementById('GAS-NQ').className='mpo'+(mp==='nequi'?' snq':'');
+}
+
 function selMpBase(mp){
   _mpBase=mp;
-  document.getElementById('B-EF').className='mp-opt'+(mp==='efectivo'?' sef':'');
-  document.getElementById('B-NQ').className='mp-opt'+(mp==='nequi'?' snq':'');
+  document.getElementById('B-EF').className='mpo'+(mp==='efectivo'?' sef':'');
+  document.getElementById('B-NQ').className='mpo'+(mp==='nequi'?' snq':'');
 }
 
 // ── Editar gasto ──────────────────────────────
@@ -2880,6 +2912,7 @@ function disp(rutaId, elId, capIngresado){
   var gas=gastosDia(rutaId,ISO2);
   var rn=recaudoEfNq(rutaId,ISO2);
   var pn=prestamosEfNq(rutaId,ISO2);
+  var gn=gastosDiaEfNq(rutaId,ISO2);
   var disponible=base+rec-pre-gas;
   // Debug temporal - borrar después
   console.log('[disp] rutaId='+rutaId+' base='+base+' rec='+rec+' pre='+pre+' gas='+gas+' disp='+disponible);
@@ -2892,7 +2925,9 @@ function disp(rutaId, elId, capIngresado){
       '<div style="display:flex;justify-content:space-between"><span style="color:#666">Base asignada</span><span style="color:var(--gn)">+'+fm(base)+'</span></div>'+
       '<div style="display:flex;justify-content:space-between"><span style="color:#666">Recaudo hoy</span><span style="color:var(--gn)">+'+fm(rec)+'</span></div>'+
       '<div style="display:flex;justify-content:space-between;border-top:1px solid #ddd;padding-top:4px"><span style="color:#666">Préstamos</span><span style="color:var(--rd)">-'+fm(pre)+'</span></div>'+
-      '<div style="display:flex;justify-content:space-between"><span style="color:#666">Gastos</span><span style="color:var(--rd)">-'+fm(gas)+'</span></div>'+
+      '<div style="display:flex;justify-content:space-between"><span style="color:#666">Gastos</span>'+
+        '<div style="text-align:right"><span style="color:var(--rd)">-'+fm(gas)+'</span>'+
+        '<div style="font-size:10px;color:#999">&#x1F4B5; '+fm(gn.ef)+' · &#x1F4F1; '+fm(gn.nq)+'</div></div></div>'+
       '<div style="display:flex;justify-content:space-between;font-weight:700;font-size:15px;border-top:1px solid #ddd;padding-top:4px;margin-top:2px">'+
         '<span>Disponible</span><span style="color:'+(disponible>=0?'var(--gn)':'var(--rd)')+'">'+fm(disponible)+'</span>'+
       '</div>'+
