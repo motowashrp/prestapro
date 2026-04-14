@@ -888,6 +888,24 @@ function primerDiaRuta(rutaId){
   return fechas.length>0 ? fechas.slice().sort()[0] : null;
 }
 
+// Desglose ef/nq de la caja acumulada
+function saldoCajaEfNq(rutaId, hastaFecha){
+  var hasta=hastaFecha||ISO;
+  var ef=0,nq=0;
+  ST.bases.forEach(function(b){
+    if(b.rutaId!==rutaId||b.fecha>hasta)return;
+    var esNq=b.metodo==='nequi';
+    var sign=(b.tipo==='aporte')?1:-1;
+    if(esNq) nq+=sign*(b.monto||0);
+    else     ef+=sign*(b.monto||0);
+  });
+  ST.cierres.forEach(function(ci){
+    if(ci.rutaId!==rutaId||ci.fecha>hasta)return;
+    ef+=(ci.diferencia||0);
+  });
+  return {ef:ef,nq:nq};
+}
+
 // Total recaudado en una fecha por ruta
 function recaudoDia(rutaId, fecha) {
   var tot = 0;
@@ -1347,39 +1365,41 @@ function rFlujo(){
   var cajasH='';
   rutas.forEach(function(r){
     var saldoCajaR=saldoCaja(r.id);
-    // Movimientos de la caja en el mes
+    var cen=saldoCajaEfNq(r.id);
     var aportesMes=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='aporte';}).reduce(function(s,b){return s+(b.monto||0);},0);
     var retirosMes=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='retiro';}).reduce(function(s,b){return s+(b.monto||0);},0);
     var basesMes=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='base';}).reduce(function(s,b){return s+(b.monto||0);},0);
-    var difCierresMes=ST.cierres.filter(function(ci){return ci.rutaId===r.id&&ci.fecha&&ci.fecha.slice(0,7)===fcMes;}).reduce(function(s,ci){return s+(ci.diferencia||0);},0);
-
+    var difMes=ST.cierres.filter(function(ci){return ci.rutaId===r.id&&ci.fecha&&ci.fecha.slice(0,7)===fcMes;}).reduce(function(s,ci){return s+(ci.diferencia||0);},0);
+    // Desglose ef/nq por tipo en el mes
+    var fn2=function(tipo,esNq){return ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo===tipo&&(esNq?b.metodo==='nequi':b.metodo!=='nequi');}).reduce(function(s,b){return s+(b.monto||0);},0);};
+    var aEf=fn2('aporte',false),aNq=fn2('aporte',true);
+    var rEf=fn2('retiro',false),rNq=fn2('retiro',true);
+    var bEf=fn2('base',false),bNq=fn2('base',true);
     cajasH+=
       '<div class="caja-card" style="border-left-color:'+r.color+';margin-bottom:1rem">'+
-      '<div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:8px;margin-bottom:1rem">'+
-        '<div>'+
-          '<div style="font-size:15px;font-weight:700;color:'+r.color+'">Caja — Ruta '+r.nombre+'</div>'+
-          '<div class="ts">Dinero total disponible de la ruta</div>'+
-        '</div>'+
+      '<div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:8px;margin-bottom:.5rem">'+
+        '<div><div style="font-size:15px;font-weight:700;color:'+r.color+'">Caja — Ruta '+r.nombre+'</div>'+
+        '<div class="ts">Saldo acumulado</div></div>'+
         '<div style="text-align:right">'+
-          '<div style="font-size:28px;font-weight:700;color:'+(saldoCajaR>=0?'var(--gn)':'var(--rd)')+'">'+fm(saldoCajaR)+'</div>'+
-          '<div class="ts">Saldo actual</div>'+
+          '<div style="font-size:26px;font-weight:700;color:'+(saldoCajaR>=0?'var(--gn)':'var(--rd)')+'">'+fm(saldoCajaR)+'</div>'+
+          '<div style="font-size:11px;color:var(--tm);margin-top:2px">&#x1F4B5; '+fm(Math.max(0,cen.ef))+' &nbsp; &#x1F4F1; '+fm(Math.max(0,cen.nq))+'</div>'+
         '</div>'+
       '</div>'+
-      // Stats del mes
-      '<div class="caja-grid" style="margin-bottom:1rem">'+
-        '<div class="caja-stat success"><div class="lb">Aportes del mes</div><div class="vl">+'+fm(aportesMes)+'</div></div>'+
-        '<div class="caja-stat danger"><div class="lb">Retiros del mes</div><div class="vl">−'+fm(retirosMes)+'</div></div>'+
-        '<div class="caja-stat"><div class="lb">Base asignada mes</div><div class="vl">−'+fm(basesMes)+'</div></div>'+
-        '<div class="caja-stat '+(difCierresMes>=0?'success':'danger')+'"><div class="lb">Dif. cierres mes</div><div class="vl">'+(difCierresMes>=0?'+':'−')+fm(Math.abs(difCierresMes))+'</div></div>'+
+      '<div class="caja-grid" style="margin-bottom:.75rem">'+
+        '<div class="caja-stat success"><div class="lb">Aportes</div><div class="vl">+'+fm(aportesMes)+'</div>'+
+          '<div style="font-size:10px;color:var(--tm)">&#x1F4B5; '+fm(aEf)+' · &#x1F4F1; '+fm(aNq)+'</div></div>'+
+        '<div class="caja-stat danger"><div class="lb">Retiros</div><div class="vl">-'+fm(retirosMes)+'</div>'+
+          '<div style="font-size:10px;color:var(--tm)">&#x1F4B5; '+fm(rEf)+' · &#x1F4F1; '+fm(rNq)+'</div></div>'+
+        '<div class="caja-stat"><div class="lb">Base asig.</div><div class="vl">-'+fm(basesMes)+'</div>'+
+          '<div style="font-size:10px;color:var(--tm)">&#x1F4B5; '+fm(bEf)+' · &#x1F4F1; '+fm(bNq)+'</div></div>'+
+        '<div class="caja-stat '+(difMes>=0?'success':'danger')+'"><div class="lb">Dif. cierres</div><div class="vl">'+(difMes>=0?'+':'-')+fm(Math.abs(difMes))+'</div></div>'+
       '</div>'+
-      // Botones de acción — usar data-attributes para evitar problemas de quotes
-      '<div style="display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid var(--br);padding-top:1rem">'+
-        '<button class="bp bs btn-caja-mov" data-tipo="aporte" data-ruta="'+r.id+'" style="background:var(--gn)">+ Aporte inversionista</button>'+
-        '<button class="bp bs btn-caja-mov" data-tipo="retiro" data-ruta="'+r.id+'" style="background:var(--rd)">&#8722; Retiro inversionista</button>'+
-        '<button class="bp bs btn-caja-mov" data-tipo="base" data-ruta="'+r.id+'">&#127974; Asignar base</button>'+
-      '</div>'+
-      '</div>';
-  });
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid var(--br);padding-top:.75rem">'+
+        '<button class="bp bs btn-caja-mov" data-tipo="aporte" data-ruta="'+r.id+'" style="background:var(--gn)">+ Aporte</button>'+
+        '<button class="bp bs btn-caja-mov" data-tipo="retiro" data-ruta="'+r.id+'" style="background:var(--rd)">- Retiro</button>'+
+        '<button class="bp bs btn-caja-mov" data-tipo="base" data-ruta="'+r.id+'">&#127974; Base</button>'+
+      '</div></div>';
+    });
   document.getElementById('FC-CAJAS').innerHTML=cajasH;
   // Delegación de eventos para botones de caja
   document.getElementById('FC-CAJAS').onclick=function(e){
@@ -1554,8 +1574,9 @@ function rCie(){
     var preEf=0,preNq=0;
     ST.prestamos.filter(function(p){return cIds.indexOf(p.clienteId)>=0&&p.fechaInicio===ISO;}).forEach(function(p){if(p.metodoPago==='nequi')preNq+=p.capital;else preEf+=p.capital;});
     var pre=preEf+preNq;
-    // Gastos
-    var gas=gastosDia(ruta.id,ISO);
+    // Gastos con desglose
+    var gasEfNqCie=gastosDiaEfNq(ruta.id,ISO);
+    var gas=gasEfNqCie.ef+gasEfNqCie.nq;
     // Base método
     var baseEf=ST.bases.filter(function(x){return x.rutaId===ruta.id&&x.fecha===ISO&&x.tipo==='base'&&x.metodo!=='nequi';}).reduce(function(s,x){return s+(x.monto||0);},0);
     var baseNq=ST.bases.filter(function(x){return x.rutaId===ruta.id&&x.fecha===ISO&&x.tipo==='base'&&x.metodo==='nequi';}).reduce(function(s,x){return s+(x.monto||0);},0);
@@ -1563,8 +1584,8 @@ function rCie(){
     var dif=rec+b.base-pre-gas;
     var cajaSaldo=saldoCaja(ruta.id);
     // Saldo ef/nq estimado: recaudo ef - prestamos ef + base ef
-    var saldoEf=recEf-preEf+baseEf;
-    var saldoNq=recNq-preNq+baseNq;
+    var saldoEf=recEf-preEf+baseEf-gasEfNqCie.ef;
+    var saldoNq=recNq-preNq+baseNq-gasEfNqCie.nq;
 
     html+='<div class="caja-card" style="border-left-color:'+ruta.color+';margin-bottom:1.5rem">'+
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px">'+
