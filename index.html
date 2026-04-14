@@ -1163,6 +1163,9 @@ function rDash(){
     var s=saldoCaja(r.id);
     var cen=saldoCajaEfNq(r.id);
     var bd=baseDia(r.id,ISO);
+    // Desglose ef/nq de base asignada hoy
+    var baseEfHoy=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha===ISO&&b.tipo==='base'&&b.metodo!=='nequi';}).reduce(function(s,b){return s+(b.monto||0);},0);
+    var baseNqHoy=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha===ISO&&b.tipo==='base'&&b.metodo==='nequi';}).reduce(function(s,b){return s+(b.monto||0);},0);
     var recEfNq=recaudoEfNq(r.id,ISO);
     var preEfNq=prestamosEfNq(r.id,ISO);
     var gasEfNq=gastosDiaEfNq(r.id,ISO);
@@ -1182,7 +1185,11 @@ function rDash(){
       '<div style="background:var(--bll);border-radius:var(--rs);padding:10px 12px;border:1px solid var(--bb)">'+
         '<div style="font-size:10px;font-weight:700;color:var(--bl);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Disponible para préstamos hoy</div>'+
         '<div style="font-size:13px;display:flex;flex-direction:column;gap:4px">'+
-          '<div style="display:flex;justify-content:space-between"><span style="color:var(--tm)">Base asignada</span><span class="gp">+'+fm(bd.base)+'</span></div>'+
+          '<div style="display:flex;justify-content:space-between"><span style="color:var(--tm)">Base asignada</span>'+
+            '<div style="text-align:right">'+
+              '<span class="gp">+'+fm(bd.base)+'</span>'+
+              (bd.base>0?'<div style="font-size:10px;color:var(--tm)">&#x1F4B5; '+fm(baseEfHoy)+' &nbsp; &#x1F4F1; '+fm(baseNqHoy)+'</div>':'')+
+            '</div></div>'+
           '<div style="display:flex;justify-content:space-between"><span style="color:var(--tm)">Recaudo hoy</span>'+
             '<div style="text-align:right"><span class="gp">+'+fm(rec)+'</span>'+
             '<div style="font-size:10px;color:var(--tm)">&#x1F4B5; '+fm(recEfNq.ef)+' · &#x1F4F1; '+fm(recEfNq.nq)+'</div></div></div>'+
@@ -1602,7 +1609,11 @@ function rCie(){
         '<div class="cie-formula-row"><span class="cie-formula-label">Préstamos entregados</span>'+
           '<div style="text-align:right"><span class="gn2">−'+fm(pre)+'</span>'+
           '<div class="ts"><span class="metodo-ef">💵 Ef: '+fm(preEf)+'</span> · <span class="metodo-nq">📱 Nq: '+fm(preNq)+'</span></div></div></div>'+
-        '<div class="cie-formula-row"><span class="cie-formula-label">Gastos del día</span><span class="gn2">−'+fm(gas)+'</span></div>'+
+        '<div class="cie-formula-row"><span class="cie-formula-label">Gastos del día</span>'+
+          '<div style="text-align:right">'+
+            '<span class="gn2">−'+fm(gas)+'</span>'+
+            '<div style="font-size:11px;color:var(--tm)">&#x1F4B5; '+fm(gasEfNqCie.ef)+' &nbsp; &#x1F4F1; '+fm(gasEfNqCie.nq)+'</div>'+
+          '</div></div>'+
         '<div class="cie-formula-row"><span class="cie-formula-label">Diferencia (afecta la caja)</span><span class="'+(dif>=0?'gp':'gn2')+'">'+(dif>=0?'+':'')+fm(dif)+'</span></div>'+
       '</div>'+
       // Desglose saldo por método
