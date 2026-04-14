@@ -2945,9 +2945,15 @@ db.collection('usuarios').get()
   .then(function(snap){
     ST.usuarios=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
     buildU();
-    if(ST.usuarios.length===0){
-      db.collection('usuarios').add({nombre:'Administrador',user:'admin',pass:'admin123',rol:'admin',rutaId:null,createdAt:Date.now()})
-        .then(function(){db.collection('usuarios').get().then(function(s2){ST.usuarios=s2.docs.map(function(d){return Object.assign({id:d.id},d.data());});buildU();});});
+    var yaAdmin=ST.usuarios.find(function(u){return u.user==='admin'&&u.rol==='admin';});
+    if(ST.usuarios.length===0||!yaAdmin){
+      // Solo crear si no existe admin
+      db.collection('usuarios').where('user','==','admin').get().then(function(snap){
+        if(snap.empty){
+          db.collection('usuarios').add({nombre:'Administrador',user:'admin',pass:'admin123',rol:'admin',rutaId:null,createdAt:Date.now()})
+            .then(function(){db.collection('usuarios').get().then(function(s2){ST.usuarios=s2.docs.map(function(d){return Object.assign({id:d.id},d.data());});buildU();});});
+        }
+      });
     }
   }).catch(function(e){
     console.error(e); setSy('offline');
