@@ -999,6 +999,7 @@ function doLogin(){
   document.getElementById('MUN').textContent=CU.nombre.split(' ')[0];
   fcMes=ISO.slice(0,7);
   buildNav(); cargarParams(); goto('dash'); subAll();
+  iniciarWatchMedianoche(); // cierre automático a medianoche
 }
 function logout(){unsubs.forEach(function(f){f();});unsubs=[];CU=null;_sui=null;document.getElementById('VA').style.display='none';document.getElementById('VL').style.display='flex';document.getElementById('LP').value='';document.getElementById('LE').textContent='';buildU();}
 
@@ -1864,10 +1865,10 @@ function sNuevoCli(){
     }
   }
   var int=parseFloat(document.getElementById('NC-INT').value)||0;
-  // Validar disponible antes de crear
-  var disp=disponibleRuta(rut);
-  if(cap>disp){
-    toast('Saldo insuficiente. Disponible: '+fm(disp)+' — Capital solicitado: '+fm(cap),'err');
+  // Validar disponible: base+recaudo-prestamos-gastos del día
+  var dispHoy=disponibleRuta(rut);
+  if(cap>dispHoy){
+    toast('Saldo insuficiente. Disponible: '+fm(dispHoy),'err');
     return;
   }
   var tot=cap*(1+int/100);
@@ -1966,7 +1967,7 @@ function sCredito(){
   if(cap<PAR.montoMinimo){toast('Capital mínimo '+fm(PAR.montoMinimo),'err');return;}
   var c=gC(_creditoCliId);
   var rutaId=c?c.rutaId:null;
-  // Validar disponible
+  // Validar disponible: base+recaudo-prestamos-gastos del día
   if(rutaId){
     var disp2=disponibleRuta(rutaId);
     if(cap>disp2){toast('Saldo insuficiente. Disponible: '+fm(disp2),'err');return;}
@@ -2809,35 +2810,111 @@ function leerYGuardarParams(){
 function disp(rutaId, elId, capIngresado){
   if(!rutaId)return;
   var el=document.getElementById(elId); if(!el)return;
-  if(!ST.clientes||ST.clientes.length===0){
-    el.innerHTML='<div style="font-size:11px;color:#999;padding:6px 0">Cargando datos...</div>';
-    setTimeout(function(){disp(rutaId,elId,capIngresado);},700);
+  // Verificar que Firebase cargó (puede tener 0 clientes legítimamente)
+  // Usar ST.rutas como indicador - siempre debe haber al menos 1 ruta
+  if(!ST.rutas||ST.rutas.length===0){
+    el.innerHTML='<div style="padding:8px;color:#999;font-size:11px">Cargando...</div>';
+    setTimeout(function(){disp(rutaId,elId,capIngresado);},600);
     return;
   }
-  var bd=baseDia(rutaId,ISO);
-  var rn=recaudoEfNq(rutaId,ISO);
-  var pn=prestamosEfNq(rutaId,ISO);
-  var gas=gastosDia(rutaId,ISO);
-  var disponible=bd.base+(rn.ef+rn.nq)-(pn.ef+pn.nq)-gas;
+  // Usar exactamente las mismas funciones que el dashboard
+  var HOY2=new Date(); var ISO2=HOY2.toISOString().slice(0,10);
+  var base=baseDia(rutaId,ISO2).base;
+  var rec=recaudoDia(rutaId,ISO2);
+  var pre=prestamosDia(rutaId,ISO2);
+  var gas=gastosDia(rutaId,ISO2);
+  var rn=recaudoEfNq(rutaId,ISO2);
+  var pn=prestamosEfNq(rutaId,ISO2);
+  var disponible=base+rec-pre-gas;
   var cap=capIngresado||0;
   var alcanza=cap>0?(cap<=disponible):null;
   el.innerHTML=
     '<div style="margin-bottom:8px;padding:10px 14px;background:'+(disponible>=0?'#E3F2FD':'#FFEBEE')+';border-radius:8px;font-size:13px">'+
     '<div style="font-size:10px;font-weight:700;color:#1565C0;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Disponible para prestar hoy</div>'+
     '<div style="display:flex;flex-direction:column;gap:3px">'+
-      '<div style="display:flex;justify-content:space-between"><span style="color:#666">Base asignada</span><span style="color:var(--gn)">+'+fm(bd.base)+'</span></div>'+
+      '<div style="display:flex;justify-content:space-between"><span style="color:#666">Base asignada</span><span style="color:var(--gn)">+'+fm(base)+'</span></div>'+
       '<div style="display:flex;justify-content:space-between"><span style="color:#666">Recaudo hoy</span>'+
-        '<div style="text-align:right"><span style="color:var(--gn)">+'+fm(rn.ef+rn.nq)+'</span>'+
+        '<div style="text-align:right"><span style="color:var(--gn)">+'+fm(rec)+'</span>'+
         '<div style="font-size:10px;color:#999">Ef:'+fm(rn.ef)+' · Nq:'+fm(rn.nq)+'</div></div></div>'+
-      '<div style="display:flex;justify-content:space-between;border-top:1px solid #ddd;padding-top:4px"><span style="color:#666">Préstamos</span><span style="color:var(--rd)">-'+fm(pn.ef+pn.nq)+'</span></div>'+
+      '<div style="display:flex;justify-content:space-between;border-top:1px solid #ddd;padding-top:4px"><span style="color:#666">Préstamos</span><span style="color:var(--rd)">-'+fm(pre)+'</span></div>'+
       '<div style="display:flex;justify-content:space-between"><span style="color:#666">Gastos</span><span style="color:var(--rd)">-'+fm(gas)+'</span></div>'+
       '<div style="display:flex;justify-content:space-between;font-weight:700;font-size:15px;border-top:1px solid #ddd;padding-top:4px;margin-top:2px">'+
         '<span>Disponible</span><span style="color:'+(disponible>=0?'var(--gn)':'var(--rd)')+'">'+fm(disponible)+'</span>'+
       '</div>'+
       (alcanza!==null?'<div style="margin-top:6px;font-size:12px;font-weight:700;color:'+(alcanza?'var(--gn)':'var(--rd)')+'">'+
-        (alcanza?'✓ Saldo suficiente para este crédito':'✗ Faltan: '+fm(cap-disponible))+
+        (alcanza?'✓ Saldo suficiente':'✗ Faltan: '+fm(cap-disponible))+
       '</div>':'')+
     '</div></div>';
+}
+
+
+// ── Cierre automático a medianoche ───────────────────
+function iniciarWatchMedianoche(){
+  function msFaltanMedianoche(){
+    var ahora=new Date();
+    var manana=new Date(ahora.getFullYear(),ahora.getMonth(),ahora.getDate()+1,0,0,5);
+    return manana-ahora; // ms hasta 5 segundos después de medianoche
+  }
+
+  setTimeout(function(){
+    // Actualizar fecha del día
+    HOY=new Date();
+    ISO=HOY.toISOString().slice(0,10);
+    // Ejecutar cierre automático para todas las rutas
+    cierreAutomatico();
+    // Reprogramar para la siguiente medianoche
+    iniciarWatchMedianoche();
+  }, msFaltanMedianoche());
+}
+
+async function cierreAutomatico(){
+  if(!CU||!ST.rutas||ST.rutas.length===0) return;
+  var ayer=new Date(HOY); ayer.setDate(ayer.getDate()-1);
+  var fechaAyer=ayer.toISOString().slice(0,10);
+
+  for(var i=0;i<ST.rutas.length;i++){
+    var ruta=ST.rutas[i];
+    var ckey=ruta.id+'_'+fechaAyer;
+    // Verificar si ya existe cierre para ayer
+    var yaCerrado=ST.cierres.find(function(c){return c.rutaId===ruta.id&&c.fecha===fechaAyer;});
+    if(yaCerrado) continue;
+
+    // Calcular cierre de ayer
+    var cIds=ST.clientes.filter(function(c){return c.rutaId===ruta.id;}).map(function(c){return c.id;});
+    var pres=ST.prestamos.filter(function(p){return cIds.indexOf(p.clienteId)>=0;});
+    var rec=0;
+    pres.forEach(function(p){
+      var info=pI(p),pg=p.pagos||{};
+      Object.keys(info.fechas).forEach(function(n){
+        if(info.fechas[n]===fechaAyer&&pg[n]) rec+=pg[n].valor||info.c;
+      });
+    });
+    var b=baseDia(ruta.id,fechaAyer);
+    var pre=prestamosDia(ruta.id,fechaAyer);
+    var gas=gastosDia(ruta.id,fechaAyer);
+    var dif=rec+b.base-pre-gas;
+
+    try {
+      await db.collection('cierres').doc(ckey).set({
+        ckey:ckey, rutaId:ruta.id, fecha:fechaAyer,
+        hora:'23:59',
+        recaudo:rec, base:b.base, prestamos:pre, gastos:gas,
+        diferencia:dif,
+        nota:'Cierre automático del sistema',
+        user:'Sistema', createdAt:Date.now()
+      });
+      console.log('Cierre automático registrado: '+ruta.nombre+' — '+fechaAyer);
+    } catch(e) {
+      console.error('Error cierre automático:', ruta.nombre, e);
+    }
+  }
+  toast('Nuevo día — cierres pendientes registrados automáticamente','ok');
+}
+
+
+function _ncred(id, nombre){
+  cM('m-det');
+  setTimeout(function(){ oCred(id, nombre); }, 350);
 }
 
 // INIT
