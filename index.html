@@ -1864,10 +1864,10 @@ function sNuevoCli(){
     }
   }
   var int=parseFloat(document.getElementById('NC-INT').value)||0;
-  // Validar disponible antes de crear
-  var disp=disponibleRuta(rut);
-  if(cap>disp){
-    toast('Saldo insuficiente. Disponible: '+fm(disp)+' — Capital solicitado: '+fm(cap),'err');
+  // Validar disponible: base+recaudo-prestamos-gastos del día
+  var dispHoy=disponibleRuta(rut);
+  if(cap>dispHoy){
+    toast('Saldo insuficiente. Disponible: '+fm(dispHoy),'err');
     return;
   }
   var tot=cap*(1+int/100);
@@ -1966,7 +1966,7 @@ function sCredito(){
   if(cap<PAR.montoMinimo){toast('Capital mínimo '+fm(PAR.montoMinimo),'err');return;}
   var c=gC(_creditoCliId);
   var rutaId=c?c.rutaId:null;
-  // Validar disponible
+  // Validar disponible: base+recaudo-prestamos-gastos del día
   if(rutaId){
     var disp2=disponibleRuta(rutaId);
     if(cap>disp2){toast('Saldo insuficiente. Disponible: '+fm(disp2),'err');return;}
