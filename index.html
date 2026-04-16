@@ -1781,7 +1781,11 @@ function rCie(){
     var b=baseDia(ruta.id,ISO);
     // Préstamos entregados hoy con desglose
     var preEf=0,preNq=0;
-    ST.prestamos.filter(function(p){return cIds.indexOf(p.clienteId)>=0&&p.fechaInicio===ISO;}).forEach(function(p){if(p.metodoPago==='nequi')preNq+=p.capital;else preEf+=p.capital;});
+    ST.prestamos.filter(function(p){return cIds.indexOf(p.clienteId)>=0&&p.fechaInicio===ISO;}).forEach(function(p){
+      if(p.metodoPago==='mixto'){preEf+=(p.montoEf||0);preNq+=(p.montoNq||0);}
+      else if(p.metodoPago==='nequi'){preNq+=p.capital;}
+      else{preEf+=p.capital;}
+    });
     var pre=preEf+preNq;
     // Gastos con desglose
     var gasEfNqCie=gastosDiaEfNq(ruta.id,ISO);
