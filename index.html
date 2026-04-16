@@ -788,12 +788,9 @@ firebase.initializeApp({
 });
 var db = firebase.firestore();
 // Persistencia offline: datos disponibles aunque no haya internet
-db.enablePersistence({synchronizeTabs:true}).catch(function(err){
-  if(err.code==='failed-precondition'){
-    console.warn('Offline: múltiples pestañas abiertas');
-  } else if(err.code==='unimplemented'){
-    console.warn('Este navegador no soporta modo offline');
-  }
+// Persistencia offline básica (sin synchronizeTabs para evitar conflictos)
+db.enablePersistence().catch(function(err){
+  console.warn('Persistencia offline no disponible:', err.code);
 });
 
 var HOY = new Date();
@@ -3194,23 +3191,31 @@ function limpiarMixto(prefix){
 
 // INIT
 buildU(); setSy('cn');
-// Usar onSnapshot para usuarios — se actualiza en tiempo real
-db.collection('usuarios').onSnapshot(function(snap){
-  ST.usuarios=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
-  buildU();
-  // Crear admin si no existe
-  var yaAdmin=ST.usuarios.find(function(u){return u.user==='admin'&&u.rol==='admin';});
-  if(!yaAdmin){
-    db.collection('usuarios').add({
-      nombre:'Administrador',user:'admin',pass:'admin123',
-      rol:'admin',rutaId:null,createdAt:Date.now()
+// Cargar usuarios con get() + onSnapshot para tiempo real
+function cargarUsuarios(){
+  db.collection('usuarios').get().then(function(snap){
+    ST.usuarios=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    buildU();
+    // Crear admin si no existe
+    var yaAdmin=ST.usuarios.find(function(u){return u.user==='admin'&&u.rol==='admin';});
+    if(!yaAdmin){
+      db.collection('usuarios').add({
+        nombre:'Administrador',user:'admin',pass:'admin123',
+        rol:'admin',rutaId:null,createdAt:Date.now()
+      }).then(cargarUsuarios);
+    }
+    // Suscribir para actualizaciones en tiempo real
+    db.collection('usuarios').onSnapshot(function(snap2){
+      ST.usuarios=snap2.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+      buildU();
     });
-  }
-},function(e){
-  console.error('usuarios',e); setSy('offline');
-  ST.usuarios=[{id:'adm0',nombre:'Administrador',user:'admin',pass:'admin123',rol:'admin',rutaId:null}];
-  buildU();
-});
+  }).catch(function(e){
+    console.error('usuarios',e); setSy('offline');
+    // Reintentar en 3 segundos
+    setTimeout(cargarUsuarios, 3000);
+  });
+}
+cargarUsuarios();
 </script>
 </body>
 </html>
