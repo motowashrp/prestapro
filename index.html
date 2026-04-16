@@ -736,9 +736,23 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
 <div id="m-retiro-seg" class="mov" style="display:none" onclick="cM('m-retiro-seg')"><div class="modal" onclick="event.stopPropagation()">
   <h3 style="color:#6A1B9A">Retiro del fondo de seguros</h3>
   <div id="SEG-SALDO-MOD" style="background:#F3E5F5;border-radius:var(--rs);padding:10px 14px;margin-bottom:1rem;font-size:13px;color:#6A1B9A;font-weight:700"></div>
-  <div class="fr"><div class="fg2"><label>Valor del retiro ($)</label><input id="RS-VAL" type="number" placeholder="100000" oninput="validRetiroSeg()"></div><div class="fg2"><label>Fecha</label><input id="RS-FEC" type="date"></div></div>
-  <div class="fg2"><label>Concepto del retiro</label><input id="RS-CONC" type="text" placeholder="Ej: Retiro utilidades seguros, Pago siniestro..."></div>
-  <div class="fg2"><label>Ruta</label><select id="RS-RUT"></select></div>
+  <div class="fr"><div class="fg2"><label>Fecha</label><input id="RS-FEC" type="date"></div><div class="fg2"><label>Ruta</label><select id="RS-RUT" onchange="actualizarSaldoSegModal()"></select></div></div>
+  <div class="fg2"><label>Monto a retirar por método</label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
+      <div>
+        <label style="font-size:11px;color:var(--gn);font-weight:700">💵 Efectivo ($)</label>
+        <input id="RS-EF-MON" type="text" inputmode="numeric" placeholder="0" oninput="fmtCap(this,'RS-EF-VAL');actualizarSaldoSegModal()" style="font-weight:700">
+        <input type="hidden" id="RS-EF-VAL">
+      </div>
+      <div>
+        <label style="font-size:11px;color:#6A1B9A;font-weight:700">📱 Nequi ($)</label>
+        <input id="RS-NQ-MON" type="text" inputmode="numeric" placeholder="0" oninput="fmtCap(this,'RS-NQ-VAL');actualizarSaldoSegModal()" style="font-weight:700">
+        <input type="hidden" id="RS-NQ-VAL">
+      </div>
+    </div>
+    <div id="RS-INFO" style="font-size:11px;margin-top:6px;padding:6px 8px;border-radius:6px;display:none"></div>
+  </div>
+  <div class="fg2"><label>Concepto del retiro</label><input id="RS-CONC" type="text" placeholder="Ej: Retiro utilidades, Pago siniestro..."></div>
   <div id="RS-WARN" style="font-size:12px;color:var(--rd);margin-top:4px;display:none">El valor supera el saldo disponible del fondo</div>
   <div class="mf"><button class="bg2 bs" onclick="cM('m-retiro-seg')">Cancelar</button><button class="bp bs" id="RS-OK" onclick="sRetiroSeg()" style="background:#6A1B9A">Registrar retiro</button></div>
 </div></div>
@@ -1639,13 +1653,17 @@ function rFlujo(){
     return s.tipo==='ingreso' && s.fecha===ISO && (!rutaFilSeg||s.rutaId===rutaFilSeg);
   }).reduce(function(s,x){return s+(x.monto||0);},0);
 
-  document.getElementById('SEG-SALDO').textContent=fm(segSaldoTotal);
+  var segEfNq2=saldoSegurosEfNq();
+  document.getElementById('SEG-SALDO').innerHTML=fm(segSaldoTotal)+
+    '<div style="font-size:11px;color:#9C27B0;font-weight:400;margin-top:2px">💵 '+fm(Math.max(0,segEfNq2.ef))+' · 📱 '+fm(Math.max(0,segEfNq2.nq))+'</div>';
 
+  var segCen=saldoSegurosEfNq(rutaFilSeg||undefined);
   document.getElementById('SEG-MET').innerHTML=
     '<div class="me"><div class="lb">Acumulado del día</div><div class="vl" style="color:#6A1B9A">'+fm(segHoy)+'</div><div class="sb2">Solo hoy</div></div>'+
     '<div class="me"><div class="lb">Acumulado total</div><div class="vl" style="color:#6A1B9A">'+fm(segTotalAcum)+'</div><div class="sb2">Histórico</div></div>'+
     '<div class="me"><div class="lb">Retiros</div><div class="vl gn2">'+fm(segTotalRet)+'</div><div class="sb2">Total retirado</div></div>'+
-    '<div class="me"><div class="lb">Saldo total</div><div class="vl" style="color:#6A1B9A;font-size:18px">'+fm(segSaldoTotal)+'</div><div class="sb2">Disponible</div></div>';
+    '<div class="me"><div class="lb">Saldo total</div><div class="vl" style="color:#6A1B9A;font-size:18px">'+fm(segSaldoTotal)+'</div>'+
+      '<div class="sb2">💵 '+fm(Math.max(0,segCen.ef))+' · 📱 '+fm(Math.max(0,segCen.nq))+'</div></div>';
 
   // Detalle: SOLO movimientos del día de hoy
   var movsHoy = ST.seguros.filter(function(s){
@@ -1833,6 +1851,32 @@ function rCie(){
         '<div class="cie-desglose-row"><span>📱 Nequi</span><span class="metodo-nq">'+fm(saldoNq)+'</span></div>'+
         '<div class="cie-desglose-row" style="border-top:1px solid var(--br);padding-top:4px;margin-top:4px;font-weight:700"><span>Total</span><span style="color:'+(dif>=0?'var(--gn)':'var(--rd)')+'">'+fm(saldoEf+saldoNq)+'</span></div>'+
       '</div>';
+
+    // ── Seguros recaudados en el día ──
+    var segsHoy=ST.seguros.filter(function(s){
+      return s.tipo==='ingreso'&&s.fecha===ISO&&s.rutaId===ruta.id;
+    });
+    if(segsHoy.length>0){
+      var segEfH=segsHoy.filter(function(s){return (s.metodo||'efectivo')!=='nequi';}).reduce(function(t,s){return t+(s.monto||0);},0);
+      var segNqH=segsHoy.filter(function(s){return s.metodo==='nequi';}).reduce(function(t,s){return t+(s.monto||0);},0);
+      var segTotH=segEfH+segNqH;
+      html+=
+        '<div class="cie-desglose" style="margin-top:1rem;border:1px solid #CE93D8;background:#F3E5F5">'+
+          '<div style="font-size:10px;font-weight:700;color:#6A1B9A;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">'+
+            '&#x1F512; Seguros recaudados hoy ('+segsHoy.length+' crédito'+(segsHoy.length>1?'s':'')+')</div>'+
+          '<div class="cie-desglose-row"><span>💵 Efectivo</span><span style="color:#6A1B9A">'+fm(segEfH)+'</span></div>'+
+          '<div class="cie-desglose-row"><span>📱 Nequi</span><span style="color:#6A1B9A">'+fm(segNqH)+'</span></div>'+
+          '<div class="cie-desglose-row" style="border-top:1px solid #CE93D8;padding-top:4px;margin-top:4px;font-weight:700">'+
+            '<span>Total seguros</span><span style="color:#6A1B9A">'+fm(segTotH)+'</span></div>'+
+          (segsHoy.length>0?
+            '<div style="font-size:10px;color:#9C27B0;margin-top:6px;padding-top:6px;border-top:1px solid #CE93D8">'+
+              segsHoy.map(function(s){
+                var cli=gC(s.clienteId); var met=s.metodo||'efectivo';
+                return (cli?cli.nombre:'Cliente')+': '+fm(s.monto||0)+' ('+(met==='nequi'?'📱 Nequi':'💵 Ef.')+')';
+              }).join(' · ')+
+            '</div>':'')+
+        '</div>';
+    }
 
     if(yaC){
       html+='<div class="cie-cuadre cie-ok" style="margin-top:1rem">&#10003; Cierre registrado — '+fd(yaC.fecha)+' a las '+yaC.hora+'</div>';
@@ -2194,6 +2238,7 @@ function sNuevoCli(){
       fecha:fec,
       tipo:'ingreso',
       concepto:'Seguro préstamo — '+nom,
+      metodo:mixtoNC.total===mixtoNC.nq?'nequi':(mixtoNC.ef>=mixtoNC.nq?'efectivo':'nequi'),
       createdAt:Date.now()
     });
   }).then(function(){
@@ -2285,7 +2330,9 @@ function sCredito(){
     return db.collection('seguros').add({
       prestamoId:pRef.id,clienteId:_creditoCliId,rutaId:rutaId,
       monto:seguro,fecha:fec,tipo:'ingreso',
-      concepto:'Seguro préstamo — '+(c?c.nombre:''),createdAt:Date.now()
+      concepto:'Seguro préstamo — '+(c?c.nombre:''),
+      metodo:mixto.total===mixto.nq?'nequi':(mixto.ef>=mixto.nq?'efectivo':'nequi'),
+      createdAt:Date.now()
     });
   }).then(function(){
     cM('m-credito');
@@ -2338,22 +2385,27 @@ function sRuta(){
       firestorePromise=db.collection('usuarios').add(uData);
     }
     return firestorePromise.then(function(){
-      // Si hay contraseña nueva, crear/actualizar en Firebase Auth
+      // Crear usuario en Firebase Auth SIN cerrar sesión del admin
+      // Usamos una segunda instancia de Firebase App
       if(uPas&&uPas.length>=6&&!u){
-        // Crear usuario en Firebase Auth usando Admin SDK via función auxiliar
-        // Nota: la creación directa requiere Admin SDK; usamos un workaround:
-        // Crear el usuario con signInWithEmailAndPassword fallback
-        return auth.createUserWithEmailAndPassword(emailInterno, uPas)
+        var secondaryApp;
+        try{
+          secondaryApp=firebase.app('secondary');
+        }catch(e){
+          secondaryApp=firebase.initializeApp(firebase.app().options,'secondary');
+        }
+        var secondaryAuth=secondaryApp.auth();
+        return secondaryAuth.createUserWithEmailAndPassword(emailInterno, uPas)
           .then(function(cred){
-            // Usar UID de Auth como ID del documento en Firestore
             var newUid=cred.user.uid;
+            secondaryAuth.signOut();
             return db.collection('usuarios').doc(newUid).set(uData);
           })
           .catch(function(e){
             if(e.code==='auth/email-already-in-use'){
-              console.log('Usuario ya existe en Auth');
+              toast('Ese usuario ya existe en Auth','err');
             } else {
-              console.warn('Auth create error:', e.code);
+              console.warn('Auth create error:', e.code, e.message);
             }
           });
       }
@@ -2563,14 +2615,23 @@ function oM(id){
     selMpGas('efectivo');
   }
   if(id==='m-retiro-seg'){
+    var rutSel=document.getElementById('RS-RUT');
+    rutSel.innerHTML=ST.rutas.map(function(r){return '<option value="'+r.id+'">'+r.nombre+'</option>';}).join('');
     document.getElementById('RS-FEC').value=ISO;
-    document.getElementById('RS-VAL').value='';
     document.getElementById('RS-CONC').value='';
-    document.getElementById('RS-RUT').innerHTML=ST.rutas.map(function(r){return '<option value="'+r.id+'">'+r.nombre+'</option>';}).join('');
-    document.getElementById('RS-WARN').style.display='none';
-    var saldoSeg=saldoSeguros();
-    document.getElementById('SEG-SALDO-MOD').textContent='Saldo disponible: '+fm(saldoSeg);
+    ['RS-EF-MON','RS-NQ-MON','RS-EF-VAL','RS-NQ-VAL'].forEach(function(id){
+      var el=document.getElementById(id);if(el)el.value='';
+    });
+    var info=document.getElementById('RS-INFO');
+    if(info)info.style.display='none';
+    var cen=saldoSegurosEfNq();
+    var tot=saldoSeguros();
+    document.getElementById('SEG-SALDO-MOD').innerHTML=
+      'Saldo del fondo: <strong>'+fm(tot)+'</strong><br>'+
+      '<span style="font-size:11px">💵 '+fm(Math.max(0,cen.ef))+' · 📱 '+fm(Math.max(0,cen.nq))+'</span>';
+    setTimeout(function(){actualizarSaldoSegModal();},50);
   }
+
   if(id==='m-base'){
     abrirBase('aporte', null);
     return; // abrirBase ya abre el modal
@@ -2770,18 +2831,33 @@ function validRetiroSeg(){
 }
 
 function sRetiroSeg(){
-  if(demoGuard())return;
-  var val=parseFloat(document.getElementById('RS-VAL').value)||0;
+  var ef=parseFloat(document.getElementById('RS-EF-VAL').value)||0;
+  var nq=parseFloat(document.getElementById('RS-NQ-VAL').value)||0;
+  var total=ef+nq;
   var fec=document.getElementById('RS-FEC').value;
   var conc=document.getElementById('RS-CONC').value.trim();
   var rut=document.getElementById('RS-RUT').value;
-  if(!val||!fec||!conc){toast('Complete todos los campos','err');return;}
-  if(val>saldoSeguros()){toast('Saldo insuficiente en el fondo de seguros','err');return;}
-  db.collection('seguros').add({
-    tipo:'retiro',monto:val,fecha:fec,
-    concepto:conc,rutaId:rut,
-    user:CU.nombre,createdAt:Date.now()
-  }).then(function(){cM('m-retiro-seg');toast('Retiro de seguros registrado','ok');rFlujo();})
+  if(!total){toast('Ingresa un monto en efectivo y/o Nequi','err');return;}
+  if(!fec||!conc){toast('Complete fecha y concepto','err');return;}
+  // Validar saldo por método
+  var cen=saldoSegurosEfNq(rut||undefined);
+  var errores=[];
+  if(ef>0&&ef>cen.ef) errores.push('💵 Efectivo insuficiente (disp: '+fm(Math.max(0,cen.ef))+')');
+  if(nq>0&&nq>cen.nq) errores.push('📱 Nequi insuficiente (disp: '+fm(Math.max(0,cen.nq))+')');
+  if(errores.length>0){toast(errores.join(' | '),'err');return;}
+  var promises=[];
+  var base={tipo:'retiro',fecha:fec,concepto:conc,rutaId:rut,user:CU.nombre,createdAt:Date.now()};
+  if(ef>0) promises.push(db.collection('seguros').add(Object.assign({},base,{monto:ef,metodo:'efectivo'})));
+  if(nq>0) promises.push(db.collection('seguros').add(Object.assign({},base,{monto:nq,metodo:'nequi'})));
+  Promise.all(promises)
+    .then(function(){
+      cM('m-retiro-seg');
+      var partes=[];
+      if(ef>0)partes.push('💵 '+fm(ef));
+      if(nq>0)partes.push('📱 '+fm(nq));
+      toast('Retiro seguros: '+partes.join(' + '),'ok');
+      rFlujo();
+    })
     .catch(function(e){toast('Error','err');console.error(e);});
 }
 
@@ -3567,6 +3643,47 @@ function toAuthEmail(usr){
   usr=usr.trim().toLowerCase().replace(/\s+/g,'.').replace(/[^a-z0-9.@_-]/g,'');
   if(usr.indexOf('@')===-1) usr=usr+'@rutacobro.app';
   return usr;
+}
+
+
+// ── Saldo seguros desglosado ef/nq ──────────────────
+function saldoSegurosEfNq(rutaId){
+  var ef=0,nq=0;
+  ST.seguros.forEach(function(s){
+    if(rutaId&&s.rutaId!==rutaId) return;
+    var sign=s.tipo==='ingreso'?1:-1;
+    var met=s.metodo||'efectivo';
+    if(met==='nequi') nq+=sign*(s.monto||0);
+    else ef+=sign*(s.monto||0);
+  });
+  return {ef:ef,nq:nq};
+}
+
+// ── Actualizar info de saldo en modal de retiro de seguros ──
+function actualizarSaldoSegModal(){
+  var rut=document.getElementById('RS-RUT')?document.getElementById('RS-RUT').value:'';
+  var ef=parseFloat(document.getElementById('RS-EF-VAL').value)||0;
+  var nq=parseFloat(document.getElementById('RS-NQ-VAL').value)||0;
+  var info=document.getElementById('RS-INFO');
+  var warn=document.getElementById('RS-WARN');
+  if(!info)return;
+  var cen=saldoSegurosEfNq(rut||undefined);
+  var errores=[];
+  if(ef>0&&ef>cen.ef) errores.push('💵 Faltan '+fm(ef-Math.max(0,cen.ef))+' en efectivo');
+  if(nq>0&&nq>cen.nq) errores.push('📱 Faltan '+fm(nq-Math.max(0,cen.nq))+' en Nequi');
+  var total=ef+nq;
+  var hayError=errores.length>0;
+  info.style.display='block';
+  info.style.background=hayError?'#FFEBEE':'#F3E5F5';
+  info.style.color=hayError?'var(--rd)':'#6A1B9A';
+  var lineas=['Saldo seguros: 💵 '+fm(Math.max(0,cen.ef))+' · 📱 '+fm(Math.max(0,cen.nq))];
+  if(total>0){
+    lineas.push('Retiro: '+fm(total)+(ef>0&&nq>0?' (💵 '+fm(ef)+' + 📱 '+fm(nq)+')':''));
+    if(!hayError) lineas.push('Quedará: 💵 '+fm(cen.ef-ef)+' · 📱 '+fm(cen.nq-nq));
+  }
+  if(hayError) lineas=lineas.concat(errores);
+  info.innerHTML=lineas.join('<br>');
+  if(warn) warn.style.display=hayError?'block':'none';
 }
 
 // INIT
