@@ -2651,12 +2651,24 @@ function mostrarLimpiar(){
 async function limpiarFirebase(){
   var conf=document.getElementById('confirm-limpiar').value.trim();
   if(conf!=='LIMPIAR'){toast('Escribe exactamente: LIMPIAR','err');return;}
-  if(!confirm('¿Borrar TODOS los datos?\n\nEsto incluye rutas, clientes, préstamos, gastos, cierres y usuarios de ruta.\n\nEl admin se recreará automáticamente.'))return;
+
+  // Verificar que es admin
+  if(!CU||CU.rol!=='admin'){toast('Solo el administrador puede limpiar la base','err');return;}
+
+  var user=auth.currentUser;
+  if(!user){toast('Error: sesión no válida. Vuelve a iniciar sesión','err');return;}
+
+  // Guardar datos del admin ANTES de borrar
+  var adminEmail=user.email;
+  var adminNombre=CU.nombre||'Administrador';
+
+  if(!confirm('¿Borrar TODOS los datos?\n\nSe borrarán: rutas, clientes, préstamos, gastos, cierres y cobradores.\n\nTu usuario admin se conservará automáticamente.'))return;
 
   toast('Limpiando base de datos...','');
-  var colecciones=['rutas','clientes','prestamos','gastos','cierres','bases','seguros','usuarios','config'];
+  var colecciones=['rutas','clientes','prestamos','gastos','cierres','bases','seguros','config'];
   var total=0;
   try{
+    // 1. Borrar todas las colecciones EXCEPTO usuarios
     for(var ci=0;ci<colecciones.length;ci++){
       var col=colecciones[ci];
       var snap=await db.collection(col).get();
@@ -2665,20 +2677,36 @@ async function limpiarFirebase(){
       snap.docs.forEach(function(d){batch.delete(d.ref);total++;});
       await batch.commit();
     }
-    // Recrear el admin con el usuario actual
-    var user=auth.currentUser;
-    if(user){
+
+    // 2. Borrar usuarios de ruta (NO el admin actual)
+    var usnap=await db.collection('usuarios').get();
+    var ubatch=db.batch();
+    var borradosU=0;
+    usnap.docs.forEach(function(d){
+      var data=d.data();
+      // Conservar solo el admin actual por email
+      if(data.email!==adminEmail){
+        ubatch.delete(d.ref);
+        borradosU++;
+      }
+    });
+    if(borradosU>0) await ubatch.commit();
+
+    // 3. Si el admin no quedó en Firestore, recrearlo
+    var adminSnap=await db.collection('usuarios').where('email','==',adminEmail).get();
+    if(adminSnap.empty){
       await db.collection('usuarios').add({
-        nombre:'Administrador',
-        email:user.email,
+        nombre:adminNombre,
+        email:adminEmail,
         rol:'admin',
         rutaId:null,
         createdAt:Date.now()
       });
     }
+
     document.getElementById('confirm-limpiar').value='';
     document.getElementById('panel-limpiar').style.display='none';
-    toast('✓ Base limpiada. '+total+' registros borrados. Recargando...','ok');
+    toast('✓ Base limpiada. '+(total+borradosU)+' registros borrados. Recargando...','ok');
     setTimeout(function(){location.reload();},2000);
   }catch(e){
     toast('Error: '+e.message,'err');
