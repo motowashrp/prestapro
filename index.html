@@ -2646,28 +2646,38 @@ function mostrarLimpiar(){
 
 async function limpiarFirebase(){
   var conf=document.getElementById('confirm-limpiar').value.trim();
-  if(conf!=='LIMPIAR'){alert('Debes escribir exactamente: LIMPIAR');return;}
-  if(!confirm('¿Estás completamente seguro? Se borrarán TODOS los datos.'))return;
-  var colecciones=['rutas','clientes','prestamos','gastos','cierres','bases','seguros'];
+  if(conf!=='LIMPIAR'){toast('Escribe exactamente: LIMPIAR','err');return;}
+  if(!confirm('¿Borrar TODOS los datos?\n\nEsto incluye rutas, clientes, préstamos, gastos, cierres y usuarios de ruta.\n\nEl admin se recreará automáticamente.'))return;
+
+  toast('Limpiando base de datos...','');
+  var colecciones=['rutas','clientes','prestamos','gastos','cierres','bases','seguros','usuarios','config'];
   var total=0;
   try{
     for(var ci=0;ci<colecciones.length;ci++){
       var col=colecciones[ci];
       var snap=await db.collection(col).get();
+      if(snap.docs.length===0) continue;
       var batch=db.batch();
       snap.docs.forEach(function(d){batch.delete(d.ref);total++;});
-      if(snap.docs.length>0)await batch.commit();
+      await batch.commit();
     }
-    // Limpiar usuarios también (excepto admin)
-    var usnap=await db.collection('usuarios').get();
-    var ubatch=db.batch();
-    usnap.docs.forEach(function(d){if(d.data().user!=='admin')ubatch.delete(d.ref);});
-    await ubatch.commit();
+    // Recrear el admin con el usuario actual
+    var user=auth.currentUser;
+    if(user){
+      await db.collection('usuarios').add({
+        nombre:'Administrador',
+        email:user.email,
+        rol:'admin',
+        rutaId:null,
+        createdAt:Date.now()
+      });
+    }
     document.getElementById('confirm-limpiar').value='';
     document.getElementById('panel-limpiar').style.display='none';
-    alert('✓ Datos limpiados correctamente. Se borraron '+total+' registros.');
+    toast('✓ Base limpiada. '+total+' registros borrados. Recargando...','ok');
+    setTimeout(function(){location.reload();},2000);
   }catch(e){
-    alert('Error al limpiar: '+e.message);
+    toast('Error: '+e.message,'err');
     console.error(e);
   }
 }
