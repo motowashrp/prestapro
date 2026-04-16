@@ -700,13 +700,21 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
     </div>
   </div>
   <div id="BASE-INFO" style="font-size:12px;border-radius:var(--rs);padding:8px 12px;margin-bottom:1rem;display:none"></div>
-  <div class="fr"><div class="fg2"><label>Monto ($) *</label><input id="B-MON" type="number" placeholder="1000000"></div><div class="fg2"><label>Fecha *</label><input id="B-FEC" type="date"></div></div>
-  <div class="fg2"><label>Ruta *</label><select id="B-RUT"></select></div>
-  <div class="fg2"><label>Método</label>
-    <div class="mp-pre">
-      <div class="mpo" id="B-EF" onclick="selMpBase('efectivo')"><div class="mi">💵</div><div class="ml2" style="color:var(--gn)">Efectivo</div></div>
-      <div class="mpo" id="B-NQ" onclick="selMpBase('nequi')"><div class="mi">📱</div><div class="ml2" style="color:#6A1B9A">Nequi</div></div>
+  <div class="fr"><div class="fg2"><label>Fecha *</label><input id="B-FEC" type="date"></div><div class="fg2"><label>Ruta *</label><select id="B-RUT" onchange="actualizarDisponibleBase()"></select></div></div>
+  <div class="fg2"><label>Monto por método de pago</label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
+      <div>
+        <label style="font-size:11px;color:var(--gn);font-weight:700">💵 Efectivo ($)</label>
+        <input id="B-EF-MON" type="text" inputmode="numeric" placeholder="0" oninput="fmtCap(this,'B-EF-VAL');actualizarDisponibleBase()" style="font-weight:700">
+        <input type="hidden" id="B-EF-VAL">
+      </div>
+      <div>
+        <label style="font-size:11px;color:#6A1B9A;font-weight:700">📱 Nequi ($)</label>
+        <input id="B-NQ-MON" type="text" inputmode="numeric" placeholder="0" oninput="fmtCap(this,'B-NQ-VAL');actualizarDisponibleBase()" style="font-weight:700">
+        <input type="hidden" id="B-NQ-VAL">
+      </div>
     </div>
+    <div id="B-MIXTO-INFO" style="font-size:11px;margin-top:6px;padding:6px 8px;border-radius:6px;display:none"></div>
   </div>
   <div class="fg2"><label>Descripción</label><input id="B-DESC" type="text" placeholder="Ej: Aporte enero, Retiro utilidades..."></div>
   <div class="mf"><button class="bg2 bs" onclick="cM('m-base')">Cancelar</button><button class="bp bs" id="B-OK" onclick="sBase()">Guardar</button></div>
@@ -1492,14 +1500,16 @@ function rRec(){
       }
     });
   });
-  document.getElementById('REC-MET').innerHTML=
+  document.getElementById('RM').innerHTML=
     '<div class="me"><div class="lb">Cobrado del día</div><div class="vl gp">'+fm(totC)+'</div></div>'+
     '<div class="me"><div class="lb">Pagos registrados</div><div class="vl">'+cntC+'</div></div>'+
     '<div class="me"><div class="lb">Promedio por pago</div><div class="vl">'+(cntC>0?fm(Math.round(totC/cntC)):fm(0))+'</div></div>'+
     '<div class="me"><div class="lb">Fecha</div><div class="vl" style="font-size:14px">'+new Date(dia+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short'})+'</div></div>';
-  document.getElementById('REC-TAB').innerHTML=rowsC.length>0?
-    '<table class="tbl"><thead><tr><th>Cliente</th><th>Cuota</th><th>Valor</th><th>Método</th><th>Estado</th></tr></thead><tbody>'+rowsC.join('')+'</tbody></table>':
-    '<div class="empty">Sin cobros para este día</div>';
+  if(rowsC.length>0){
+    document.getElementById('TBR').innerHTML=rowsC.join('');
+  } else {
+    document.getElementById('TBR').innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--tm);padding:20px">Sin cobros para este día</td></tr>';
+  }
 }
 
 
@@ -1993,37 +2003,71 @@ function selTipoBase(tipo) {
 }
 
 function abrirBase(tipo, rutaId) {
-  // Poblar rutas
-  var rutSel = document.getElementById('B-RUT');
-  rutSel.innerHTML = ST.rutas.map(function(r){ return '<option value="'+r.id+'">'+r.nombre+'</option>'; }).join('');
-  // Limpiar
-  document.getElementById('B-FEC').value = ISO;
-  document.getElementById('B-MON').value = '';
-  document.getElementById('B-DESC').value = '';
+  var rutSel=document.getElementById('B-RUT');
+  rutSel.innerHTML=ST.rutas.map(function(r){return '<option value="'+r.id+'">'+r.nombre+'</option>';}).join('');
+  // Limpiar campos
+  document.getElementById('B-FEC').value=ISO;
+  document.getElementById('B-DESC').value='';
+  ['B-EF-MON','B-NQ-MON','B-EF-VAL','B-NQ-VAL'].forEach(function(id){
+    var el=document.getElementById(id); if(el) el.value='';
+  });
+  var info=document.getElementById('B-MIXTO-INFO');
+  if(info) info.style.display='none';
   // Preseleccionar tipo y ruta
   selTipoBase(tipo);
-  selMpBase('efectivo'); // reset método por defecto
-  if(rutaId) rutSel.value = rutaId;
-  document.getElementById('m-base').style.display = 'flex';
+  if(rutaId) rutSel.value=rutaId;
+  // Mostrar disponible inicial si hay ruta
+  setTimeout(function(){actualizarDisponibleBase();},50);
+  document.getElementById('m-base').style.display='flex';
 }
 
 function sBase() {
-  var mon = parseFloat(document.getElementById('B-MON').value);
-  var rut = document.getElementById('B-RUT').value;
-  var fec = document.getElementById('B-FEC').value;
-  if(!mon||!rut||!fec) { toast('Complete monto, ruta y fecha','err'); return; }
-  if(_tipoBase==='base' || _tipoBase==='retiro') {
-    var saldo = saldoCaja(rut);
-    if(mon > saldo) { toast('Saldo insuficiente en la caja ('+fm(saldo)+')','err'); return; }
+  var ef=parseFloat(document.getElementById('B-EF-VAL').value)||0;
+  var nq=parseFloat(document.getElementById('B-NQ-VAL').value)||0;
+  var total=ef+nq;
+  var rut=document.getElementById('B-RUT').value;
+  var fec=document.getElementById('B-FEC').value;
+  if(!total){toast('Ingresa un monto en efectivo y/o Nequi','err');return;}
+  if(!rut||!fec){toast('Selecciona ruta y fecha','err');return;}
+
+  // Validar según tipo
+  if(_tipoBase==='retiro'||_tipoBase==='base'){
+    var cen=saldoCajaEfNq(rut);
+    var errores=[];
+    if(ef>0&&ef>cen.ef) errores.push('💵 Efectivo insuficiente en caja (disp: '+fm(Math.max(0,cen.ef))+')');
+    if(nq>0&&nq>cen.nq) errores.push('📱 Nequi insuficiente en caja (disp: '+fm(Math.max(0,cen.nq))+')');
+    if(total>saldoCaja(rut)) errores.push('Saldo total insuficiente en caja ('+fm(saldoCaja(rut))+')');
+    if(errores.length>0){toast(errores.join(' | '),'err');return;}
   }
-  db.collection('bases').add({
-    monto: mon, tipo: _tipoBase,
-    rutaId: rut, fecha: fec,
-    metodo: _mpBase,
-    desc: document.getElementById('B-DESC').value,
-    createdAt: Date.now()
-  }).then(function(){ cM('m-base'); toast('Registrado','ok'); rFlujo(); })
-    .catch(function(e){ toast('Error','err'); console.error(e); });
+
+  var desc=document.getElementById('B-DESC').value;
+  var promises=[];
+
+  // Si hay monto en efectivo → crear registro ef
+  if(ef>0){
+    promises.push(db.collection('bases').add({
+      monto:ef, tipo:_tipoBase, rutaId:rut, fecha:fec,
+      metodo:'efectivo', desc:desc, createdAt:Date.now()
+    }));
+  }
+  // Si hay monto en Nequi → crear registro nq
+  if(nq>0){
+    promises.push(db.collection('bases').add({
+      monto:nq, tipo:_tipoBase, rutaId:rut, fecha:fec,
+      metodo:'nequi', desc:desc, createdAt:Date.now()
+    }));
+  }
+
+  Promise.all(promises)
+    .then(function(){
+      cM('m-base');
+      var partes=[];
+      if(ef>0) partes.push('💵 '+fm(ef));
+      if(nq>0) partes.push('📱 '+fm(nq));
+      toast('Registrado: '+partes.join(' + '),'ok');
+      rFlujo();
+    })
+    .catch(function(e){toast('Error','err');console.error(e);});
 }
 
 // NUEVO CLIENTE + CRÉDITO
@@ -2071,12 +2115,10 @@ function sNuevoCli(){
     }
   }
   var int=parseFloat(document.getElementById('NC-INT').value)||0;
-  // Validar disponible: base+recaudo-prestamos-gastos del día
-  var dispHoy=disponibleRuta(rut);
-  if(cap>dispHoy){
-    toast('Saldo insuficiente. Disponible: '+fm(dispHoy),'err');
-    return;
-  }
+  // Validar disponible por método
+  var mixtoNC2=getMixtoEfNq('NC');
+  var errValNC=validarDisponibleMixto(rut,mixtoNC2);
+  if(errValNC.length>0){toast(errValNC.join(' | '),'err');return;}
   var tot=cap*(1+int/100);
   var cuota=Math.round(tot/dias);
   var seguro=PAR.seguroTipo==='valor'?PAR.seguroValor:cuota;
@@ -2180,11 +2222,11 @@ function sCredito(){
   if(cap<PAR.montoMinimo){toast('Capital mínimo '+fm(PAR.montoMinimo),'err');return;}
   var c=gC(_creditoCliId);
   var rutaId=c?c.rutaId:null;
-  if(rutaId){
-    var disp2=disponibleRuta(rutaId);
-    if(cap>disp2){toast('Saldo insuficiente. Disponible: '+fm(disp2),'err');return;}
-  }
   var mixto=getMixtoEfNq('CR');
+  if(rutaId){
+    var errVal=validarDisponibleMixto(rutaId,mixto);
+    if(errVal.length>0){toast(errVal.join(' | '),'err');return;}
+  }
   var tot=cap*(1+int/100);
   var cuota=Math.round(tot/dias);
   var seguro=PAR.seguroTipo==='valor'?PAR.seguroValor:cuota;
@@ -3296,12 +3338,32 @@ function calcMixto(prefix){
   var tot=ef+nq;
   var infoEl=document.getElementById(prefix+'-MIXTO-INFO');
   if(!infoEl)return;
-  if(tot>0){
+  if(tot<=0){infoEl.innerHTML='';return;}
+  // Obtener rutaId según el modal
+  var rutaId=null;
+  if(prefix==='NC'){var sel=document.getElementById('NC-RUT');if(sel)rutaId=sel.value;}
+  else if(prefix==='CR'&&_creditoCliId){var cli=gC(_creditoCliId);if(cli)rutaId=cli.rutaId;}
+  var alertas='';
+  if(rutaId&&ST.rutas&&ST.rutas.length>0){
+    var d=disponibleRutaEfNq(rutaId);
+    var partes=[];
+    if(ef>0){
+      var okEf=ef<=d.ef;
+      partes.push((okEf?'✓':'✗')+' 💵 '+fm(ef)+' de '+fm(d.ef)+' disp.');
+      if(!okEf) alertas='error';
+    }
+    if(nq>0){
+      var okNq=nq<=d.nq;
+      partes.push((okNq?'✓':'✗')+' 📱 '+fm(nq)+' de '+fm(d.nq)+' disp.');
+      if(!okNq) alertas='error';
+    }
+    if(tot>d.total) alertas='error';
+    infoEl.innerHTML='Total: <strong>'+fm(tot)+'</strong> · '+partes.join(' · ');
+    infoEl.style.color=alertas?'var(--rd)':'var(--gn)';
+  } else {
     infoEl.innerHTML='Total a entregar: <strong>'+fm(tot)+'</strong> '+
       (ef>0&&nq>0?'(💵 '+fm(ef)+' + 📱 '+fm(nq)+')':ef>0?'(💵 Efectivo)':'(📱 Nequi)');
     infoEl.style.color='var(--gn)';
-  } else {
-    infoEl.innerHTML='';
   }
 }
 
@@ -3323,6 +3385,41 @@ function limpiarMixto(prefix){
   });
   var info=document.getElementById(prefix+'-MIXTO-INFO');
   if(info) info.innerHTML='';
+}
+
+
+// ── Disponible por método para validación al crear crédito ──
+function disponibleRutaEfNq(rutaId){
+  var ISO2=fechaLocal(new Date());
+  var bd=baseDia(rutaId,ISO2);
+  var baseEf=ST.bases.filter(function(b){return b.rutaId===rutaId&&b.fecha===ISO2&&b.tipo==='base'&&b.metodo!=='nequi';}).reduce(function(s,b){return s+(b.monto||0);},0);
+  var baseNq=ST.bases.filter(function(b){return b.rutaId===rutaId&&b.fecha===ISO2&&b.tipo==='base'&&b.metodo==='nequi';}).reduce(function(s,b){return s+(b.monto||0);},0);
+  var rn=recaudoEfNq(rutaId,ISO2);
+  var pn=prestamosEfNq(rutaId,ISO2);
+  var gn=gastosDiaEfNq(rutaId,ISO2);
+  var dispEf=baseEf+rn.ef-pn.ef-gn.ef;
+  var dispNq=baseNq+rn.nq-pn.nq-gn.nq;
+  var dispTotal=bd.base+(rn.ef+rn.nq)-(pn.ef+pn.nq)-(gn.ef+gn.nq);
+  return {total:dispTotal, ef:dispEf, nq:dispNq};
+}
+
+// ── Validar si el mixto ef/nq cabe en el disponible por método ──
+function validarDisponibleMixto(rutaId, mixto){
+  var d=disponibleRutaEfNq(rutaId);
+  var errores=[];
+  // Validar total
+  if(mixto.total>d.total){
+    errores.push('Saldo total insuficiente. Disponible: '+fm(d.total)+' · Solicitado: '+fm(mixto.total));
+  } else {
+    // Validar por método
+    if(mixto.ef>0&&mixto.ef>d.ef){
+      errores.push('💵 Efectivo insuficiente. Disponible: '+fm(d.ef)+' · Solicitado: '+fm(mixto.ef));
+    }
+    if(mixto.nq>0&&mixto.nq>d.nq){
+      errores.push('📱 Nequi insuficiente. Disponible: '+fm(d.nq)+' · Solicitado: '+fm(mixto.nq));
+    }
+  }
+  return errores; // array vacío = OK
 }
 
 // INIT
