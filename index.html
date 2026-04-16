@@ -1130,9 +1130,35 @@ function doLogin(){
     .then(function(snap){
       btn.disabled=false; btn.textContent='Ingresar a RutaCobro';
       if(snap.empty){
-        // Crear perfil de usuario si no existe (primer login)
-        auth.signOut();
-        document.getElementById('LE').textContent='Usuario no configurado. Contacta al administrador.';
+        // Puede estar en tránsito — reintentar 1 vez después de 1 segundo
+        setTimeout(function(){
+          db.collection('usuarios').where('email','==',email).get()
+            .then(function(snap2){
+              if(snap2.empty){
+                auth.signOut();
+                document.getElementById('LE').textContent='Usuario no encontrado. Contacta al administrador.';
+                btn.disabled=false; btn.textContent='Ingresar a RutaCobro';
+              } else {
+                // Encontrado en el reintento — continuar login
+                var uData2=snap2.docs[0].data();
+                if(!uData2.rol) uData2.rol='ruta';
+                CU=Object.assign({id:snap2.docs[0].id},uData2);
+                document.getElementById('VL').style.display='none';
+                document.getElementById('VA').style.display='block';
+                document.getElementById('SBU').textContent=CU.nombre;
+                var r2=gR(CU.rutaId);
+                document.getElementById('SBR').textContent=CU.rol==='admin'?'Administrador':'Ruta '+(r2?r2.nombre:'');
+                document.getElementById('MUN').textContent=CU.nombre.split(' ')[0];
+                fcMes=ISO.slice(0,7);
+                buildNav(); cargarParams(); goto('dash'); subAll();
+                iniciarWatchMedianoche();
+              }
+            }).catch(function(e){
+              auth.signOut();
+              document.getElementById('LE').textContent='Error al cargar usuario.';
+              btn.disabled=false; btn.textContent='Ingresar a RutaCobro';
+            });
+        },1500);
         return;
       }
       var uData=snap.docs[0].data();
@@ -1192,7 +1218,18 @@ function cerrarSesion(){
     document.getElementById('LE').style.color='';
   });
 }
-// logout reemplazado por cerrarSesion()function refSc(){var a=document.querySelector('.sc.active');if(a){var id=a.id.replace('sc-','');actualizarFiltroRuta(id);if(SCRS[id])SCRS[id]();}}
+// logout reemplazado por cerrarSesion()var _refScTimer=null;
+function refSc(){
+  if(_refScTimer) clearTimeout(_refScTimer);
+  _refScTimer=setTimeout(function(){
+    var a=document.querySelector('.sc.active');
+    if(a){
+      var id=a.id.replace('sc-','');
+      actualizarFiltroRuta(id);
+      if(SCRS[id]) SCRS[id]();
+    }
+  },250);
+}
 
 // ── Navegación ────────────────────────────────
 var IC={
@@ -1852,33 +1889,45 @@ function rCie(){
         '<div class="cie-desglose-row" style="border-top:1px solid var(--br);padding-top:4px;margin-top:4px;font-weight:700"><span>Total</span><span style="color:'+(dif>=0?'var(--gn)':'var(--rd)')+'">'+fm(saldoEf+saldoNq)+'</span></div>'+
       '</div>';
 
-    // ── Seguros recaudados en el día ──
+    // ── Seguros de la ruta ──
     var segsHoy=ST.seguros.filter(function(s){
       return s.tipo==='ingreso'&&s.fecha===ISO&&s.rutaId===ruta.id;
     });
+    var segSaldoRuta=saldoSeguros(ruta.id);
+    var segCenRuta=saldoSegurosEfNq(ruta.id);
+    // Siempre mostrar el fondo de seguros de la ruta
+    html+=
+      '<div class="cie-desglose" style="margin-top:1rem;border:1px solid #CE93D8;background:#F3E5F5">'+
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'+
+          '<div style="font-size:10px;font-weight:700;color:#6A1B9A;text-transform:uppercase;letter-spacing:.05em">'+
+            '&#x1F512; Fondo de seguros — Ruta '+ruta.nombre+'</div>'+
+          '<div style="text-align:right">'+
+            '<div style="font-size:16px;font-weight:700;color:#6A1B9A">'+fm(segSaldoRuta)+'</div>'+
+            '<div style="font-size:10px;color:#9C27B0">💵 '+fm(Math.max(0,segCenRuta.ef))+' · 📱 '+fm(Math.max(0,segCenRuta.nq))+'</div>'+
+          '</div>'+
+        '</div>';
     if(segsHoy.length>0){
       var segEfH=segsHoy.filter(function(s){return (s.metodo||'efectivo')!=='nequi';}).reduce(function(t,s){return t+(s.monto||0);},0);
       var segNqH=segsHoy.filter(function(s){return s.metodo==='nequi';}).reduce(function(t,s){return t+(s.monto||0);},0);
       var segTotH=segEfH+segNqH;
       html+=
-        '<div class="cie-desglose" style="margin-top:1rem;border:1px solid #CE93D8;background:#F3E5F5">'+
-          '<div style="font-size:10px;font-weight:700;color:#6A1B9A;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">'+
-            '&#x1F512; Seguros recaudados hoy ('+segsHoy.length+' crédito'+(segsHoy.length>1?'s':'')+')</div>'+
-          '<div class="cie-desglose-row"><span>💵 Efectivo</span><span style="color:#6A1B9A">'+fm(segEfH)+'</span></div>'+
-          '<div class="cie-desglose-row"><span>📱 Nequi</span><span style="color:#6A1B9A">'+fm(segNqH)+'</span></div>'+
-          '<div class="cie-desglose-row" style="border-top:1px solid #CE93D8;padding-top:4px;margin-top:4px;font-weight:700">'+
-            '<span>Total seguros</span><span style="color:#6A1B9A">'+fm(segTotH)+'</span></div>'+
-          (segsHoy.length>0?
-            '<div style="font-size:10px;color:#9C27B0;margin-top:6px;padding-top:6px;border-top:1px solid #CE93D8">'+
-              segsHoy.map(function(s){
-                var cli=gC(s.clienteId); var met=s.metodo||'efectivo';
-                return (cli?cli.nombre:'Cliente')+': '+fm(s.monto||0)+' ('+(met==='nequi'?'📱 Nequi':'💵 Ef.')+')';
-              }).join(' · ')+
-            '</div>':'')+
+        '<div style="font-size:10px;font-weight:700;color:#6A1B9A;margin-bottom:4px">'+
+          'Recaudados hoy: '+fm(segTotH)+' ('+segsHoy.length+' crédito'+(segsHoy.length>1?'s':'')+')</div>'+
+        '<div class="cie-desglose-row"><span>💵 Efectivo hoy</span><span style="color:#6A1B9A">'+fm(segEfH)+'</span></div>'+
+        '<div class="cie-desglose-row"><span>📱 Nequi hoy</span><span style="color:#6A1B9A">'+fm(segNqH)+'</span></div>'+
+        '<div style="font-size:10px;color:#9C27B0;margin-top:6px;padding-top:6px;border-top:1px solid #CE93D8">'+
+          segsHoy.map(function(s){
+            var cli=gC(s.clienteId);
+            var met=s.metodo||'efectivo';
+            return (cli?cli.nombre:'Cliente')+': '+fm(s.monto||0)+' ('+(met==='nequi'?'📱 Nequi':'💵 Ef.')+')';
+          }).join(' · ')+
         '</div>';
+    } else {
+      html+='<div style="font-size:11px;color:#9C27B0">Sin nuevos créditos hoy</div>';
     }
+    html+='</div>';
 
-    if(yaC){
+        if(yaC){
       html+='<div class="cie-cuadre cie-ok" style="margin-top:1rem">&#10003; Cierre registrado — '+fd(yaC.fecha)+' a las '+yaC.hora+'</div>';
     }else{
       html+='<div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-top:1rem">'+
@@ -3612,28 +3661,45 @@ function validarDisponibleMixto(rutaId, mixto){
 
 // ── Suscribir todas las colecciones en tiempo real ──────
 function subAll(){
-  if(!auth.currentUser){
-    console.warn('subAll: usuario no autenticado');
-    return;
-  }
+  if(!auth.currentUser){console.warn('subAll: sin auth');return;}
   setSy('cn');
   var cols=['rutas','clientes','prestamos','gastos','cierres','bases','seguros'];
-  cols.forEach(function(col){
-    var u=db.collection(col).onSnapshot(function(snap){
+  var loaded=0;
+  // Cargar todo con get() primero para mostrar datos rápido
+  Promise.all(cols.map(function(col){
+    return db.collection(col).get().then(function(snap){
       ST[col]=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
-      setSy('online');
-      refSc();
-    },function(e){
-      console.error(col,e);
-      setSy('offline');
+      loaded++;
     });
-    unsubs.push(u);
+  })).then(function(){
+    setSy('online');
+    refSc(); // Primer render con todos los datos
+    // Luego activar onSnapshot para actualizaciones en tiempo real
+    cols.forEach(function(col){
+      var u=db.collection(col).onSnapshot(function(snap){
+        ST[col]=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+        setSy('online');
+        refSc(); // Re-render con debounce
+      },function(e){console.error(col,e);setSy('offline');});
+      unsubs.push(u);
+    });
+    // Usuarios
+    var uU=db.collection('usuarios').onSnapshot(function(snap){
+      ST.usuarios=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    },function(e){console.error('usuarios',e);});
+    unsubs.push(uU);
+  }).catch(function(e){
+    console.error('subAll error:',e);
+    setSy('offline');
+    // Intentar solo con onSnapshot si get() falla
+    cols.forEach(function(col){
+      var u=db.collection(col).onSnapshot(function(snap){
+        ST[col]=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+        setSy('online');refSc();
+      },function(e2){console.error(col,e2);});
+      unsubs.push(u);
+    });
   });
-  // Usuarios en tiempo real
-  var uU=db.collection('usuarios').onSnapshot(function(snap){
-    ST.usuarios=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
-  },function(e){console.error('usuarios',e);});
-  unsubs.push(uU);
 }
 
 
