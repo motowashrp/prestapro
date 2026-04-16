@@ -384,11 +384,15 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
       <div><div class="bnm">Ruta<span>Cobro</span></div></div>
     </div>
     <div class="btg">Sistema de gestión de cartera diaria</div>
-    <div class="ll">Seleccionar usuario</div>
-    <div class="lu" id="LU"></div>
-    <div class="fg"><label>Contraseña</label><input type="password" id="LP" placeholder="••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div class="ll">Iniciar sesión</div>
+    <div class="lu" id="LU" style="display:none"></div>
+    <div class="fg"><label>Correo electrónico</label><input type="email" id="LE-EMAIL" placeholder="usuario@correo.com" onkeydown="if(event.key==='Enter')document.getElementById('LP').focus()" autocomplete="email"></div>
+    <div class="fg"><label>Contraseña</label><input type="password" id="LP" placeholder="••••••" onkeydown="if(event.key==='Enter')doLogin()" autocomplete="current-password"></div>
     <div class="le" id="LE"></div>
-    <button class="blo" onclick="doLogin()">Ingresar a RutaCobro</button>
+    <button class="blo" id="BTN-LOGIN" onclick="doLogin()">Ingresar a RutaCobro</button>
+    <div style="text-align:center;margin-top:10px">
+      <button onclick="recuperarPassword()" style="background:none;border:none;color:var(--bl);font-size:12px;cursor:pointer;text-decoration:underline;font-family:inherit">¿Olvidaste tu contraseña?</button>
+    </div>
 
   </div>
 </div>
@@ -411,7 +415,7 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
       <nav id="SBN" style="flex:1;padding:6px 0;overflow-y:auto"></nav>
       <div class="sbf">
         <div class="syr"><span class="syd" id="SYD"></span><span id="SYT">Conectando...</span></div>
-        <button class="slo" onclick="logout()"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6 3H3a1 1 0 00-1 1v8a1 1 0 001 1h3M11 11l3-3-3-3M14 8H6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Cerrar sesión</button>
+        <button class="slo" onclick="cerrarSesion()"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6 3H3a1 1 0 00-1 1v8a1 1 0 001 1h3M11 11l3-3-3-3M14 8H6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Cerrar sesión</button>
       </div>
     </aside>
     <main class="main">
@@ -784,6 +788,7 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
 
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 firebase.initializeApp({
@@ -794,7 +799,8 @@ firebase.initializeApp({
   messagingSenderId:"541736943619",
   appId:"1:541736943619:web:aa37087558ee177b008e36"
 });
-var db = firebase.firestore();
+var auth=firebase.auth();
+var db=firebase.firestore();
 // Persistencia offline: datos disponibles aunque no haya internet
 // Persistencia offline básica (sin synchronizeTabs para evitar conflictos)
 db.enablePersistence().catch(function(err){
@@ -1094,52 +1100,86 @@ function cSB(){document.getElementById('SB').classList.remove('open');document.g
 
 // ── Login ─────────────────────────────────────
 function buildU(){
-  var us=ST.usuarios.length>0?ST.usuarios:[{id:'adm0',nombre:'Administrador',rol:'admin',rutaId:null}];
-  document.getElementById('LU').innerHTML=us.map(function(u){
-    var r=gR(u.rutaId);
-    return '<div class="uc" id="ch-'+u.id+'" onclick="selU(\''+u.id+'\')"><div class="un">'+u.nombre.split(' ')[0]+'</div><div class="ur">'+(u.rol==='admin'?'Admin':'Ruta '+(r?r.nombre:''))+'</div></div>';
-  }).join('');
+  // buildU ya no controla el login (ahora es por email/Firebase Auth)
+  // Solo se llama para inicializar el estado
 }
 var _sui=null;
 function selU(id){_sui=id;document.querySelectorAll('.uc').forEach(function(c){c.classList.remove('sel');});var el=document.getElementById('ch-'+id);if(el)el.classList.add('sel');document.getElementById('LP').focus();document.getElementById('LE').textContent='';}
 function doLogin(){
-  var u=ST.usuarios.filter(function(x){return x.id===_sui;})[0];
-  if(!u){document.getElementById('LE').textContent='Selecciona un usuario';return;}
-  if(document.getElementById('LP').value!==u.pass){document.getElementById('LE').textContent='Contraseña incorrecta';return;}
-  CU=u;
-  document.getElementById('VL').style.display='none';
-  document.getElementById('VA').style.display='block';
-  document.getElementById('SBU').textContent=CU.nombre;
-  var r=gR(CU.rutaId);
-  document.getElementById('SBR').textContent=CU.rol==='admin'?'Administrador':'Ruta '+(r?r.nombre:'');
-  document.getElementById('MUN').textContent=CU.nombre.split(' ')[0];
-  fcMes=ISO.slice(0,7);
-  buildNav(); cargarParams(); goto('dash'); subAll();
-  iniciarWatchMedianoche();
-  // Confirmar versión activa
-  setTimeout(function(){
-    toast('✓ RutaCobro v34 activo — '+new Date().toLocaleTimeString('es-CO'),'ok');
-  }, 1500);
+  var email=document.getElementById('LE-EMAIL').value.trim();
+  var pass=document.getElementById('LP').value;
+  var leEl=document.getElementById('LE');
+  var btn=document.getElementById('BTN-LOGIN');
+  if(!email||!pass){leEl.textContent='Ingresa correo y contraseña';return;}
+  leEl.textContent='';
+  btn.disabled=true; btn.textContent='Verificando...';
+  auth.signInWithEmailAndPassword(email, pass)
+    .then(function(cred){
+      // Auth exitoso — buscar datos del usuario en Firestore por email
+      return db.collection('usuarios').where('email','==',email).get();
+    })
+    .then(function(snap){
+      btn.disabled=false; btn.textContent='Ingresar a RutaCobro';
+      if(snap.empty){
+        // Crear perfil de usuario si no existe (primer login)
+        auth.signOut();
+        document.getElementById('LE').textContent='Usuario no configurado. Contacta al administrador.';
+        return;
+      }
+      var u=Object.assign({id:snap.docs[0].id},snap.docs[0].data());
+      CU=u;
+      document.getElementById('VL').style.display='none';
+      document.getElementById('VA').style.display='block';
+      document.getElementById('SBU').textContent=CU.nombre;
+      var r=gR(CU.rutaId);
+      document.getElementById('SBR').textContent=CU.rol==='admin'?'Administrador':'Ruta '+(r?r.nombre:'');
+      document.getElementById('MUN').textContent=CU.nombre.split(' ')[0];
+      fcMes=ISO.slice(0,7);
+      buildNav(); cargarParams(); goto('dash'); subAll();
+      iniciarWatchMedianoche();
+      setTimeout(function(){
+        toast('✓ Bienvenido, '+CU.nombre.split(' ')[0],'ok');
+      }, 1000);
+    })
+    .catch(function(e){
+      btn.disabled=false; btn.textContent='Ingresar a RutaCobro';
+      var msgs={
+        'auth/user-not-found':'Correo no registrado',
+        'auth/wrong-password':'Contraseña incorrecta',
+        'auth/invalid-email':'Correo inválido',
+        'auth/too-many-requests':'Demasiados intentos. Espera unos minutos.',
+        'auth/invalid-credential':'Correo o contraseña incorrectos'
+      };
+      document.getElementById('LE').textContent=msgs[e.code]||'Error al ingresar: '+e.message;
+    });
 }
-function logout(){unsubs.forEach(function(f){f();});unsubs=[];CU=null;_sui=null;document.getElementById('VA').style.display='none';document.getElementById('VL').style.display='flex';document.getElementById('LP').value='';document.getElementById('LE').textContent='';buildU();}
 
-// ── Firebase ──────────────────────────────────
-function subAll(){
-  setSy('cn');
-  ['rutas','clientes','prestamos','gastos','cierres','bases','seguros'].forEach(function(col){
-    var u=db.collection(col).onSnapshot(function(snap){
-      ST[col]=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
-      setSy('online'); refSc();
-    },function(e){console.error(col,e);setSy('offline');});
-    unsubs.push(u);
-  });
-  var u2=db.collection('usuarios').onSnapshot(function(snap){
-    ST.usuarios=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
-    buildU();
-  },function(e){console.error('usuarios',e);});
-  unsubs.push(u2);
+function recuperarPassword(){
+  var email=document.getElementById('LE-EMAIL').value.trim();
+  if(!email){document.getElementById('LE').textContent='Ingresa tu correo primero';return;}
+  auth.sendPasswordResetEmail(email)
+    .then(function(){
+      document.getElementById('LE').style.color='var(--gn)';
+      document.getElementById('LE').textContent='✓ Correo de recuperación enviado a '+email;
+    })
+    .catch(function(e){
+      document.getElementById('LE').textContent='Error: '+e.message;
+    });
 }
-function refSc(){var a=document.querySelector('.sc.active');if(a){var id=a.id.replace('sc-','');actualizarFiltroRuta(id);if(SCRS[id])SCRS[id]();}}
+
+function cerrarSesion(){
+  auth.signOut().then(function(){
+    CU=null; ST={rutas:[],clientes:[],prestamos:[],gastos:[],cierres:[],bases:[],seguros:[],usuarios:[],config:[]};
+    unsubs.forEach(function(u){u();}); unsubs=[];
+    document.getElementById('VA').style.display='none';
+    document.getElementById('VL').style.display='flex';
+    document.getElementById('LE-EMAIL').value='';
+    document.getElementById('LP').value='';
+    document.getElementById('LE').textContent='';
+    document.getElementById('LE').style.color='';
+  });
+}
+// logout reemplazado por cerrarSesion()function refSc(){var a=document.querySelector('.sc.active');if(a){var id=a.id.replace('sc-','');actualizarFiltroRuta(id);if(SCRS[id])SCRS[id]();}}
 
 // ── Navegación ────────────────────────────────
 var IC={
@@ -2282,13 +2322,35 @@ function sRuta(){
   }
   saveRutaPromise.then(function(ref){
     var rutaId=_rutaEditId||(ref?ref.id:null);
-    if(!rutaId||!uNom||!uUsr||!uPas)return;
+    if(!rutaId||!uNom||!uUsr) return;
+    // Guardar perfil en Firestore
     var u=ST.usuarios.filter(function(u){return u.rutaId===rutaId;})[0];
-    var uData={nombre:uNom,user:uUsr,pass:uPas,rol:'ruta',rutaId:rutaId,updatedAt:Date.now()};
-    if(u) return db.collection('usuarios').doc(u.id).update(uData);
-    else{ uData.createdAt=Date.now(); return db.collection('usuarios').add(uData); }
+    var uData={nombre:uNom,email:uUsr,rol:'ruta',rutaId:rutaId,updatedAt:Date.now()};
+    var firestorePromise;
+    if(u){
+      firestorePromise=db.collection('usuarios').doc(u.id).update(uData);
+    } else {
+      uData.createdAt=Date.now();
+      firestorePromise=db.collection('usuarios').add(uData);
+    }
+    return firestorePromise.then(function(){
+      // Si hay contraseña nueva, crear/actualizar en Firebase Auth
+      if(uPas&&uPas.length>=6&&!u){
+        // Crear usuario en Firebase Auth usando Admin SDK via función auxiliar
+        // Nota: la creación directa requiere Admin SDK; usamos un workaround:
+        // Crear el usuario con signInWithEmailAndPassword fallback
+        return auth.createUserWithEmailAndPassword(uUsr, uPas)
+          .catch(function(e){
+            if(e.code==='auth/email-already-in-use'){
+              console.log('Usuario ya existe en Auth, solo se actualiza Firestore');
+            } else {
+              console.warn('Auth create error:', e.code);
+            }
+          });
+      }
+    });
   }).then(function(){_rutaEditId=null;cM('m-ruta');toast('Ruta guardada','ok');})
-    .catch(function(e){toast('Error','err');console.error(e);});
+    .catch(function(e){toast('Error: '+e.message,'err');console.error(e);});
 }
 
 // VER CLIENTE
@@ -3425,30 +3487,33 @@ function validarDisponibleMixto(rutaId, mixto){
 // INIT
 buildU(); setSy('cn');
 // Cargar usuarios con get() + onSnapshot para tiempo real
-function cargarUsuarios(){
-  db.collection('usuarios').get().then(function(snap){
-    ST.usuarios=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
-    buildU();
-    // Crear admin si no existe
-    var yaAdmin=ST.usuarios.find(function(u){return u.user==='admin'&&u.rol==='admin';});
-    if(!yaAdmin){
-      db.collection('usuarios').add({
-        nombre:'Administrador',user:'admin',pass:'admin123',
-        rol:'admin',rutaId:null,createdAt:Date.now()
-      }).then(cargarUsuarios);
-    }
-    // Suscribir para actualizaciones en tiempo real
-    db.collection('usuarios').onSnapshot(function(snap2){
-      ST.usuarios=snap2.docs.map(function(d){return Object.assign({id:d.id},d.data());});
-      buildU();
-    });
-  }).catch(function(e){
-    console.error('usuarios',e); setSy('offline');
-    // Reintentar en 3 segundos
-    setTimeout(cargarUsuarios, 3000);
-  });
-}
-cargarUsuarios();
+// El init ahora espera a que Firebase Auth detecte la sesión
+setSy('cn');
+auth.onAuthStateChanged(function(user){
+  if(user){
+    // Ya hay sesión activa — cargar datos del usuario
+    db.collection('usuarios').where('email','==',user.email).get()
+      .then(function(snap){
+        if(!snap.empty){
+          CU=Object.assign({id:snap.docs[0].id},snap.docs[0].data());
+          if(document.getElementById('VL').style.display!=='none'){
+            document.getElementById('VL').style.display='none';
+            document.getElementById('VA').style.display='block';
+            document.getElementById('SBU').textContent=CU.nombre;
+            var r=gR(CU.rutaId);
+            document.getElementById('SBR').textContent=CU.rol==='admin'?'Administrador':'Ruta '+(r?r.nombre:'');
+            document.getElementById('MUN').textContent=CU.nombre.split(' ')[0];
+            fcMes=ISO.slice(0,7);
+            buildNav(); cargarParams(); goto('dash'); subAll();
+            iniciarWatchMedianoche();
+          }
+        }
+      }).catch(function(e){console.error('Auth state error:',e);});
+  } else {
+    // No hay sesión — mostrar login
+    setSy('offline');
+  }
+});
 </script>
 </body>
 </html>
