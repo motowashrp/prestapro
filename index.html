@@ -2259,6 +2259,9 @@ function sNuevoCli(){
   var cuota=Math.round(tot/dias);
   var seguro=PAR.seguroTipo==='valor'?PAR.seguroValor:cuota;
   var recibe=cap-seguro;
+  // Leer mixto UNA VEZ aquí (en scope para toda la cadena de promesas)
+  var mixtoNC=getMixtoEfNq('NC');
+  var metodoSeg=mixtoNC.nq>0&&mixtoNC.nq>=mixtoNC.ef?'nequi':'efectivo';
   var cliRef=null;
   db.collection('clientes').add({
     nombre:nom,cedula:document.getElementById('NC-CED').value,
@@ -2268,17 +2271,15 @@ function sNuevoCli(){
     rutaId:rut,createdAt:Date.now()
   }).then(function(cRef){
     cliRef=cRef;
-    var mixtoNC=getMixtoEfNq('NC');
     return db.collection('prestamos').add({
       clienteId:cRef.id,capital:cap,interes:int,dias:dias,
       fechaInicio:fec,pagos:{},
       seguro:seguro,recibeCliente:recibe,
       metodoPago:mixtoNC.total===mixtoNC.ef?'efectivo':mixtoNC.total===mixtoNC.nq?'nequi':'mixto',
-      montoEf:mixtoNC.ef, montoNq:mixtoNC.nq,
+      montoEf:mixtoNC.ef,montoNq:mixtoNC.nq,
       createdAt:Date.now()
     });
   }).then(function(pRef){
-    // Registrar seguro en colección seguros
     return db.collection('seguros').add({
       prestamoId:pRef.id,
       clienteId:cliRef.id,
@@ -2287,13 +2288,13 @@ function sNuevoCli(){
       fecha:fec,
       tipo:'ingreso',
       concepto:'Seguro préstamo — '+nom,
-      metodo:mixtoNC.total===mixtoNC.nq?'nequi':(mixtoNC.ef>=mixtoNC.nq?'efectivo':'nequi'),
+      metodo:metodoSeg,
       createdAt:Date.now()
     });
   }).then(function(){
     cM('m-nuevo-cli');
-    toast('Cliente y crédito creados. Seguro: '+fm(cuota),'ok');
-  }).catch(function(e){toast('Error','err');console.error(e);});
+    toast('Cliente y crédito creados. Seguro: '+fm(seguro),'ok');
+  }).catch(function(e){toast('Error al crear: '+e.message,'err');console.error(e);});
 }
 
 // CRÉDITO A CLIENTE EXISTENTE
@@ -2380,7 +2381,7 @@ function sCredito(){
       prestamoId:pRef.id,clienteId:_creditoCliId,rutaId:rutaId,
       monto:seguro,fecha:fec,tipo:'ingreso',
       concepto:'Seguro préstamo — '+(c?c.nombre:''),
-      metodo:mixto.total===mixto.nq?'nequi':(mixto.ef>=mixto.nq?'efectivo':'nequi'),
+      metodo:mixto.nq>0&&mixto.nq>=mixto.ef?'nequi':'efectivo',
       createdAt:Date.now()
     });
   }).then(function(){
@@ -2972,14 +2973,20 @@ function sEditPre(){
   }).then(function(){
     // Actualizar seguro
     if(segAnt){
+      var metSeg=p.metodoPago==='nequi'?'nequi':'efectivo';
+      if(p.metodoPago==='mixto') metSeg=((p.montoNq||0)>=(p.montoEf||0))?'nequi':'efectivo';
       return db.collection('seguros').doc(segAnt.id).update({
-        monto:cuota,concepto:'Seguro préstamo — '+(c?c.nombre:''),updatedAt:Date.now()
+        monto:cuota,concepto:'Seguro préstamo — '+(c?c.nombre:''),
+        metodo:metSeg,updatedAt:Date.now()
       });
     }else{
+      var metSegNew=p.metodoPago==='nequi'?'nequi':'efectivo';
+      if(p.metodoPago==='mixto') metSegNew=((p.montoNq||0)>=(p.montoEf||0))?'nequi':'efectivo';
       return db.collection('seguros').add({
         prestamoId:pid,clienteId:p.clienteId,rutaId:c?c.rutaId:null,
         monto:cuota,fecha:fec,tipo:'ingreso',
-        concepto:'Seguro préstamo — '+(c?c.nombre:''),createdAt:Date.now()
+        concepto:'Seguro préstamo — '+(c?c.nombre:''),
+        metodo:metSegNew,createdAt:Date.now()
       });
     }
   }).then(function(){cM('m-edit-pre');toast('Préstamo actualizado','ok');})
