@@ -927,7 +927,16 @@ function saldoCajaEfNq(rutaId, hastaFecha){
   });
   ST.cierres.forEach(function(ci){
     if(ci.rutaId!==rutaId||ci.fecha>hasta)return;
-    ef+=(ci.diferencia||0);
+    // Usar desglose ef/nq del cierre si existe, sino calcular
+    if(ci.difEf!==undefined){
+      ef+=(ci.difEf||0);
+      nq+=(ci.difNq||0);
+    } else {
+      // Calcular desglose desde movimientos del día
+      var dEfNq=difCierreEfNq(rutaId,ci.fecha);
+      ef+=dEfNq.ef;
+      nq+=dEfNq.nq;
+    }
   });
   return {ef:ef,nq:nq};
 }
@@ -994,6 +1003,35 @@ function baseDia(rutaId, fecha) {
 function difCierre(rutaId, fecha) {
   var ci = ST.cierres.filter(function(c){return c.rutaId===rutaId && c.fecha===fecha;})[0];
   return ci ? (ci.diferencia||0) : null;
+}
+
+function difCierreEfNq(rutaId, fecha){
+  // Si el cierre tiene desglose guardado, usarlo
+  var ci=ST.cierres.filter(function(c){return c.rutaId===rutaId&&c.fecha===fecha;})[0];
+  if(ci&&ci.difEf!==undefined) return {ef:ci.difEf||0,nq:ci.difNq||0};
+  // Calcular desde los movimientos del día
+  var cIds=ST.clientes.filter(function(c){return c.rutaId===rutaId;}).map(function(c){return c.id;});
+  var recEf=0,recNq=0;
+  ST.prestamos.filter(function(p){return cIds.indexOf(p.clienteId)>=0;}).forEach(function(p){
+    Object.keys(p.pagos||{}).forEach(function(k){
+      var pg=p.pagos[k];
+      if(pg&&pg.fecha===fecha){if(pg.metodo==='nequi')recNq+=pg.valor||0;else recEf+=pg.valor||0;}
+    });
+  });
+  var b=baseDia(rutaId,fecha);
+  var baseEf=ST.bases.filter(function(x){return x.rutaId===rutaId&&x.fecha===fecha&&x.tipo==='base'&&x.metodo!=='nequi';}).reduce(function(s,x){return s+(x.monto||0);},0);
+  var baseNq=ST.bases.filter(function(x){return x.rutaId===rutaId&&x.fecha===fecha&&x.tipo==='base'&&x.metodo==='nequi';}).reduce(function(s,x){return s+(x.monto||0);},0);
+  var preEf=0,preNq=0;
+  ST.prestamos.filter(function(p){return cIds.indexOf(p.clienteId)>=0&&p.fechaInicio===fecha;}).forEach(function(p){
+    if(p.metodoPago==='mixto'){preEf+=(p.montoEf||0);preNq+=(p.montoNq||0);}
+    else if(p.metodoPago==='nequi') preNq+=p.capital;
+    else preEf+=p.capital;
+  });
+  var gasEfNq=gastosDiaEfNq(rutaId,fecha);
+  return {
+    ef:recEf+baseEf-preEf-gasEfNq.ef,
+    nq:recNq+baseNq-preNq-gasEfNq.nq
+  };
 }
 
 // Días de un mes (YYYY-MM)
@@ -1404,7 +1442,13 @@ function rFlujo(){
     var aportesMes=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='aporte';}).reduce(function(s,b){return s+(b.monto||0);},0);
     var retirosMes=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='retiro';}).reduce(function(s,b){return s+(b.monto||0);},0);
     var basesMes=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='base';}).reduce(function(s,b){return s+(b.monto||0);},0);
-    var difMes=ST.cierres.filter(function(ci){return ci.rutaId===r.id&&ci.fecha&&ci.fecha.slice(0,7)===fcMes;}).reduce(function(s,ci){return s+(ci.diferencia||0);},0);
+    var difMes=0,difEfMes=0,difNqMes=0;
+    ST.cierres.filter(function(ci){return ci.rutaId===r.id&&ci.fecha&&ci.fecha.slice(0,7)===fcMes;}).forEach(function(ci){
+      difMes+=(ci.diferencia||0);
+      var dEfNq=difCierreEfNq(r.id,ci.fecha);
+      difEfMes+=dEfNq.ef;
+      difNqMes+=dEfNq.nq;
+    });
     // Desglose ef/nq por tipo en el mes
     var fn2=function(tipo,esNq){return ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo===tipo&&(esNq?b.metodo==='nequi':b.metodo!=='nequi');}).reduce(function(s,b){return s+(b.monto||0);},0);};
     var aEf=fn2('aporte',false),aNq=fn2('aporte',true);
@@ -1427,7 +1471,8 @@ function rFlujo(){
           '<div style="font-size:10px;color:var(--tm)">&#x1F4B5; '+fm(rEf)+' · &#x1F4F1; '+fm(rNq)+'</div></div>'+
         '<div class="caja-stat"><div class="lb">Base asig.</div><div class="vl">-'+fm(basesMes)+'</div>'+
           '<div style="font-size:10px;color:var(--tm)">&#x1F4B5; '+fm(bEf)+' · &#x1F4F1; '+fm(bNq)+'</div></div>'+
-        '<div class="caja-stat '+(difMes>=0?'success':'danger')+'"><div class="lb">Dif. cierres</div><div class="vl">'+(difMes>=0?'+':'-')+fm(Math.abs(difMes))+'</div></div>'+
+        '<div class="caja-stat '+(difMes>=0?'success':'danger')+'"><div class="lb">Dif. cierres</div><div class="vl">'+(difMes>=0?'+':'')+fm(difMes)+'</div>'+
+          '<div style="font-size:10px;color:var(--tm)">&#x1F4B5; '+fm(difEfMes)+' · &#x1F4F1; '+fm(difNqMes)+'</div></div>'+
       '</div>'+
       '<div style="display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid var(--br);padding-top:.75rem">'+
         '<button class="bp bs btn-caja-mov" data-tipo="aporte" data-ruta="'+r.id+'" style="background:var(--gn)">+ Aporte</button>'+
