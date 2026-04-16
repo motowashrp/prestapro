@@ -1121,7 +1121,11 @@ function doLogin(){
         document.getElementById('LE').textContent='Usuario no configurado. Contacta al administrador.';
         return;
       }
-      var u=Object.assign({id:snap.docs[0].id},snap.docs[0].data());
+      var uData=snap.docs[0].data();
+      // Verificar que el rol esté correcto
+      // Si el email es el del auth.currentUser y el rol no es 'admin' ni 'ruta', corregir
+      if(!uData.rol) uData.rol='admin'; // Si no tiene rol, asumir admin
+      var u=Object.assign({id:snap.docs[0].id},uData);
       CU=u;
       document.getElementById('VL').style.display='none';
       document.getElementById('VA').style.display='block';
@@ -2340,9 +2344,14 @@ function sRuta(){
         // Nota: la creación directa requiere Admin SDK; usamos un workaround:
         // Crear el usuario con signInWithEmailAndPassword fallback
         return auth.createUserWithEmailAndPassword(emailInterno, uPas)
+          .then(function(cred){
+            // Usar UID de Auth como ID del documento en Firestore
+            var newUid=cred.user.uid;
+            return db.collection('usuarios').doc(newUid).set(uData);
+          })
           .catch(function(e){
             if(e.code==='auth/email-already-in-use'){
-              console.log('Usuario ya existe en Auth, solo se actualiza Firestore');
+              console.log('Usuario ya existe en Auth');
             } else {
               console.warn('Auth create error:', e.code);
             }
@@ -2695,7 +2704,9 @@ async function limpiarFirebase(){
     // 3. Si el admin no quedó en Firestore, recrearlo
     var adminSnap=await db.collection('usuarios').where('email','==',adminEmail).get();
     if(adminSnap.empty){
-      await db.collection('usuarios').add({
+      // Usar UID de Auth como ID del documento
+      var adminUid=auth.currentUser.uid;
+      await db.collection('usuarios').doc(adminUid).set({
         nombre:adminNombre,
         email:adminEmail,
         rol:'admin',
@@ -3569,7 +3580,17 @@ auth.onAuthStateChanged(function(user){
     db.collection('usuarios').where('email','==',user.email).get()
       .then(function(snap){
         if(!snap.empty){
-          CU=Object.assign({id:snap.docs[0].id},snap.docs[0].data());
+          var uData2=snap.docs[0].data();
+          if(!uData2.rol) uData2.rol='admin';
+          var docId2=snap.docs[0].id;
+          var authUid2=user.uid;
+          if(docId2!==authUid2){
+            db.collection('usuarios').doc(authUid2).set(Object.assign({},uData2,{migratedAt:Date.now()}))
+              .then(function(){ db.collection('usuarios').doc(docId2).delete(); })
+              .catch(function(e){console.warn('Migración:',e);});
+            docId2=authUid2;
+          }
+          CU=Object.assign({id:docId2},uData2);
           if(document.getElementById('VL').style.display!=='none'){
             document.getElementById('VL').style.display='none';
             document.getElementById('VA').style.display='block';
