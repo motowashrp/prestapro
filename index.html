@@ -1277,34 +1277,111 @@ function rDash(){
 function rCob(){
   actualizarFiltroRuta('cob');
   var rutaFil=CU.rol==='admin'?_rutaCob:CU.rutaId;
+  var selDia=document.getElementById('COB-DIA');
+  var diaCob=selDia&&selDia.value?selDia.value:ISO;
   var pres=rutaFil?ST.prestamos.filter(function(p){var c=gC(p.clienteId);return c&&c.rutaId===rutaFil;}):myP();
-  var ph=0,pc=0,th=0,tc=0,html='';
-  var totEf=0,totNq=0;
+
+  // Usar recaudoDia (igual que dashboard) para las métricas
+  var recaudoTotal=recaudoDia(rutaFil||'',diaCob);
+  var recEfNq=recaudoEfNq(rutaFil||'',diaCob);
+
+  var html='';
+  var pendCount=0, cobCount=0, pendMonto=0;
+
   pres.forEach(function(p){
     var c=gC(p.clienteId); if(!c)return;
-    var i=pI(p),r=gR(c.rutaId),pg=p.pagos||{};
+    var i=pI(p), r=gR(c.rutaId), pg=p.pagos||{};
+
+    // ¿El cliente tiene cuota programada para hoy?
+    var cuotaHoy=null;
     Object.keys(i.fechas).forEach(function(n){
-      if(i.fechas[n]===ISO){
-        var paid=pg[n]; var val=paid?(paid.valor||i.c):0;
-        th+=i.c;
-        if(paid){pc++;tc+=val;if(paid.metodo==='nequi')totNq+=val;else totEf+=val;}
-        else ph++;
-        html+='<div class="pr"><div class="pnb '+(paid?'pok':'phoy')+'">'+n+'</div>'+
-          '<div style="flex:1;min-width:0"><div class="pnm">'+c.nombre+'</div>'+
-          '<div class="psb">Cuota '+n+'/'+p.dias+(r?' · '+r.nombre:'')+'</div></div>'+
-          '<div class="pmo">'+(paid?fm(val):fm(i.c))+'</div>'+
-          (paid?'<span class="badge '+(paid.metodo==='nequi'?'bnq':'bef')+'">'+(paid.metodo==='nequi'?'Nequi':'Ef.')+'</span>':
-           '<button class="bc" data-pid="'+p.id+'" data-n="'+n+'" data-c="'+Math.round(i.c)+'" data-nom="'+c.nombre+'" onclick="aCob(this.dataset.pid,+this.dataset.n,+this.dataset.c,this.dataset.nom)">Cobrar</button>')+
-        '</div>';
-      }
+      if(i.fechas[n]===diaCob) cuotaHoy=parseInt(n);
     });
+
+    // ¿Ya pagó algo hoy?
+    var pagoHoy=null;
+    Object.keys(pg).forEach(function(k){
+      if(pg[k]&&pg[k].fecha===diaCob) pagoHoy=pg[k];
+    });
+
+    // ¿Ya pagó la cuota de hoy (cualquier número de cuota)?
+    var cuotaHoyPagada=cuotaHoy!==null&&pg[cuotaHoy];
+
+    // Mostrar en la lista:
+    // A) Si tiene cuota hoy y ya la pagó → mostrar como cobrado
+    // B) Si tiene cuota hoy y NO la pagó → mostrar como pendiente
+    // C) Si pagó cuota adelantada hoy (pagoHoy pero no cuotaHoy) → mostrar como cobrado extra
+    // D) Si no tiene cuota hoy ni pagó hoy → no mostrar
+
+    if(cuotaHoy!==null){
+      var paid=pg[cuotaHoy];
+      var val=paid?(paid.valor||i.c):i.c;
+      if(paid){
+        cobCount++;
+        html+='<div class="pr">'+
+          '<div class="pnb pok">'+cuotaHoy+'</div>'+
+          '<div style="flex:1;min-width:0">'+
+            '<div class="pnm">'+c.nombre+'</div>'+
+            '<div class="psb">Cuota '+cuotaHoy+'/'+p.dias+(r?' · '+r.nombre:'')+'</div>'+
+          '</div>'+
+          '<div class="pmo">'+fm(paid.valor||i.c)+'</div>'+
+          '<span class="badge '+(paid.metodo==='nequi'?'bnq':'bef')+'">'+(paid.metodo==='nequi'?'Nequi':'Ef.')+'</span>'+
+          '<span class="badge" style="background:#4CAF50;color:#fff;margin-left:4px">Cobrado</span>'+
+        '</div>';
+      } else {
+        // Verificar si ya está al día (pagó suficiente para cubrir esta cuota)
+        var totalPagado=0;
+        Object.keys(pg).forEach(function(k){if(pg[k])totalPagado+=(pg[k].valor||0);});
+        var cuotasCubiertas=Math.floor(totalPagado/i.c);
+        if(cuotasCubiertas>=cuotaHoy){
+          // Ya cubierta por pago adelantado
+          cobCount++;
+          html+='<div class="pr">'+
+            '<div class="pnb pok">'+cuotaHoy+'</div>'+
+            '<div style="flex:1;min-width:0">'+
+              '<div class="pnm">'+c.nombre+'</div>'+
+              '<div class="psb">Cuota '+cuotaHoy+'/'+p.dias+' — pagada por adelantado'+(r?' · '+r.nombre:'')+'</div>'+
+            '</div>'+
+            '<div class="pmo">'+fm(i.c)+'</div>'+
+            '<span class="badge" style="background:#4CAF50;color:#fff">Al día</span>'+
+          '</div>';
+        } else {
+          pendCount++;
+          pendMonto+=i.c;
+          html+='<div class="pr">'+
+            '<div class="pnb phoy">'+cuotaHoy+'</div>'+
+            '<div style="flex:1;min-width:0">'+
+              '<div class="pnm">'+c.nombre+'</div>'+
+              '<div class="psb">Cuota '+cuotaHoy+'/'+p.dias+(r?' · '+r.nombre:'')+'</div>'+
+            '</div>'+
+            '<div class="pmo">'+fm(i.c)+'</div>'+
+            '<button class="bc" data-pid="'+p.id+'" data-n="'+cuotaHoy+'" data-c="'+Math.round(i.c)+'" data-nom="'+c.nombre+'" onclick="aCob(this.dataset.pid,+this.dataset.n,+this.dataset.c,this.dataset.nom)">Cobrar</button>'+
+          '</div>';
+        }
+      }
+    } else if(pagoHoy&&i.est!=='completado'){
+      // Pagó cuota adelantada hoy pero no tenía cuota programada hoy
+      cobCount++;
+      html+='<div class="pr">'+
+        '<div class="pnb pok" style="background:#9C27B0">+</div>'+
+        '<div style="flex:1;min-width:0">'+
+          '<div class="pnm">'+c.nombre+'</div>'+
+          '<div class="psb">Pago adelantado hoy'+(r?' · '+r.nombre:'')+'</div>'+
+        '</div>'+
+        '<div class="pmo">'+fm(pagoHoy.valor||0)+'</div>'+
+        '<span class="badge '+(pagoHoy.metodo==='nequi'?'bnq':'bef')+'">'+(pagoHoy.metodo==='nequi'?'Nequi':'Ef.')+'</span>'+
+      '</div>';
+    }
   });
+
+  // Ordenar por ruta si hay orden definido
+  var pct=cobCount+pendCount>0?Math.round(cobCount*100/(cobCount+pendCount)):0;
   document.getElementById('CM').innerHTML=
-    '<div class="me"><div class="lb">Cobrado hoy</div><div class="vl gp">'+fm(tc)+'</div>'+
-      '<div class="sb2">&#x1F4B5; '+fm(totEf)+' · &#x1F4F1; '+fm(totNq)+'</div></div>'+
-    '<div class="me"><div class="lb">Pendiente</div><div class="vl">'+fm(th-tc)+'</div><div class="sb2">'+ph+' cobros</div></div>'+
-    '<div class="me"><div class="lb">Efectivo cobrado</div><div class="vl" style="color:var(--gn)">'+fm(totEf)+'</div></div>'+
-    '<div class="me"><div class="lb">Nequi cobrado</div><div class="vl" style="color:#6A1B9A">'+fm(totNq)+'</div></div>';
+    '<div class="me"><div class="lb">Cobrado hoy</div><div class="vl gp">'+fm(recaudoTotal)+'</div>'+
+      '<div class="sb2">&#x1F4B5; '+fm(recEfNq.ef)+' · &#x1F4F1; '+fm(recEfNq.nq)+'</div></div>'+
+    '<div class="me"><div class="lb">Pendiente</div><div class="vl '+(pendCount>0?'gn2':'')+'">'+fm(pendMonto)+'</div><div class="sb2">'+pendCount+' cuotas</div></div>'+
+    '<div class="me"><div class="lb">Total programado</div><div class="vl">'+fm(recaudoTotal+pendMonto)+'</div></div>'+
+    '<div class="me"><div class="lb">% Cobrado</div><div class="vl" style="color:'+(pct===100?'var(--gn)':'var(--bd)')+'">'+pct+'%</div></div>';
   document.getElementById('CL').innerHTML=html||'<div class="empty">Sin cobros para hoy</div>';
 }
 
@@ -1388,36 +1465,43 @@ function rRec(){
   var dEl=document.getElementById('REC-DIA');
   if(!dEl.value)dEl.value=ISO;
   var dia=dEl.value;
-  var rutaFil = CU.rol==='admin' ? _rutaRec : CU.rutaId;
-  var pres = rutaFil
-    ? ST.prestamos.filter(function(p){var c=gC(p.clienteId);return c&&c.rutaId===rutaFil;})
-    : myP();
-  var totC=0,cntC=0,totP=0,cntP=0;
-  var rowsC=[],rowsP=[];
+  var rutaFil=CU.rol==='admin'?_rutaRec:CU.rutaId;
+  var pres=rutaFil?ST.prestamos.filter(function(p){var c=gC(p.clienteId);return c&&c.rutaId===rutaFil;}):myP();
+  var totC=0,cntC=0;
+  var rowsC=[];
   pres.forEach(function(p){
     var c=gC(p.clienteId);if(!c)return;
     var i=pI(p),pg=p.pagos||{};
-    Object.keys(i.fechas).forEach(function(n){
-      if(i.fechas[n]===dia){
-        var paid=pg[n];
-        if(paid){var v=paid.valor||i.c;totC+=v;cntC++;rowsC.push({cli:c.nombre,cuota:n+'/'+p.dias,monto:v,met:paid.metodo||'efectivo',paid:true});}
-        else{totP+=i.c;cntP++;rowsP.push({cli:c.nombre,cuota:n+'/'+p.dias,monto:i.c,met:null,paid:false});}
+    // Sumar todos los pagos cuya fecha de cobro coincide con el día (igual que recaudoDia)
+    Object.keys(pg).forEach(function(k){
+      var pago=pg[k];
+      if(pago&&pago.fecha===dia){
+        var v=pago.valor||0;
+        var met=pago.metodo||'efectivo';
+        // Encontrar número de cuota para mostrar
+        var numCuota=parseInt(k);
+        var fechaCuota=isNaN(numCuota)?'—':(i.fechas[numCuota]||'—');
+        totC+=v;cntC++;
+        rowsC.push('<tr>'+
+          '<td>'+c.nombre+'</td>'+
+          '<td>'+(isNaN(numCuota)?'Pago':numCuota+'/'+p.dias)+'</td>'+
+          '<td>'+fm(v)+'</td>'+
+          '<td><span class="badge '+(met==='nequi'?'bnq':'bef')+'">'+(met==='nequi'?'Nequi':'Ef.')+'</span></td>'+
+          '<td><span class="badge bb">Cobrado</span></td>'+
+        '</tr>');
       }
     });
   });
-  document.getElementById('RM').innerHTML=
-    '<div class="me"><div class="lb">Cobrado del día</div><div class="vl gp">'+fm(totC)+'</div><div class="sb2">'+cntC+' pagos</div></div>'+
-    '<div class="me"><div class="lb">Pendiente del día</div><div class="vl gn2">'+fm(totP)+'</div><div class="sb2">'+cntP+' cuotas</div></div>'+
-    '<div class="me"><div class="lb">Total programado</div><div class="vl">'+fm(totC+totP)+'</div></div>'+
-    '<div class="me"><div class="lb">% cobrado</div><div class="vl">'+(( totC+totP)>0?Math.round((totC/(totC+totP))*100):0)+'%</div></div>';
-  var all=[].concat(rowsC,rowsP);
-  document.getElementById('TBR').innerHTML=all.map(function(r){
-    return '<tr><td class="tn">'+r.cli+'</td><td>'+r.cuota+'</td>'+
-      '<td style="font-weight:700;color:'+(r.paid?'var(--gn)':'var(--rd)')+'">'+fm(r.monto)+'</td>'+
-      '<td>'+(r.paid?'<span class="badge '+(r.met==='nequi'?'bnq':'bef')+'">'+(r.met==='nequi'?'Nequi':'Efectivo')+'</span>':'—')+'</td>'+
-      '<td><span class="badge '+(r.paid?'bg3':'ba')+'">'+(r.paid?'Cobrado':'Pendiente')+'</span></td></tr>';
-  }).join('')||'<tr><td colspan="5"><div class="empty">Sin cuotas para este día</div></td></tr>';
+  document.getElementById('REC-MET').innerHTML=
+    '<div class="me"><div class="lb">Cobrado del día</div><div class="vl gp">'+fm(totC)+'</div></div>'+
+    '<div class="me"><div class="lb">Pagos registrados</div><div class="vl">'+cntC+'</div></div>'+
+    '<div class="me"><div class="lb">Promedio por pago</div><div class="vl">'+(cntC>0?fm(Math.round(totC/cntC)):fm(0))+'</div></div>'+
+    '<div class="me"><div class="lb">Fecha</div><div class="vl" style="font-size:14px">'+new Date(dia+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short'})+'</div></div>';
+  document.getElementById('REC-TAB').innerHTML=rowsC.length>0?
+    '<table class="tbl"><thead><tr><th>Cliente</th><th>Cuota</th><th>Valor</th><th>Método</th><th>Estado</th></tr></thead><tbody>'+rowsC.join('')+'</tbody></table>':
+    '<div class="empty">Sin cobros para este día</div>';
 }
+
 
 function rFlujo(){
   // Selector de mes
@@ -1850,7 +1934,7 @@ function cfCob(){
   var pg=Object.assign({},p.pagos||{});
   var hoy=fechaLocal(new Date());
   // Marcar cuota solicitada con valor real pagado y fecha de hoy
-  if(!pg[_cobN]) pg[_cobN]={valor:Math.round(val/q),metodo:_cobMp,fecha:hoy};
+  if(!pg[_cobN]) pg[_cobN]={valor:Math.round(_cobMin),metodo:_cobMp,fecha:hoy};
   var marcadas=1;
   if(q>1){
     // Marcar cuotas pendientes en orden (vencidas primero, luego futuras)
@@ -1858,7 +1942,7 @@ function cfCob(){
       .filter(function(n){return n!==_cobN&&!pg[n];})
       .sort(function(a,b){return a-b;});
     for(var k=0;k<pendientes.length&&marcadas<q;k++){
-      pg[pendientes[k]]={valor:Math.round(val/q),metodo:_cobMp,fecha:hoy};
+      pg[pendientes[k]]={valor:Math.round(_cobMin),metodo:_cobMp,fecha:hoy};
       marcadas++;
     }
   }
