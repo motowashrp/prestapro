@@ -802,10 +802,7 @@ firebase.initializeApp({
 var auth=firebase.auth();
 var db=firebase.firestore();
 // Persistencia offline: datos disponibles aunque no haya internet
-// Persistencia offline básica (sin synchronizeTabs para evitar conflictos)
-db.enablePersistence().catch(function(err){
-  console.warn('Persistencia offline no disponible:', err.code);
-});
+// Persistencia offline desactivada (incompatible con reglas de Auth)
 
 // Fecha local (sin desfase UTC — Colombia UTC-5)
 function fechaLocal(d){
@@ -3482,6 +3479,33 @@ function validarDisponibleMixto(rutaId, mixto){
     }
   }
   return errores; // array vacío = OK
+}
+
+
+// ── Suscribir todas las colecciones en tiempo real ──────
+function subAll(){
+  if(!auth.currentUser){
+    console.warn('subAll: usuario no autenticado');
+    return;
+  }
+  setSy('cn');
+  var cols=['rutas','clientes','prestamos','gastos','cierres','bases','seguros'];
+  cols.forEach(function(col){
+    var u=db.collection(col).onSnapshot(function(snap){
+      ST[col]=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+      setSy('online');
+      refSc();
+    },function(e){
+      console.error(col,e);
+      setSy('offline');
+    });
+    unsubs.push(u);
+  });
+  // Usuarios en tiempo real
+  var uU=db.collection('usuarios').onSnapshot(function(snap){
+    ST.usuarios=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+  },function(e){console.error('usuarios',e);});
+  unsubs.push(uU);
 }
 
 // INIT
