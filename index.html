@@ -386,13 +386,10 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
     <div class="btg">Sistema de gestión de cartera diaria</div>
     <div class="ll">Iniciar sesión</div>
     <div class="lu" id="LU" style="display:none"></div>
-    <div class="fg"><label>Correo electrónico</label><input type="email" id="LE-EMAIL" placeholder="usuario@correo.com" onkeydown="if(event.key==='Enter')document.getElementById('LP').focus()" autocomplete="email"></div>
+    <div class="fg"><label>Usuario</label><input type="text" id="LE-EMAIL" placeholder="Ej: robinson" onkeydown="if(event.key==='Enter')document.getElementById('LP').focus()" autocomplete="username" style="text-transform:none"></div>
     <div class="fg"><label>Contraseña</label><input type="password" id="LP" placeholder="••••••" onkeydown="if(event.key==='Enter')doLogin()" autocomplete="current-password"></div>
     <div class="le" id="LE"></div>
     <button class="blo" id="BTN-LOGIN" onclick="doLogin()">Ingresar a RutaCobro</button>
-    <div style="text-align:center;margin-top:10px">
-      <button onclick="recuperarPassword()" style="background:none;border:none;color:var(--bl);font-size:12px;cursor:pointer;text-decoration:underline;font-family:inherit">¿Olvidaste tu contraseña?</button>
-    </div>
 
   </div>
 </div>
@@ -1103,16 +1100,17 @@ function buildU(){
 var _sui=null;
 function selU(id){_sui=id;document.querySelectorAll('.uc').forEach(function(c){c.classList.remove('sel');});var el=document.getElementById('ch-'+id);if(el)el.classList.add('sel');document.getElementById('LP').focus();document.getElementById('LE').textContent='';}
 function doLogin(){
-  var email=document.getElementById('LE-EMAIL').value.trim();
+  var usrInput=document.getElementById('LE-EMAIL').value.trim();
   var pass=document.getElementById('LP').value;
   var leEl=document.getElementById('LE');
   var btn=document.getElementById('BTN-LOGIN');
-  if(!email||!pass){leEl.textContent='Ingresa correo y contraseña';return;}
+  if(!usrInput||!pass){leEl.textContent='Ingresa usuario y contraseña';return;}
+  var email=toAuthEmail(usrInput);
   leEl.textContent='';
   btn.disabled=true; btn.textContent='Verificando...';
   auth.signInWithEmailAndPassword(email, pass)
     .then(function(cred){
-      // Auth exitoso — buscar datos del usuario en Firestore por email
+      // Auth exitoso — buscar datos en Firestore por email interno
       return db.collection('usuarios').where('email','==',email).get();
     })
     .then(function(snap){
@@ -2322,7 +2320,8 @@ function sRuta(){
     if(!rutaId||!uNom||!uUsr) return;
     // Guardar perfil en Firestore
     var u=ST.usuarios.filter(function(u){return u.rutaId===rutaId;})[0];
-    var uData={nombre:uNom,email:uUsr,rol:'ruta',rutaId:rutaId,updatedAt:Date.now()};
+    var emailInterno=toAuthEmail(uUsr);
+    var uData={nombre:uNom,user:uUsr,email:emailInterno,rol:'ruta',rutaId:rutaId,updatedAt:Date.now()};
     var firestorePromise;
     if(u){
       firestorePromise=db.collection('usuarios').doc(u.id).update(uData);
@@ -2336,7 +2335,7 @@ function sRuta(){
         // Crear usuario en Firebase Auth usando Admin SDK via función auxiliar
         // Nota: la creación directa requiere Admin SDK; usamos un workaround:
         // Crear el usuario con signInWithEmailAndPassword fallback
-        return auth.createUserWithEmailAndPassword(uUsr, uPas)
+        return auth.createUserWithEmailAndPassword(emailInterno, uPas)
           .catch(function(e){
             if(e.code==='auth/email-already-in-use'){
               console.log('Usuario ya existe en Auth, solo se actualiza Firestore');
@@ -3506,6 +3505,15 @@ function subAll(){
     ST.usuarios=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
   },function(e){console.error('usuarios',e);});
   unsubs.push(uU);
+}
+
+
+// Convertir usuario simple a email interno para Firebase Auth
+function toAuthEmail(usr){
+  if(!usr) return '';
+  usr=usr.trim().toLowerCase().replace(/\s+/g,'.').replace(/[^a-z0-9.@_-]/g,'');
+  if(usr.indexOf('@')===-1) usr=usr+'@rutacobro.app';
+  return usr;
 }
 
 // INIT
