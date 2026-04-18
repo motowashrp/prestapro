@@ -1230,13 +1230,14 @@ function cerrarSesion(){
 function refSc(){
   if(_refScTimer) clearTimeout(_refScTimer);
   _refScTimer=setTimeout(function(){
+    clearCache(); // limpiar caché antes de cada render
     var a=document.querySelector('.sc.active');
     if(a){
       var id=a.id.replace('sc-','');
       actualizarFiltroRuta(id);
       if(SCRS[id]) SCRS[id]();
     }
-  },250);
+  },400);
 }
 
 // ── Navegación ────────────────────────────────
@@ -1332,15 +1333,15 @@ function rDash(){
   if(rutaFil&&!rutas.length) rutas=ST.rutas;
   var cajasH='';
   rutas.forEach(function(r){
-    var s=saldoCaja(r.id);
-    var cen=saldoCajaEfNq(r.id);
+    var s=saldoCajaC(r.id);
+    var cen=saldoCajaEfNqC(r.id);
     var bd=baseDia(r.id,ISO);
     // Desglose ef/nq de base asignada hoy
     var baseEfHoy=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha===ISO&&b.tipo==='base'&&b.metodo!=='nequi';}).reduce(function(s,b){return s+(b.monto||0);},0);
     var baseNqHoy=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha===ISO&&b.tipo==='base'&&b.metodo==='nequi';}).reduce(function(s,b){return s+(b.monto||0);},0);
-    var recEfNq=recaudoEfNq(r.id,ISO);
-    var preEfNq=prestamosEfNq(r.id,ISO);
-    var gasEfNq=gastosDiaEfNq(r.id,ISO);
+    var recEfNq=recaudoEfNqC(r.id,ISO);
+    var preEfNq=prestamosEfNqC(r.id,ISO);
+    var gasEfNq=gastosDiaEfNqC(r.id,ISO);
     var rec=recEfNq.ef+recEfNq.nq;
     var pre=preEfNq.ef+preEfNq.nq;
     var gas=gasEfNq.ef+gasEfNq.nq;
@@ -1636,8 +1637,8 @@ function rFlujo(){
   // ── CAJA vs BASE por ruta ────────────────────
   var cajasH='';
   rutas.forEach(function(r){
-    var saldoCajaR=saldoCaja(r.id);
-    var cen=saldoCajaEfNq(r.id);
+    var saldoCajaR=saldoCajaC(r.id);
+    var cen=saldoCajaEfNqC(r.id);
     var aportesMes=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='aporte';}).reduce(function(s,b){return s+(b.monto||0);},0);
     var retirosMes=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='retiro';}).reduce(function(s,b){return s+(b.monto||0);},0);
     var basesMes=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='base';}).reduce(function(s,b){return s+(b.monto||0);},0);
@@ -1862,14 +1863,14 @@ function rCie(){
     });
     var pre=preEf+preNq;
     // Gastos con desglose
-    var gasEfNqCie=gastosDiaEfNq(ruta.id,ISO);
+    var gasEfNqCie=gastosDiaEfNqC(ruta.id,ISO);
     var gas=gasEfNqCie.ef+gasEfNqCie.nq;
     // Base método
     var baseEf=ST.bases.filter(function(x){return x.rutaId===ruta.id&&x.fecha===ISO&&x.tipo==='base'&&x.metodo!=='nequi';}).reduce(function(s,x){return s+(x.monto||0);},0);
     var baseNq=ST.bases.filter(function(x){return x.rutaId===ruta.id&&x.fecha===ISO&&x.tipo==='base'&&x.metodo==='nequi';}).reduce(function(s,x){return s+(x.monto||0);},0);
     // Diferencia
     var dif=rec+b.base-pre-gas;
-    var cajaSaldo=saldoCaja(ruta.id);
+    var cajaSaldo=saldoCajaC(ruta.id);
     // Saldo ef/nq estimado: recaudo ef - prestamos ef + base ef
     var saldoEf=recEf-preEf+baseEf-gasEfNqCie.ef;
     var saldoNq=recNq-preNq+baseNq-gasEfNqCie.nq;
@@ -1994,7 +1995,7 @@ function rRut(){
     var pres=ST.prestamos.filter(function(p){var c=gC(p.clienteId);return c&&c.rutaId===ruta.id;});
     var capitalCalle=pres.reduce(function(s,p){return s+(pI(p).est!=='completado'?saldoPendiente(p):0);},0);
     var morosos=pres.filter(function(p){return pI(p).est==='moroso';}).length;
-    var saldo=saldoCaja(ruta.id);
+    var saldo=saldoCajaC(ruta.id);
     var u=ST.usuarios.filter(function(u){return u.rutaId===ruta.id;})[0];
     return '<div class="caja-card" style="border-left-color:'+ruta.color+'">'+
       '<div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:8px;margin-bottom:1rem">'+
@@ -2621,7 +2622,7 @@ function expFlujo(){
   // ── Hoja 2: Resumen por ruta ──
   var dataR=[['Ruta','Saldo Caja Actual','Aportes Mes','Retiros Mes','Base Mes','Recaudo Mes','Préstamos Mes','Gastos Mes','Seguros Mes']];
   rutas.forEach(function(r){
-    var sc=saldoCaja(r.id),ap=0,ret=0,ba=0,rec=0,pre=0,gas=0,seg=0;
+    var sc=saldoCajaC(r.id),ap=0,ret=0,ba=0,rec=0,pre=0,gas=0,seg=0;
     diasDelMes(fcMes).forEach(function(fecha){
       var b=baseDia(r.id,fecha);
       ap+=b.aporte;ret+=b.retiros;ba+=b.base;
@@ -3783,9 +3784,15 @@ function subAll(){
     // Luego activar onSnapshot para actualizaciones en tiempo real
     cols.forEach(function(col){
       var u=db.collection(col).onSnapshot(function(snap){
-        ST[col]=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+        // Solo re-renderizar si realmente cambiaron datos
+        var newData=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+        var oldLen=ST[col]?ST[col].length:0;
+        ST[col]=newData;
         setSy('online');
-        refSc(); // Re-render con debounce
+        // Re-render solo si hay cambios (cantidad diferente o hay docChanges)
+        if(snap.docChanges().length>0||newData.length!==oldLen){
+          refSc();
+        }
       },function(e){console.error(col,e);setSy('offline');});
       unsubs.push(u);
     });
@@ -3857,6 +3864,29 @@ function actualizarSaldoSegModal(){
   info.innerHTML=lineas.join('<br>');
   if(warn) warn.style.display=hayError?'block':'none';
 }
+
+
+// ── Caché de cálculos para el render activo ─────────
+var _cache={};
+function _cc(key, fn){
+  if(_cache[key]===undefined) _cache[key]=fn();
+  return _cache[key];
+}
+function clearCache(){ _cache={}; }
+
+// Versiones cacheadas de funciones pesadas
+function saldoCajaC(rid){ return _cc('sc_'+rid, function(){return saldoCaja(rid);}); }
+function saldoCajaEfNqC(rid){ return _cc('scen_'+rid, function(){return saldoCajaEfNq(rid);}); }
+function disponibleRutaC(rid){ return _cc('dr_'+rid, function(){return disponibleRuta(rid);}); }
+function disponibleRutaEfNqC(rid){ return _cc('dren_'+rid, function(){return disponibleRutaEfNq(rid);}); }
+function recaudoDiaC(rid,fec){ return _cc('rd_'+rid+'_'+fec, function(){return recaudoDia(rid,fec);}); }
+function recaudoEfNqC(rid,fec){ return _cc('ren_'+rid+'_'+fec, function(){return recaudoEfNq(rid,fec);}); }
+function prestamosDiaC(rid,fec){ return _cc('pd_'+rid+'_'+fec, function(){return prestamosDia(rid,fec);}); }
+function prestamosEfNqC(rid,fec){ return _cc('pen_'+rid+'_'+fec, function(){return prestamosEfNq(rid,fec);}); }
+function gastosDiaC(rid,fec){ return _cc('gd_'+rid+'_'+fec, function(){return gastosDia(rid,fec);}); }
+function gastosDiaEfNqC(rid,fec){ return _cc('gen_'+rid+'_'+fec, function(){return gastosDiaEfNq(rid,fec);}); }
+function saldoSegurosC(rid){ return _cc('ss_'+rid, function(){return saldoSeguros(rid);}); }
+function saldoSegurosEfNqC(rid){ return _cc('ssen_'+rid, function(){return saldoSegurosEfNq(rid);}); }
 
 // INIT
 buildU(); setSy('cn');
