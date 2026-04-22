@@ -845,10 +845,16 @@ function fm(n){ return '$'+Math.round(n).toLocaleString('es-CO'); }
 function fd(d){ try{ return new Date(d+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'2-digit',year:'numeric'}); }catch(e){ return d||''; } }
 function fds(d){ try{ return new Date(d+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short'}); }catch(e){ return d||''; } }
 function gR(id){ return ST.rutas.filter(function(r){return r.id===id;})[0]; }
-function gC(id){ return ST.clientes.filter(function(c){return c.id===id;})[0]; }
-function gP(id){ return ST.prestamos.filter(function(p){return p.id===id;})[0]; }
-function myP(){ return CU&&CU.rol==='ruta' ? ST.prestamos.filter(function(p){var c=gC(p.clienteId);return c&&c.rutaId===CU.rutaId;}) : ST.prestamos; }
-function myC(){ return CU&&CU.rol==='ruta' ? ST.clientes.filter(function(c){return c.rutaId===CU.rutaId;}) : ST.clientes; }
+function gC(id){
+  if(!id) return undefined;
+  return _cc('gC_'+id, function(){ return ST.clientes.filter(function(c){return c.id===id;})[0]; });
+}
+function gP(id){
+  if(!id) return undefined;
+  return _cc('gP_'+id, function(){ return ST.prestamos.filter(function(p){return p.id===id;})[0]; });
+}
+function myP(){ return _cc('myP', function(){ return CU&&CU.rol==='ruta' ? ST.prestamos.filter(function(p){var c=gC(p.clienteId);return c&&c.rutaId===CU.rutaId;}) : ST.prestamos; }); }
+function myC(){ return _cc('myC', function(){ return CU&&CU.rol==='ruta' ? ST.clientes.filter(function(c){return c.rutaId===CU.rutaId;}) : ST.clientes; }); }
 
 // Contar días hábiles (sin domingos) entre dos fechas
 function diasHabiles(desde, hasta) {
@@ -881,12 +887,14 @@ function cuotasVencidas(p) {
 
 // Info de préstamo sin mora
 function pI(p) {
+  // Cache por render: evitar recalcular el mismo préstamo múltiples veces
+  var ckey='pI_'+p.id+'_'+(p.updatedAt||p.createdAt||0);
+  if(_cache[ckey]) return _cache[ckey];
   var tot = p.capital*(1+(p.interes||0)/100);
   var c = tot/p.dias;
   var ini = new Date(p.fechaInicio+'T12:00:00');
   var pagos = p.pagos||{};
   var pag = 0;
-  // Contar cuotas marcadas (claves numéricas con fecha de cobro asignada)
   Object.keys(pagos).forEach(function(k){
     var n=parseInt(k);
     if(!isNaN(n) && n>=1 && n<=p.dias && pagos[k]) pag++;
@@ -2034,7 +2042,6 @@ function rRut(){
 // ══════════════════════════════════════════════
 
 // COBRO
-var _cobPid=null,_cobN=null,_cobMin=0,_cobMp='efectivo';
 function aCob(pid,n,cuota,nomCli){
   _cobPid=pid;_cobN=n;_cobMin=cuota;_cobMp='efectivo';
   var p=gP(pid);if(!p)return;
@@ -2971,13 +2978,6 @@ function retirosSegDia(rutaId, fecha){
   }).reduce(function(s,x){return s+(x.monto||0);},0);
 }
 
-function validRetiroSeg(){
-  var val=parseFloat(document.getElementById('RS-VAL').value)||0;
-  var saldo=saldoSeguros();
-  var w=document.getElementById('RS-WARN'), b=document.getElementById('RS-OK');
-  if(val>saldo&&val>0){w.style.display='block';b.disabled=true;b.style.opacity='.5';}
-  else{w.style.display='none';b.disabled=false;b.style.opacity='';}
-}
 
 function sRetiroSeg(){
   var ef=parseFloat(document.getElementById('RS-EF-VAL').value)||0;
@@ -3245,17 +3245,9 @@ function selMpPre(prefix, mp){
 }
 
 // ── Selector método de pago en base ──────────
-function selMpGas(mp){
-  _mpGasto=mp;
-  document.getElementById('GAS-EF').className='mpo'+(mp==='efectivo'?' sef':'');
-  document.getElementById('GAS-NQ').className='mpo'+(mp==='nequi'?' snq':'');
-}
+// selMpGas obsoleta
 
-function selMpBase(mp){
-  _mpBase=mp;
-  document.getElementById('B-EF').className='mpo'+(mp==='efectivo'?' sef':'');
-  document.getElementById('B-NQ').className='mpo'+(mp==='nequi'?' snq':'');
-}
+// selMpBase obsoleta
 
 // ── Editar gasto ──────────────────────────────
 function abrirEditGas(id){
@@ -3889,10 +3881,7 @@ function saldoSegurosC(rid){ return _cc('ss_'+rid, function(){return saldoSeguro
 function saldoSegurosEfNqC(rid){ return _cc('ssen_'+rid, function(){return saldoSegurosEfNq(rid);}); }
 
 // INIT
-buildU(); setSy('cn');
-// Cargar usuarios con get() + onSnapshot para tiempo real
-// El init ahora espera a que Firebase Auth detecte la sesión
-setSy('cn');
+// Espera a que Firebase Auth detecte la sesión
 auth.onAuthStateChanged(function(user){
   if(user){
     // Ya hay sesión activa — cargar datos del usuario
