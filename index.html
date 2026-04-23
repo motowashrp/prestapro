@@ -460,8 +460,7 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
           <div id="CLI-LIST"></div>
         </div>
       </div>
-      <!-- RECAUDOS -->
-      <div class      <!-- FLUJO DE CAJA -->
+      <!-- FLUJO DE CAJA -->
       <div class="sc" id="sc-flujo">
         <div class="tb">
           <h2>Flujo de caja</h2>
@@ -1876,6 +1875,66 @@ function rCie(){
     if(!btn)return;
     sCierre(btn.dataset.rid,+btn.dataset.rec,+btn.dataset.base,+btn.dataset.pre,+btn.dataset.gas,+btn.dataset.dif);
   };
+}
+
+
+function rCli(){
+  actualizarFiltroRuta('cli');
+  var rutaFil=CU.rol==='admin'?_rutaCli:CU.rutaId;
+  var q=(document.getElementById('SCI')?document.getElementById('SCI').value:'').trim().toLowerCase();
+  var clis=rutaFil?ST.clientes.filter(function(c){return c.rutaId===rutaFil;}):myC();
+  if(q) clis=clis.filter(function(c){
+    return (c.nombre||'').toLowerCase().includes(q)||(c.cedula||'').includes(q);
+  });
+
+  // Mini dashboard
+  var totalCap=0,totalPend=0,totalClis=clis.length;
+  clis.forEach(function(c){
+    ST.prestamos.filter(function(p){return p.clienteId===c.id;}).forEach(function(p){
+      var i=pI(p);
+      if(i.est!=='completado'){
+        totalCap+=p.capital;
+        totalPend+=(i.tot-i.pag*i.c);
+      }
+    });
+  });
+  var dashEl=document.getElementById('CLI-DASH');
+  if(dashEl) dashEl.innerHTML=
+    '<div class="met">'+
+    '<div class="me"><div class="lb">Clientes</div><div class="vl">'+totalClis+'</div></div>'+
+    '<div class="me"><div class="lb">Capital en calle</div><div class="vl gp">'+fm(totalCap)+'</div></div>'+
+    '<div class="me"><div class="lb">Saldo pendiente</div><div class="vl gn2">'+fm(totalPend)+'</div></div>'+
+    '</div>';
+
+  // Lista de clientes
+  var html='';
+  clis.sort(function(a,b){return (a.nombre||'').localeCompare(b.nombre||'');});
+  clis.forEach(function(c){
+    var pres=ST.prestamos.filter(function(p){return p.clienteId===c.id;});
+    var presActivos=pres.filter(function(p){var i=pI(p);return i.est==='activo'||i.est==='moroso';});
+    var r=gR(c.rutaId);
+    var initials=(c.nombre||'?').split(' ').slice(0,2).map(function(w){return w[0]||'';}).join('');
+    html+=
+      '<div class="cli-row" onclick="verCli(\"'+c.id+'\")">'+
+        '<div class="cli-av">'+initials+'</div>'+
+        '<div class="cli-info">'+
+          '<div class="cli-nom">'+c.nombre+'</div>'+
+          '<div class="cli-sub">'+(c.cedula?'CC '+c.cedula+' · ':'')+
+            (r?r.nombre:'')+
+          '</div>'+
+        '</div>'+
+        '<div class="cli-meta">'+
+          (presActivos.length>0?
+            '<span class="badge" style="background:'+(presActivos.some(function(p){return pI(p).est==='moroso';})?'var(--rd)':'var(--bl)')+';color:#fff">'+
+              presActivos.length+' crédito'+(presActivos.length>1?'s':'')+
+            '</span>':
+            '<span class="badge" style="background:var(--gn);color:#fff">Al día</span>'
+          )+
+        '</div>'+
+      '</div>';
+  });
+  var listEl=document.getElementById('CLI-LIST');
+  if(listEl) listEl.innerHTML=html||'<div class="empty">Sin clientes</div>';
 }
 
 
