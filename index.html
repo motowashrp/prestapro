@@ -907,7 +907,7 @@ function pI(p) {
 // Saldo pendiente de un préstamo
 function saldoPendiente(p) {
   var i = pI(p);
-  return (p.dias - i.pag) * i.c;
+  return i.saldoReal; // usa el valor real cobrado, no estimado por cuotas
 }
 
 // Saldo de caja de una ruta en un mes (o hasta hoy)
@@ -972,10 +972,11 @@ function recaudoDia(rutaId, fecha) {
   var cIds = ST.clientes.filter(function(c){return c.rutaId===rutaId;}).map(function(c){return c.id;});
   ST.prestamos.filter(function(p){return cIds.indexOf(p.clienteId)>=0;}).forEach(function(p){
     var pagos=p.pagos||{};
-    // Sumar todos los pagos cuya FECHA DE COBRO coincide con la fecha solicitada
+    // Sumar pagos del día: solo cuotas principales (que tienen el valor total)
+    // Las adicionales tienen valor=0 para evitar doble conteo
     Object.keys(pagos).forEach(function(k){
       var pg=pagos[k];
-      if(pg && pg.fecha===fecha) tot += pg.valor||0;
+      if(pg && pg.fecha===fecha && !pg.esAdicional) tot += pg.valor||0;
     });
   });
   return tot;
@@ -1177,7 +1178,7 @@ function doLogin(){
       document.getElementById('SBR').textContent=CU.rol==='admin'?'Administrador':'Ruta '+(r?r.nombre:'');
       document.getElementById('MUN').textContent=CU.nombre.split(' ')[0];
       fcMes=ISO.slice(0,7);
-      buildNav(); cargarParams(); goto('dash'); subAll();
+      buildNav(); cargarParams(); goto('cob'); subAll();
       iniciarWatchMedianoche();
       setTimeout(function(){
         toast('✓ Bienvenido, '+CU.nombre.split(' ')[0],'ok');
@@ -1472,8 +1473,7 @@ function rCob(){
               (esAdmin?'<span class="badge" style="background:#1565C0;color:#fff;margin-left:3px">Admin</span>':'')+
             '</td>'+
             '<td style="white-space:nowrap">'+
-              '<button onclick="editarPago(\''+p.id+'\','+pk.n+',\''+dia+'\')" style="font-size:11px;padding:2px 8px;border:1px solid var(--br);border-radius:4px;background:var(--bgs);cursor:pointer;margin-right:4px">✏️</button>'+
-              '<button onclick="eliminarPago(\''+p.id+'\','+pk.n+')" style="font-size:11px;padding:2px 8px;border:1px solid #ffcdd2;border-radius:4px;background:#fff;cursor:pointer;color:var(--rd)">🗑️</button>'+
+              '<button onclick="editarPago(\''+p.id+'\','+pk.n+',\''+dia+'\')" style="font-size:11px;padding:2px 8px;border:1px solid var(--br);border-radius:4px;background:var(--bgs);cursor:pointer">✏️ Editar</button>'+
             '</td>'+
             '</tr>'
         });
@@ -1888,48 +1888,140 @@ function rCli(){
   });
 
   // Mini dashboard
-  var totalCap=0,totalPend=0,totalClis=clis.length;
-  clis.forEach(function(c){
-    ST.prestamos.filter(function(p){return p.clienteId===c.id;}).forEach(function(p){
-      var i=pI(p);
-      if(i.est!=='completado'){
-        totalCap+=p.capital;
-        totalPend+=(i.tot-i.pag*i.c);
-      }
-    });
+  var totalCreditos=0, prestamosHoy=0, reembolsosHoy=0, capitalCalle=0;
+  var cliIds=clis.map(function(c){return c.id;});
+  ST.prestamos.forEach(function(p){
+    if(cliIds.indexOf(p.clienteId)<0) return;
+    var i=pI(p);
+    if(i.est!=='completado'){ totalCreditos++; capitalCalle+=p.capital; }
+    if(p.fechaInicio===ISO) prestamosHoy++;
+  });
+  (ST.reembolsos||[]).forEach(function(r){
+    if(r.tipo!=='ingreso'||r.fecha!==ISO) return;
+    var cli=gC(r.clienteId);
+    if(!cli||cliIds.indexOf(cli.id)<0) return;
+    reembolsosHoy++;
   });
   var dashEl=document.getElementById('CLI-DASH');
   if(dashEl) dashEl.innerHTML=
     '<div class="met">'+
-    '<div class="me"><div class="lb">Clientes</div><div class="vl">'+totalClis+'</div></div>'+
-    '<div class="me"><div class="lb">Capital en calle</div><div class="vl gp">'+fm(totalCap)+'</div></div>'+
-    '<div class="me"><div class="lb">Saldo pendiente</div><div class="vl gn2">'+fm(totalPend)+'</div></div>'+
+    '<div class="me"><div class="lb">Clientes</div><div class="vl">'+clis.length+'</div><div class="sb2">En esta ruta</div></div>'+
+    '<div class="me"><div class="lb">Créditos activos</div><div class="vl" style="color:var(--bl)">'+totalCreditos+'</div><div class="sb2">Vigentes</div></div>'+
+    '<div class="me"><div class="lb">Capital en calle</div><div class="vl gp">'+fm(capitalCalle)+'</div><div class="sb2">Total activo</div></div>'+
+    '<div class="me"><div class="lb">Préstamos hoy</div><div class="vl gp">'+prestamosHoy+'</div><div class="sb2">Otorgados hoy</div></div>'+
+    '<div class="me"><div class="lb">Reembolsos hoy</div><div class="vl" style="color:#0288D1">'+reembolsosHoy+'</div><div class="sb2">Renovaciones hoy</div></div>'+
     '</div>';
 
-  // Lista de clientes
+  // Lista clientes + detalle inline expandible
   var html='';
   clis.sort(function(a,b){return (a.nombre||'').localeCompare(b.nombre||'');});
   clis.forEach(function(c){
-    var pres=ST.prestamos.filter(function(p){return p.clienteId===c.id;});
+    var pres=ST.prestamos.filter(function(p){return p.clienteId===c.id;})
+      .sort(function(a,b){return (b.createdAt||0)-(a.createdAt||0);});
     var presActivos=pres.filter(function(p){var i=pI(p);return i.est==='activo'||i.est==='moroso';});
     var r=gR(c.rutaId);
     var initials=(c.nombre||'?').split(' ').slice(0,2).map(function(w){return w[0]||'';}).join('');
+    var hayMoroso=presActivos.some(function(p){return pI(p).est==='moroso';});
+    var badgeColor=presActivos.length>0?(hayMoroso?'var(--rd)':'var(--bl)'):'var(--gn)';
+    var badgeText=presActivos.length>0?presActivos.length+' crédito'+(presActivos.length>1?'s':''):'Sin créditos';
+
+    // Generar detalle de créditos
+    var credDetalle='';
+    pres.forEach(function(p){
+      var i=pI(p);
+      var saldo=saldoPendiente(p);
+      var esHoy=p.fechaInicio===ISO;
+      var pgObj=p.pagos||{};
+      var pagosPorFecha={};
+      Object.keys(pgObj).forEach(function(k){
+        var pago=pgObj[k];
+        if(pago&&pago.fecha){
+          if(!pagosPorFecha[pago.fecha]) pagosPorFecha[pago.fecha]={total:0,cuotas:[],metodo:pago.metodo||'ef'};
+          pagosPorFecha[pago.fecha].total+=(pago.valor||0);
+          pagosPorFecha[pago.fecha].cuotas.push(parseInt(k));
+        }
+      });
+      var calH='';
+      for(var n=1;n<=p.dias;n++){
+        var paid=pgObj[n],fq=i.fechas[n]||'';
+        var cls='ppend',ico='○';
+        var metStr=paid&&paid.metodo?(paid.metodo==='nequi'?' 📱':' 💵'):'';
+        if(paid){cls='pok';ico='✓';}
+        else if(fq&&fq<ISO){cls='pvec';ico='!';}
+        else if(fq===ISO){cls='phoy';ico='◉';}
+        var valorMostrar=i.c,extraInfo='';
+        if(paid){
+          if(paid.esPrincipal){
+            valorMostrar=paid.valor||i.c;
+            var rd=pagosPorFecha[paid.fecha];
+            extraInfo=(rd&&rd.cuotas.length>1?' · cubre '+rd.cuotas.length+' cuotas':'')+
+                      (paid.fecha?' · '+fd(paid.fecha):'')+metStr;
+          } else if(paid.esAdicional){
+            valorMostrar=0;
+            extraInfo=' · cubierta el '+fd(paid.fecha);
+          } else {
+            valorMostrar=paid.valor||i.c;
+            extraInfo=(paid.fecha?' · '+fd(paid.fecha):'')+metStr;
+          }
+        }
+        calH+='<div class="cal-cell '+cls+'">'+
+          '<div style="background:'+(cls==='pok'?'#4CAF50':cls==='pvec'?'#F44336':cls==='phoy'?'#FF9800':'#90CAF9')+
+          ';color:#fff;width:18px;height:18px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0">'+ico+'</div>'+
+          '<div style="flex:1;min-width:0">'+
+            '<div style="font-size:10px;font-weight:600;color:var(--bd)">Cuota '+n+(fq?' — '+fd(fq):'')+'</div>'+
+            '<div style="font-size:9px;color:var(--tm)">'+(paid?(valorMostrar>0?fm(valorMostrar):'')+extraInfo:fm(i.c))+'</div>'+
+          '</div></div>';
+      }
+      var B={completado:'bg3',moroso:'br2',atraso:'ba',activo:'bb'};
+      var T={completado:'Completado',moroso:'Moroso',atraso:'Atraso',activo:'Activo'};
+      credDetalle+=
+        '<div style="background:var(--bll);border-radius:8px;padding:12px;margin-bottom:8px;border:1px solid var(--br)">'+
+          '<div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:6px;margin-bottom:8px">'+
+            '<div>'+
+              '<div style="font-size:13px;font-weight:700;color:var(--bd)">'+fm(p.capital)+' — '+p.dias+' días '+
+                '<span class="badge '+B[i.est]+'">'+T[i.est]+'</span>'+
+                (esHoy?' <span class="badge bb">Hoy</span>':'')+
+              '</div>'+
+              '<div class="ts">Desde '+fd(p.fechaInicio)+' · Cuota: '+fm(i.c)+'/día</div>'+
+            '</div>'+
+            '<div style="text-align:right">'+
+              '<div style="font-size:15px;font-weight:700">'+fm(saldo)+'</div>'+
+              '<div class="ts">Saldo</div>'+
+              (esHoy?'<div style="display:flex;gap:4px;margin-top:4px">'+
+                '<button class="bv" style="font-size:11px;padding:3px 8px" onclick="abrirEditPre(\"'+p.id+'\")">Editar</button>'+
+                '<button class="bd2" onclick="eliminarPre(\"'+p.id+'\")">✕</button></div>':'')+
+            '</div>'+
+          '</div>'+
+          '<div class="pb"><div class="pf" style="width:'+i.prog.toFixed(0)+'%"></div></div>'+
+          '<div class="ts" style="margin-bottom:8px">'+i.pag+' pagadas · '+i.venc.length+' vencidas · '+(p.dias-i.pag)+' restantes</div>'+
+          '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:4px">'+calH+'</div>'+
+        '</div>';
+    });
+
     html+=
-      '<div class="cli-row" onclick="verCli(\"'+c.id+'\")">'+
-        '<div class="cli-av">'+initials+'</div>'+
-        '<div class="cli-info">'+
-          '<div class="cli-nom">'+c.nombre+'</div>'+
-          '<div class="cli-sub">'+(c.cedula?'CC '+c.cedula+' · ':'')+
-            (r?r.nombre:'')+
+      '<div class="cli-card" id=\'clic-'+c.id+'\'>'+
+        // Header del cliente (click para expandir)
+        '<div class="cli-row" onclick="toggleCli(\''+c.id+'\')" style="cursor:pointer">'+
+          '<div class="cli-av">'+initials+'</div>'+
+          '<div class="cli-info">'+
+            '<div class="cli-nom">'+c.nombre+'</div>'+
+            '<div class="cli-sub">'+(c.cedula?'CC '+c.cedula+' · ':'')+(c.tel?c.tel+' · ':'')+
+              (r?r.nombre:'')+
+            '</div>'+
+          '</div>'+
+          '<div class="cli-meta" style="display:flex;align-items:center;gap:6px">'+
+            '<span class="badge" style="background:'+badgeColor+';color:#fff">'+badgeText+'</span>'+
+            '<span id=\'cli-arr-'+c.id+'\' style="font-size:12px;color:var(--tm)">▼</span>'+
           '</div>'+
         '</div>'+
-        '<div class="cli-meta">'+
-          (presActivos.length>0?
-            '<span class="badge" style="background:'+(presActivos.some(function(p){return pI(p).est==='moroso';})?'var(--rd)':'var(--bl)')+';color:#fff">'+
-              presActivos.length+' crédito'+(presActivos.length>1?'s':'')+
-            '</span>':
-            '<span class="badge" style="background:var(--gn);color:#fff">Al día</span>'
-          )+
+        // Detalle expandible
+        '<div id=\'cli-det-'+c.id+'\' style="display:none;padding:0 12px 12px">'+
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'+
+            '<div style="font-size:11px;font-weight:700;color:var(--tm);text-transform:uppercase">Créditos</div>'+
+            '<button class="bp bs" style="font-size:12px;padding:4px 12px" onclick="oCred(\"'+c.id+'\",\"'+c.nombre+'\")">+ Nuevo crédito</button>'+
+          '</div>'+
+          credDetalle+
+          (credDetalle===''?'<div class="empty">Sin créditos</div>':'')+
         '</div>'+
       '</div>';
   });
@@ -2090,14 +2182,16 @@ function cfCob(){
   var q=Math.max(1,Math.floor(val/_cobMin));
   var pg=Object.assign({},pgActual);
   var hoy=fechaLocal(new Date());
-  pg[_cobN]={valor:Math.round(_cobMin),metodo:_cobMp,fecha:hoy};
+  // La cuota principal guarda el valor TOTAL pagado hoy
+  // Las adicionales guardan el valor de cuota individual
+  pg[_cobN]={valor:Math.round(val),metodo:_cobMp,fecha:hoy,esPrincipal:true};
   var marcadas=1;
   if(q>1){
     var pendientes=Object.keys(i.fechas).map(Number)
       .filter(function(n){return n!==_cobN&&!pg[n];})
       .sort(function(a,b){return a-b;});
     for(var k=0;k<pendientes.length&&marcadas<q;k++){
-      pg[pendientes[k]]={valor:Math.round(_cobMin),metodo:_cobMp,fecha:hoy};
+      pg[pendientes[k]]={valor:0,metodo:_cobMp,fecha:hoy,esAdicional:true};
       marcadas++;
     }
   }
@@ -2502,6 +2596,16 @@ function sRuta(){
 }
 
 // VER CLIENTE
+
+function toggleCli(id){
+  var det=document.getElementById('cli-det-'+id);
+  var arr=document.getElementById('cli-arr-'+id);
+  if(!det) return;
+  var open=det.style.display==='none';
+  det.style.display=open?'block':'none';
+  if(arr) arr.textContent=open?'▲':'▼';
+}
+
 function verCli(id){
   var c=gC(id); if(!c)return;
   var r=gR(c.rutaId);
@@ -2519,20 +2623,51 @@ function verCli(id){
     var esHoy=p.fechaInicio===ISO;
     // Calendario de cuotas
     var pgObj=p.pagos||{};
+    // Agrupar pagos por fecha real de cobro para mostrar "pagó X el día Y"
+    var pagosPorFecha={};
+    Object.keys(pgObj).forEach(function(k){
+      var pago=pgObj[k];
+      if(pago&&pago.fecha){
+        if(!pagosPorFecha[pago.fecha]) pagosPorFecha[pago.fecha]={total:0,cuotas:[],metodo:pago.metodo||'efectivo'};
+        pagosPorFecha[pago.fecha].total+=(pago.valor||0);
+        pagosPorFecha[pago.fecha].cuotas.push(parseInt(k));
+      }
+    });
     var calH='';
     for(var n=1;n<=p.dias;n++){
       var paid=pgObj[n],fq=i.fechas[n]||'';
       var cls='ppend',ico='○';
       var metStr=paid&&paid.metodo?(paid.metodo==='nequi'?' 📱':' 💵'):'';
-      var fechaCobro=paid&&paid.fecha?(' · cobrado '+fd(paid.fecha)):'';
       if(paid){cls='pok';ico='✓';}
       else if(fq&&fq<ISO){cls='pvec';ico='!';}
       else if(fq===ISO){cls='phoy';ico='◉';}
+      // Mostrar valor real pagado ese día (total del día, no solo la cuota)
+      var valorMostrar=i.c;
+      var extraInfo='';
+      if(paid){
+        var pfecha=paid.fecha;
+        if(paid.esPrincipal){
+          // Cuota principal: tiene el valor total pagado ese día
+          valorMostrar=paid.valor||i.c;
+          var resumenDia=pagosPorFecha[pfecha];
+          var nCuotasDia=resumenDia?resumenDia.cuotas.length:1;
+          extraInfo=(nCuotasDia>1?' · cubre '+nCuotasDia+' cuotas':'')+
+                    (pfecha?' · '+fd(pfecha):'')+metStr;
+        } else if(paid.esAdicional){
+          // Cuota adicional: cubierta por el pago del día
+          valorMostrar=0;
+          extraInfo=' · cubierta por pago del '+fd(pfecha);
+        } else {
+          // Pago antiguo (sin flag)
+          valorMostrar=paid.valor||i.c;
+          extraInfo=(pfecha?' · '+fd(pfecha):'')+metStr;
+        }
+      }
       calH+='<div class="cal-cell '+cls+'">'+
         '<div style="background:'+(cls==='pok'?'#4CAF50':cls==='pvec'?'#F44336':cls==='phoy'?'#FF9800':'#90CAF9')+';color:#fff;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0">'+ico+'</div>'+
         '<div style="flex:1;min-width:0">'+
           '<div style="font-size:11px;font-weight:600;color:var(--bd)">Cuota '+n+(fq?' — '+fd(fq):'')+'</div>'+
-          '<div style="font-size:10px;color:var(--tm)">'+(paid?fm(paid.valor||i.c)+metStr+fechaCobro:fm(i.c))+'</div>'+
+          '<div style="font-size:10px;color:var(--tm)">'+(paid?fm(valorMostrar)+extraInfo:fm(i.c))+'</div>'+
         '</div></div>';
     }
     return '<div style="background:var(--bll);border-radius:var(--rs);padding:12px;margin-bottom:10px;border:1px solid '+(esHoy?'var(--bl)':'var(--bll)')+'">'+
@@ -3278,7 +3413,7 @@ function recaudoEfNq(rutaId, fecha){
     // Sumar todos los pagos cuya fecha de cobro coincide
     Object.keys(pg).forEach(function(k){
       var pago=pg[k];
-      if(pago && pago.fecha===fecha){
+      if(pago && pago.fecha===fecha && !pago.esAdicional){
         var v=pago.valor||0, m=pago.metodo||'efectivo';
         if(m==='nequi') nq+=v; else ef+=v;
       }
@@ -3920,6 +4055,37 @@ function saldoSegurosEfNqC(rid){ return _cc('ssen_'+rid, function(){return saldo
 
 // INIT
 // Espera a que Firebase Auth detecte la sesión
+function saldoReembolsos(rutaId){
+  return (ST.reembolsos||[]).reduce(function(t,r){
+    if(rutaId&&r.rutaId!==rutaId) return t;
+    return t+(r.tipo==='ingreso'?1:-1)*(r.monto||0);
+  },0);
+}
+function saldoReembolsosEfNq(rutaId){
+  var ef=0,nq=0;
+  (ST.reembolsos||[]).forEach(function(r){
+    if(rutaId&&r.rutaId!==rutaId) return;
+    var sign=r.tipo==='ingreso'?1:-1;
+    if((r.metodo||'efectivo')==='nequi') nq+=sign*(r.monto||0);
+    else ef+=sign*(r.monto||0);
+  });
+  return {ef:ef,nq:nq};
+}
+function reembolsosDia(rutaId,fecha){
+  return (ST.reembolsos||[]).filter(function(r){
+    return r.tipo==='ingreso'&&r.fecha===fecha&&(!rutaId||r.rutaId===rutaId);
+  }).reduce(function(t,r){return t+(r.monto||0);},0);
+}
+function reembolsosDiaEfNq(rutaId,fecha){
+  var ef=0,nq=0;
+  (ST.reembolsos||[]).filter(function(r){
+    return r.tipo==='ingreso'&&r.fecha===fecha&&(!rutaId||r.rutaId===rutaId);
+  }).forEach(function(r){
+    if((r.metodo||'efectivo')==='nequi') nq+=(r.monto||0);
+    else ef+=(r.monto||0);
+  });
+  return {ef:ef,nq:nq};
+}
 auth.onAuthStateChanged(function(user){
   if(user){
     // Ya hay sesión activa — cargar datos del usuario
@@ -3945,7 +4111,7 @@ auth.onAuthStateChanged(function(user){
             document.getElementById('SBR').textContent=CU.rol==='admin'?'Administrador':'Ruta '+(r?r.nombre:'');
             document.getElementById('MUN').textContent=CU.nombre.split(' ')[0];
             fcMes=ISO.slice(0,7);
-            buildNav(); cargarParams(); goto('dash'); subAll();
+            buildNav(); cargarParams(); goto('cob'); subAll();
             iniciarWatchMedianoche();
           }
         }
