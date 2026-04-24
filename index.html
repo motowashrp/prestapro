@@ -280,7 +280,7 @@ tr:hover td{background:var(--bll)}
 .cli-saldo{font-size:14px;font-weight:700;color:var(--bd)}
 .cli-badges{display:flex;gap:4px;justify-content:flex-end;margin-top:3px;flex-wrap:wrap}
 /* STATS MINI DASHBOARD */
-.mini-dash{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:1.25rem}
+.mini-dash{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:1.25rem}
 /* GASTOS ROW */
 .gasto-row2{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--bll)}
 .gasto-row2:last-child{border-bottom:none}
@@ -874,34 +874,39 @@ function cuotasVencidas(p) {
 
 // Info de préstamo sin mora
 function pI(p) {
-  // Cache por render: evitar recalcular el mismo préstamo múltiples veces
   var ckey='pI_'+p.id+'_'+(p.updatedAt||p.createdAt||0);
   if(_cache[ckey]) return _cache[ckey];
-  var tot = p.capital*(1+(p.interes||0)/100);
-  var c = tot/p.dias;
-  var ini = new Date(p.fechaInicio+'T12:00:00');
-  var pagos = p.pagos||{};
-  var pag = 0;
+  var tot=Math.round(p.capital*(1+(p.interes||0)/100));
+  var c=Math.round(tot/p.dias);
+  var ini=new Date(p.fechaInicio+'T12:00:00');
+  var pagos=p.pagos||{};
+  var pag=0, valorCobrado=0;
   Object.keys(pagos).forEach(function(k){
     var n=parseInt(k);
-    if(!isNaN(n) && n>=1 && n<=p.dias && pagos[k]) pag++;
+    if(!isNaN(n)&&n>=1&&n<=p.dias&&pagos[k]){
+      pag++;
+      // Sumar solo cuotas principales para evitar doble conteo
+      if(!pagos[k].esAdicional) valorCobrado+=(pagos[k].valor||0);
+    }
   });
-  var venc = cuotasVencidas(p);
-  var est = 'activo';
-  if(pag >= p.dias) est = 'completado';
-  else if(venc.length >= PAR.cuotasMoroso) est = 'moroso';
-  else if(venc.length > 0) est = 'atraso';
-  // Fechas de cuotas (saltando domingos)
-  var fechas = {};
-  var cuotaNum = 0;
-  // dayOffset empieza en 1: primera cuota = día siguiente a fecha inicio
-  for(var dayOffset=1; cuotaNum < p.dias; dayOffset++) {
-    var d = new Date(ini); d.setDate(d.getDate()+dayOffset);
-    if(!PAR.domingosCobroban && d.getDay()===0) continue;
+  var saldoReal=Math.max(0,tot-valorCobrado);
+  var venc=cuotasVencidas(p);
+  var est='activo';
+  if(pag>=p.dias||saldoReal<=0) est='completado';
+  else if(venc.length>=PAR.cuotasMoroso) est='moroso';
+  else if(venc.length>0) est='atraso';
+  // Fechas saltando domingos si está configurado
+  var fechas={},cuotaNum=0;
+  for(var dayOffset=1;cuotaNum<p.dias;dayOffset++){
+    var d=new Date(ini); d.setDate(d.getDate()+dayOffset);
+    if(!PAR.domingos&&d.getDay()===0) continue;
     cuotaNum++;
-    fechas[cuotaNum] = fechaLocal(d);
+    fechas[cuotaNum]=fechaLocal(d);
   }
-  return {tot:tot, c:c, pag:pag, venc:venc, prog:(pag/p.dias)*100, est:est, fechas:fechas};
+  var res={tot:tot,c:c,pag:pag,venc:venc,prog:Math.min(100,(pag/p.dias)*100),
+           est:est,fechas:fechas,valorCobrado:valorCobrado,saldoReal:saldoReal};
+  _cache[ckey]=res;
+  return res;
 }
 
 // Saldo pendiente de un préstamo
@@ -1912,120 +1917,34 @@ function rCli(){
     '<div class="me"><div class="lb">Reembolsos hoy</div><div class="vl" style="color:#0288D1">'+reembolsosHoy+'</div><div class="sb2">Renovaciones hoy</div></div>'+
     '</div>';
 
-  // Lista clientes + detalle inline expandible
+  // Lista de clientes — click abre modal con detalle
   var html='';
   clis.sort(function(a,b){return (a.nombre||'').localeCompare(b.nombre||'');});
   clis.forEach(function(c){
-    var pres=ST.prestamos.filter(function(p){return p.clienteId===c.id;})
-      .sort(function(a,b){return (b.createdAt||0)-(a.createdAt||0);});
+    var pres=ST.prestamos.filter(function(p){return p.clienteId===c.id;});
     var presActivos=pres.filter(function(p){var i=pI(p);return i.est==='activo'||i.est==='moroso';});
     var r=gR(c.rutaId);
-    var initials=(c.nombre||'?').split(' ').slice(0,2).map(function(w){return w[0]||'';}).join('');
+    var initials=(c.nombre||'?').split(' ').slice(0,2).map(function(w){return w[0]||'';}).join('').toUpperCase();
     var hayMoroso=presActivos.some(function(p){return pI(p).est==='moroso';});
-    var badgeColor=presActivos.length>0?(hayMoroso?'var(--rd)':'var(--bl)'):'var(--gn)';
-    var badgeText=presActivos.length>0?presActivos.length+' crédito'+(presActivos.length>1?'s':''):'Sin créditos';
-
-    // Generar detalle de créditos
-    var credDetalle='';
-    pres.forEach(function(p){
-      var i=pI(p);
-      var saldo=saldoPendiente(p);
-      var esHoy=p.fechaInicio===ISO;
-      var pgObj=p.pagos||{};
-      var pagosPorFecha={};
-      Object.keys(pgObj).forEach(function(k){
-        var pago=pgObj[k];
-        if(pago&&pago.fecha){
-          if(!pagosPorFecha[pago.fecha]) pagosPorFecha[pago.fecha]={total:0,cuotas:[],metodo:pago.metodo||'ef'};
-          pagosPorFecha[pago.fecha].total+=(pago.valor||0);
-          pagosPorFecha[pago.fecha].cuotas.push(parseInt(k));
-        }
-      });
-      var calH='';
-      for(var n=1;n<=p.dias;n++){
-        var paid=pgObj[n],fq=i.fechas[n]||'';
-        var cls='ppend',ico='○';
-        var metStr=paid&&paid.metodo?(paid.metodo==='nequi'?' 📱':' 💵'):'';
-        if(paid){cls='pok';ico='✓';}
-        else if(fq&&fq<ISO){cls='pvec';ico='!';}
-        else if(fq===ISO){cls='phoy';ico='◉';}
-        var valorMostrar=i.c,extraInfo='';
-        if(paid){
-          if(paid.esPrincipal){
-            valorMostrar=paid.valor||i.c;
-            var rd=pagosPorFecha[paid.fecha];
-            extraInfo=(rd&&rd.cuotas.length>1?' · cubre '+rd.cuotas.length+' cuotas':'')+
-                      (paid.fecha?' · '+fd(paid.fecha):'')+metStr;
-          } else if(paid.esAdicional){
-            valorMostrar=0;
-            extraInfo=' · cubierta el '+fd(paid.fecha);
-          } else {
-            valorMostrar=paid.valor||i.c;
-            extraInfo=(paid.fecha?' · '+fd(paid.fecha):'')+metStr;
-          }
-        }
-        calH+='<div class="cal-cell '+cls+'">'+
-          '<div style="background:'+(cls==='pok'?'#4CAF50':cls==='pvec'?'#F44336':cls==='phoy'?'#FF9800':'#90CAF9')+
-          ';color:#fff;width:18px;height:18px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0">'+ico+'</div>'+
-          '<div style="flex:1;min-width:0">'+
-            '<div style="font-size:10px;font-weight:600;color:var(--bd)">Cuota '+n+(fq?' — '+fd(fq):'')+'</div>'+
-            '<div style="font-size:9px;color:var(--tm)">'+(paid?(valorMostrar>0?fm(valorMostrar):'')+extraInfo:fm(i.c))+'</div>'+
-          '</div></div>';
-      }
-      var B={completado:'bg3',moroso:'br2',atraso:'ba',activo:'bb'};
-      var T={completado:'Completado',moroso:'Moroso',atraso:'Atraso',activo:'Activo'};
-      credDetalle+=
-        '<div style="background:var(--bll);border-radius:8px;padding:12px;margin-bottom:8px;border:1px solid var(--br)">'+
-          '<div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:6px;margin-bottom:8px">'+
-            '<div>'+
-              '<div style="font-size:13px;font-weight:700;color:var(--bd)">'+fm(p.capital)+' — '+p.dias+' días '+
-                '<span class="badge '+B[i.est]+'">'+T[i.est]+'</span>'+
-                (esHoy?' <span class="badge bb">Hoy</span>':'')+
-              '</div>'+
-              '<div class="ts">Desde '+fd(p.fechaInicio)+' · Cuota: '+fm(i.c)+'/día</div>'+
-            '</div>'+
-            '<div style="text-align:right">'+
-              '<div style="font-size:15px;font-weight:700">'+fm(saldo)+'</div>'+
-              '<div class="ts">Saldo</div>'+
-              (esHoy?'<div style="display:flex;gap:4px;margin-top:4px">'+
-                '<button class="bv" style="font-size:11px;padding:3px 8px" onclick="abrirEditPre(\"'+p.id+'\")">Editar</button>'+
-                '<button class="bd2" onclick="eliminarPre(\"'+p.id+'\")">✕</button></div>':'')+
-            '</div>'+
-          '</div>'+
-          '<div class="pb"><div class="pf" style="width:'+i.prog.toFixed(0)+'%"></div></div>'+
-          '<div class="ts" style="margin-bottom:8px">'+i.pag+' pagadas · '+i.venc.length+' vencidas · '+(p.dias-i.pag)+' restantes</div>'+
-          '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:4px">'+calH+'</div>'+
-        '</div>';
-    });
-
+    var esAlDia=presActivos.length>0&&presActivos.every(function(p){var i=pI(p);return i.venc.length===0;});
+    var badgeColor=presActivos.length===0?'#9E9E9E':hayMoroso?'var(--rd)':esAlDia?'var(--gn)':'var(--bl)';
+    var badgeText=presActivos.length>0?
+      presActivos.length+' crédito'+(presActivos.length>1?'s':'')+
+      (hayMoroso?' · Moroso':esAlDia?' · Al día':''):
+      'Sin créditos';
     html+=
-      '<div class="cli-card" id=\'clic-'+c.id+'\'>'+
-        // Header del cliente (click para expandir)
-        '<div class="cli-row" onclick="toggleCli(\''+c.id+'\')" style="cursor:pointer">'+
-          '<div class="cli-av">'+initials+'</div>'+
-          '<div class="cli-info">'+
-            '<div class="cli-nom">'+c.nombre+'</div>'+
-            '<div class="cli-sub">'+(c.cedula?'CC '+c.cedula+' · ':'')+(c.tel?c.tel+' · ':'')+
-              (r?r.nombre:'')+
-            '</div>'+
-          '</div>'+
-          '<div class="cli-meta" style="display:flex;align-items:center;gap:6px">'+
-            '<span class="badge" style="background:'+badgeColor+';color:#fff">'+badgeText+'</span>'+
-            '<span id=\'cli-arr-'+c.id+'\' style="font-size:12px;color:var(--tm)">▼</span>'+
-          '</div>'+
+      '<div class="cli-row" onclick="verCli(\''+c.id+'\')" style="cursor:pointer">'+
+        '<div class="cli-av" style="background:'+badgeColor+'">'+initials+'</div>'+
+        '<div class="cli-info">'+
+          '<div class="cli-nom">'+c.nombre+'</div>'+
+          '<div class="cli-sub">'+(c.cedula?'CC '+c.cedula+' · ':'')+(c.tel?c.tel+' · ':'')+(r?r.nombre:'')+'</div>'+
         '</div>'+
-        // Detalle expandible
-        '<div id=\'cli-det-'+c.id+'\' style="display:none;padding:0 12px 12px">'+
-          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'+
-            '<div style="font-size:11px;font-weight:700;color:var(--tm);text-transform:uppercase">Créditos</div>'+
-            '<button class="bp bs" style="font-size:12px;padding:4px 12px" onclick="oCred(\"'+c.id+'\",\"'+c.nombre+'\")">+ Nuevo crédito</button>'+
-          '</div>'+
-          credDetalle+
-          (credDetalle===''?'<div class="empty">Sin créditos</div>':'')+
+        '<div class="cli-meta">'+
+          '<span class="badge" style="background:'+badgeColor+';color:#fff">'+badgeText+'</span>'+
+          '<span style="color:var(--tm);font-size:16px;margin-left:6px">›</span>'+
         '</div>'+
       '</div>';
   });
-  var listEl=document.getElementById('CLI-LIST');
   if(listEl) listEl.innerHTML=html||'<div class="empty">Sin clientes</div>';
 }
 
@@ -2195,15 +2114,31 @@ function cfCob(){
       marcadas++;
     }
   }
-  db.collection('prestamos').doc(_cobPid).update({pagos:pg,updatedAt:Date.now(),ultimoCobro:{por:CU.nombre,rol:CU.rol,fecha:fechaLocal(new Date())}})
-    .then(function(){
-      cM('m-cob');
-      toast(marcadas>1?marcadas+' cuotas — '+fm(val):'Cuota '+_cobN+' — '+fm(val),'ok');
-    })
-    .catch(function(e){
-      if(btn){btn.disabled=false;btn.textContent='Confirmar cobro';}
-      toast('Error al registrar','err');console.error(e);
+  var now=Date.now();
+  // Actualización optimista: actualizar ST.prestamos localmente ANTES de Firebase
+  // → UI se actualiza instantáneamente sin esperar respuesta del servidor
+  var pIdx=ST.prestamos.findIndex(function(x){return x.id===_cobPid;});
+  if(pIdx>=0){
+    ST.prestamos[pIdx]=Object.assign({},ST.prestamos[pIdx],{
+      pagos:pg, updatedAt:now,
+      ultimoCobro:{por:CU.nombre,rol:CU.rol,fecha:hoy}
     });
+    clearCache(); // limpiar caché para que pI() recalcule
+    cM('m-cob'); // cerrar modal inmediatamente
+    refSc(); // re-renderizar al instante
+    toast(marcadas>1?marcadas+' cuotas — '+fm(val):'Cuota '+_cobN+' — '+fm(val),'ok');
+  }
+  // Luego sincronizar con Firebase en background
+  db.collection('prestamos').doc(_cobPid).update({
+    pagos:pg, updatedAt:now,
+    ultimoCobro:{por:CU.nombre,rol:CU.rol,fecha:hoy}
+  }).catch(function(e){
+    // Si falla, revertir el estado local y mostrar error
+    if(pIdx>=0) ST.prestamos[pIdx]=Object.assign({},ST.prestamos[pIdx],{pagos:pgActual,updatedAt:p.updatedAt});
+    clearCache(); refSc();
+    toast('Error al guardar — reintentando...','err');
+    console.error(e);
+  });
 }
 
 // CIERRE
@@ -2418,8 +2353,8 @@ function oCred(cliId,nomCli){
   document.getElementById('CRED-TITLE').textContent='Nuevo crédito — '+nomCli;
   document.getElementById('CR-CAP').value='';
   document.getElementById('CR-CAP-VAL').value='';
-  document.getElementById('CR-INT').value=PAR.interesDef;
-  document.getElementById('CR-DIA').value=PAR.plazoDef;
+  document.getElementById('CR-INT').value=PAR.interes||20;
+  document.getElementById('CR-DIA').value=PAR.dias||30;
   document.getElementById('CR-PREV').innerHTML='';
   document.getElementById('CR-DISP').innerHTML='';
   limpiarMixto('CR');
@@ -2612,23 +2547,22 @@ function verCli(id){
   var pres=ST.prestamos.filter(function(p){return p.clienteId===id;})
     .sort(function(a,b){return (b.createdAt||0)-(a.createdAt||0);});
   var B={completado:'bg3',moroso:'br2',atraso:'ba',activo:'bb'};
-  var T={completado:'Completado',moroso:'Moroso',atraso:'Atraso',activo:'Activo'};
+  var T={completado:'Cancelado',moroso:'Moroso',atraso:'Con atraso',activo:'Activo'};
   var activos=pres.filter(function(p){return pI(p).est!=='completado';});
   var completados=pres.filter(function(p){return pI(p).est==='completado';});
   var ordenados=activos.concat(completados);
 
   var credHtml=ordenados.map(function(p){
     var i=pI(p);
-    var saldo=saldoPendiente(p);
+    var saldo=i.saldoReal;
     var esHoy=p.fechaInicio===ISO;
-    // Calendario de cuotas
     var pgObj=p.pagos||{};
-    // Agrupar pagos por fecha real de cobro para mostrar "pagó X el día Y"
+    // Agrupar pagos por fecha
     var pagosPorFecha={};
     Object.keys(pgObj).forEach(function(k){
       var pago=pgObj[k];
       if(pago&&pago.fecha){
-        if(!pagosPorFecha[pago.fecha]) pagosPorFecha[pago.fecha]={total:0,cuotas:[],metodo:pago.metodo||'efectivo'};
+        if(!pagosPorFecha[pago.fecha]) pagosPorFecha[pago.fecha]={total:0,cuotas:[]};
         pagosPorFecha[pago.fecha].total+=(pago.valor||0);
         pagosPorFecha[pago.fecha].cuotas.push(parseInt(k));
       }
@@ -2636,47 +2570,51 @@ function verCli(id){
     var calH='';
     for(var n=1;n<=p.dias;n++){
       var paid=pgObj[n],fq=i.fechas[n]||'';
-      var cls='ppend',ico='○';
-      var metStr=paid&&paid.metodo?(paid.metodo==='nequi'?' 📱':' 💵'):'';
-      if(paid){cls='pok';ico='✓';}
-      else if(fq&&fq<ISO){cls='pvec';ico='!';}
-      else if(fq===ISO){cls='phoy';ico='◉';}
-      // Mostrar valor real pagado ese día (total del día, no solo la cuota)
-      var valorMostrar=i.c;
-      var extraInfo='';
+      var cls='ppend',ico='○',metStr='',extraInfo='',valorMostrar=i.c;
       if(paid){
-        var pfecha=paid.fecha;
+        cls='pok';ico='✓';
         if(paid.esPrincipal){
-          // Cuota principal: tiene el valor total pagado ese día
           valorMostrar=paid.valor||i.c;
-          var resumenDia=pagosPorFecha[pfecha];
-          var nCuotasDia=resumenDia?resumenDia.cuotas.length:1;
-          extraInfo=(nCuotasDia>1?' · cubre '+nCuotasDia+' cuotas':'')+
-                    (pfecha?' · '+fd(pfecha):'')+metStr;
+          var rd=pagosPorFecha[paid.fecha];
+          metStr=paid.metodo==='nequi'?' 📱':' 💵';
+          extraInfo=(rd&&rd.cuotas.length>1?' · cubre '+rd.cuotas.length+' cuotas':'')+
+                    (paid.fecha?' · '+fd(paid.fecha):'')+metStr;
         } else if(paid.esAdicional){
-          // Cuota adicional: cubierta por el pago del día
           valorMostrar=0;
-          extraInfo=' · cubierta por pago del '+fd(pfecha);
+          extraInfo=' · cubierta el '+fd(paid.fecha);
         } else {
-          // Pago antiguo (sin flag)
           valorMostrar=paid.valor||i.c;
-          extraInfo=(pfecha?' · '+fd(pfecha):'')+metStr;
+          metStr=paid.metodo==='nequi'?' 📱':' 💵';
+          extraInfo=(paid.fecha?' · '+fd(paid.fecha):'')+metStr;
         }
-      }
+      } else if(fq&&fq<ISO){cls='pvec';ico='!';}
+      else if(fq===ISO){cls='phoy';ico='◉';}
       calH+='<div class="cal-cell '+cls+'">'+
-        '<div style="background:'+(cls==='pok'?'#4CAF50':cls==='pvec'?'#F44336':cls==='phoy'?'#FF9800':'#90CAF9')+';color:#fff;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0">'+ico+'</div>'+
+        '<div style="background:'+(cls==='pok'?'#4CAF50':cls==='pvec'?'#F44336':cls==='phoy'?'#FF9800':'#90CAF9')+
+        ';color:#fff;width:20px;height:20px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0">'+ico+'</div>'+
         '<div style="flex:1;min-width:0">'+
           '<div style="font-size:11px;font-weight:600;color:var(--bd)">Cuota '+n+(fq?' — '+fd(fq):'')+'</div>'+
-          '<div style="font-size:10px;color:var(--tm)">'+(paid?fm(valorMostrar)+extraInfo:fm(i.c))+'</div>'+
+          '<div style="font-size:10px;color:var(--tm)">'+(paid?(valorMostrar>0?fm(valorMostrar):'')+extraInfo:fm(i.c))+'</div>'+
         '</div></div>';
     }
-    return '<div style="background:var(--bll);border-radius:var(--rs);padding:12px;margin-bottom:10px;border:1px solid '+(esHoy?'var(--bl)':'var(--bll)')+'">'+
+    var estadoBadge=i.est==='completado'?
+      '<span class="badge bg3">✓ Cancelado</span>':
+      '<span class="badge '+B[i.est]+'">'+T[i.est]+'</span>';
+    return '<div style="background:var(--bll);border-radius:var(--rs);padding:12px;margin-bottom:10px;border:1px solid '+(esHoy?'var(--bl)':'var(--br)')+'">'+
       '<div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:6px;margin-bottom:8px">'+
-        '<div><div style="font-size:13px;font-weight:700;color:var(--bd)">'+fm(p.capital)+' — '+p.dias+' días <span class="badge '+B[i.est]+'">'+T[i.est]+'</span>'+(esHoy?' <span class="badge bb">Hoy</span>':'')+'</div>'+
-        '<div class="ts">Desde '+fd(p.fechaInicio)+' · Cuota: '+fm(i.c)+'/día</div></div>'+
-        '<div style="text-align:right"><div style="font-size:15px;font-weight:700">'+fm(saldo)+'</div><div class="ts">Saldo</div>'+
-          (esHoy?'<div style="display:flex;gap:4px;margin-top:4px"><button class="bv" style="font-size:11px;padding:3px 8px" data-pid="'+p.id+'" onclick="abrirEditPre(this.dataset.pid);cM(&quot;m-det&quot;)">Editar</button><button class="bd2" data-pid="'+p.id+'" onclick="eliminarPre(this.dataset.pid)">&#10005;</button></div>':'')
-        +'</div>'+
+        '<div>'+
+          '<div style="font-size:13px;font-weight:700;color:var(--bd)">'+fm(p.capital)+' — '+p.dias+' días '+estadoBadge+(esHoy?' <span class="badge bb">Hoy</span>':'')+'</div>'+
+          '<div class="ts">Desde '+fd(p.fechaInicio)+' · Cuota: '+fm(i.c)+'/día</div>'+
+        '</div>'+
+        '<div style="text-align:right">'+
+          '<div style="font-size:16px;font-weight:800;color:'+(i.est==='completado'?'var(--gn)':'var(--rd)')+'">'+
+            (i.est==='completado'?'✓ Pagado':fm(saldo))+
+          '</div>'+
+          '<div class="ts">'+(i.est==='completado'?'Crédito cancelado':'Saldo pendiente')+'</div>'+
+          (esHoy?'<div style="display:flex;gap:4px;margin-top:4px">'+
+            '<button class="bv" style="font-size:11px;padding:3px 8px" onclick="abrirEditPre(\''+p.id+'\');cM(\'m-det\')">Editar</button>'+
+            '<button class="bd2" onclick="eliminarPre(\''+p.id+'\')">✕</button></div>':'')+
+        '</div>'+
       '</div>'+
       '<div class="pb"><div class="pf" style="width:'+i.prog.toFixed(0)+'%"></div></div>'+
       '<div class="ts" style="margin-bottom:8px">'+i.pag+' pagadas · '+i.venc.length+' vencidas · '+(p.dias-i.pag)+' restantes</div>'+
@@ -2684,34 +2622,27 @@ function verCli(id){
     '</div>';
   }).join('');
 
-  // Botón nuevo crédito como elemento del DOM (sin onclick en string)
-  var detDiv=document.createElement('div');
-  detDiv.innerHTML=
-    '<div style="margin-bottom:1rem">'+
-      '<div style="font-size:17px;font-weight:700;color:var(--bd);margin-bottom:4px">'+c.nombre+'</div>'+
-      '<div class="ts">'+(c.cedula?'CC: '+c.cedula+' · ':'')+
-        (c.tel||'')+(c.ciudad?' · '+c.ciudad:'')+(r?' · Ruta '+r.nombre:'')+
+  // Construir modal
+  var detC=document.getElementById('DET-C');
+  detC.innerHTML=
+    '<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:1rem;flex-wrap:wrap;gap:8px">'+
+      '<div>'+
+        '<div style="font-size:18px;font-weight:700;color:var(--bd)">'+c.nombre+'</div>'+
+        '<div class="ts">'+(c.cedula?'CC: '+c.cedula+' · ':'')+(c.tel||'')+(c.ciudad?' · '+c.ciudad:'')+(r?' · Ruta '+r.nombre:'')+'</div>'+
       '</div>'+
+      '<button class="bp bs" id="BTN-NUEVA-CRED" style="font-size:12px;padding:6px 14px">+ Nuevo crédito</button>'+
     '</div>'+
-    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">'+
-      '<h3 style="text-transform:uppercase;font-size:11px;font-weight:700;color:var(--bd);letter-spacing:.05em">Créditos ('+pres.length+')</h3>'+
-    '</div>'+
+    '<div style="font-size:11px;font-weight:700;color:var(--tm);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">'+
+      'Créditos ('+pres.length+')</div>'+
     (credHtml||'<div class="empty">Sin créditos</div>');
 
-  // Botón nuevo crédito creado programáticamente
-  var hdr=detDiv.querySelector('div:nth-child(2)');
-  var btnNC=document.createElement('button');
-  btnNC.className='bc';
-  btnNC.textContent='+ Nuevo crédito';
-  btnNC.onclick=function(){
+  // Botón nuevo crédito
+  var btnNC=document.getElementById('BTN-NUEVA-CRED');
+  if(btnNC) btnNC.onclick=function(){
     cM('m-det');
-    setTimeout(function(){oCred(id,c.nombre);},300);
+    setTimeout(function(){oCred(id,c.nombre);},200);
   };
-  if(hdr) hdr.appendChild(btnNC);
 
-  var detC=document.getElementById('DET-C');
-  detC.innerHTML='';
-  detC.appendChild(detDiv);
   document.getElementById('m-det').style.display='flex';
 }
 
