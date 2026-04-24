@@ -510,6 +510,21 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
           <div id="SEG-MOVS"></div>
         </div>
 
+        <!-- REEMBOLSOS -->
+        <div class="seg-card" style="border-left:4px solid #0288D1;margin-top:1rem">
+          <div class="seg-header">
+            <div>
+              <div style="font-size:15px;font-weight:700;color:#0288D1">Fondo de Reembolsos</div>
+              <div class="ts">Solo renovaciones · 6% del capital del nuevo crédito</div>
+            </div>
+            <div style="text-align:right">
+              <div class="seg-saldo" id="REEM-SALDO" style="color:#0288D1">$0</div>
+              <div class="ts">Saldo acumulado</div>
+            </div>
+          </div>
+          <div class="met" id="REEM-MET" style="margin-bottom:1rem"></div>
+        </div>
+
         <div class="card">
           <h3>Totales por día</h3>
           <div class="flujo-table-wrap">
@@ -1366,7 +1381,7 @@ function rDash(){
         '</div>'+
         '<div style="font-size:10px;color:var(--tm);text-align:right;margin-top:-12px;margin-bottom:10px">'+
           '💵 '+fm(cajaEfNq.ef)+' · 📱 '+fm(cajaEfNq.nq)+' — Saldo de caja</div>'+
-        '<div class="met" style="grid-template-columns:repeat(auto-fill,minmax(130px,1fr))">'+
+        '<div class="met" style="grid-template-columns:repeat(5,1fr)">'+
           '<div class="me"><div class="lb">Capital en calle</div><div class="vl gp">'+fm(capitalCalle)+'</div></div>'+
           '<div class="me"><div class="lb">Clientes</div><div class="vl" style="color:var(--bl)">'+numClientes+'</div></div>'+
           '<div class="me"><div class="lb">Estimado hoy</div><div class="vl">'+fm(estimadoHoy)+'</div></div>'+
@@ -1395,12 +1410,12 @@ function rCob(){
     ? ST.prestamos.filter(function(p){var c=gC(p.clienteId);return c&&c.rutaId===rutaFil;})
     : myP();
 
-  // Calcular métricas
-  var estimado=0, cobrado=0, pendiente=0;
+  // Métricas
+  var estimado=0, cobrado=recaudoDia(rutaFil||'',ISO);
   var cobEfNq=recaudoEfNq(rutaFil||'',ISO);
-  cobrado=recaudoDia(rutaFil||'',ISO);
 
-  // Construir filas — una por cuota pendiente hoy o vencida
+  // Agrupar por cliente: un cliente puede tener varias cuotas pendientes
+  // pero mostramos UNA fila por préstamo con resumen de cuotas
   var filas=[];
   pres.forEach(function(p){
     var c=gC(p.clienteId); if(!c) return;
@@ -1409,60 +1424,67 @@ function rCob(){
     var pg=p.pagos||{};
     var r=gR(c.rutaId);
 
-    // Cuotas programadas para hoy
+    // Cuota programada para hoy (si existe)
+    var cuotaHoy=null;
     Object.keys(i.fechas).forEach(function(n){
-      var nInt=parseInt(n);
-      if(i.fechas[n]!==ISO) return;
-      estimado+=i.c;
-      if(pg[nInt]) return; // ya cobrada — va a Recaudos
-      // Verificar si está cubierta por pago adelantado
-      var pagosHechos=Object.keys(pg).filter(function(k){return pg[k];}).length;
-      if(pagosHechos>=nInt) return; // cubierta
-      pendiente+=i.c;
-      filas.push({ord:c.orden||999,cNom:c.nombre,
-        html:'<tr>'+
-          '<td style="font-size:11px;color:var(--tm)">'+(c.orden||'—')+'</td>'+
-          '<td><strong>'+c.nombre+'</strong>'+(r?'<br><span style="font-size:10px;color:var(--tm)">'+r.nombre+'</span>':'')+'</td>'+
-          '<td style="font-size:11px">'+fm(p.capital)+'/'+p.dias+'d</td>'+
-          '<td>'+nInt+'/'+p.dias+'</td>'+
-          '<td>'+fm(i.c)+'</td>'+
-          '<td><span class="badge" style="background:#FF9800;color:#fff">Pendiente</span></td>'+
-          '<td><button onclick="aCob(\''+p.id+'\','+nInt+','+Math.round(i.c)+',\''+c.nombre+'\')" style="padding:4px 12px;background:var(--bl);color:#fff;border:none;border-radius:var(--rs);font-size:12px;cursor:pointer;font-family:inherit">Cobrar</button></td>'+
-        '</tr>'
-      });
+      if(i.fechas[n]===ISO&&!pg[parseInt(n)]) cuotaHoy=parseInt(n);
     });
 
-    // Cuotas vencidas no pagadas (de días anteriores)
-    i.venc.forEach(function(nInt){
-      if(pg[nInt]) return; // ya pagada
-      if(i.fechas[nInt]===ISO) return; // ya procesada arriba
-      estimado+=i.c;
-      pendiente+=i.c;
-      filas.push({ord:c.orden||999,cNom:c.nombre,
-        html:'<tr style="background:#FFF3E0">'+
-          '<td style="font-size:11px;color:var(--tm)">'+(c.orden||'—')+'</td>'+
-          '<td><strong>'+c.nombre+'</strong><br><span style="font-size:10px;color:var(--rd)">Vencida</span></td>'+
-          '<td style="font-size:11px">'+fm(p.capital)+'/'+p.dias+'d</td>'+
-          '<td style="color:var(--rd)">'+nInt+'/'+p.dias+'</td>'+
-          '<td>'+fm(i.c)+'</td>'+
-          '<td><span class="badge" style="background:var(--rd);color:#fff">Vencida</span></td>'+
-          '<td><button onclick="aCob(\''+p.id+'\','+nInt+','+Math.round(i.c)+',\''+c.nombre+'\')" style="padding:4px 12px;background:var(--rd);color:#fff;border:none;border-radius:var(--rs);font-size:12px;cursor:pointer;font-family:inherit">Cobrar</button></td>'+
-        '</tr>'
-      });
+    // Cuotas vencidas sin pagar
+    var vencSinPagar=i.venc.filter(function(n){return !pg[n];});
+
+    // Si no tiene cuota hoy ni vencidas → no mostrar
+    if(!cuotaHoy && vencSinPagar.length===0) return;
+
+    // Calcular estimado
+    if(cuotaHoy) estimado+=i.c;
+    estimado+=vencSinPagar.length*i.c;
+
+    // Cuota a cobrar: la más antigua pendiente
+    var cuotaCobrar=cuotaHoy;
+    if(vencSinPagar.length>0) cuotaCobrar=Math.min.apply(null,vencSinPagar);
+
+    var tieneVenc=vencSinPagar.length>0;
+    var totalPend=(cuotaHoy?1:0)+vencSinPagar.length;
+
+    filas.push({ord:c.orden||999,
+      html:'<tr style="'+(tieneVenc?'background:#FFF3E0':'')+'">'+
+        '<td style="font-size:11px;color:var(--tm);text-align:center">'+(c.orden||'—')+'</td>'+
+        '<td><strong>'+c.nombre+'</strong>'+(r?'<br><span style="font-size:10px;color:var(--tm)">'+r.nombre+'</span>':'')+'</td>'+
+        '<td style="font-size:11px">'+fm(p.capital)+'/'+p.dias+'d</td>'+
+        '<td style="font-size:12px">'+(cuotaHoy?cuotaHoy+'/'+p.dias:'—')+
+          (vencSinPagar.length>0?'<br><span style="color:var(--rd);font-size:10px;font-weight:700">'+vencSinPagar.length+' venc.</span>':'')+
+        '</td>'+
+        '<td style="font-weight:700">'+fm(i.c)+'</td>'+
+        '<td>'+
+          (tieneVenc?
+            '<span class="badge" style="background:var(--rd);color:#fff">'+vencSinPagar.length+' vencida'+(vencSinPagar.length>1?'s':'')+'</span>':
+            '<span class="badge" style="background:#FF9800;color:#fff">Pendiente</span>'
+          )+
+        '</td>'+
+        '<td><button onclick="aCob(\''+p.id+'\','+cuotaCobrar+','+Math.round(i.c)+',\''+c.nombre+'\'" '+
+          'style="padding:4px 12px;background:'+(tieneVenc?'var(--rd)':'var(--bl)')+';color:#fff;border:none;border-radius:var(--rs);font-size:12px;cursor:pointer;font-family:inherit">Cobrar</button></td>'+
+      '</tr>'
     });
   });
 
+  // Quitar duplicados (mismo clienteId puede tener 2 préstamos → 2 filas OK)
   filas.sort(function(a,b){return a.ord-b.ord;});
+  var pendiente=Math.max(0,estimado-cobrado);
   var pct=estimado>0?Math.round(cobrado*100/estimado):0;
+
   document.getElementById('COB-MET').innerHTML=
     '<div class="me"><div class="lb">Estimado</div><div class="vl">'+fm(estimado)+'</div></div>'+
     '<div class="me"><div class="lb">Cobrado hoy</div><div class="vl gp">'+fm(cobrado)+'</div>'+
       '<div class="sb2">💵 '+fm(cobEfNq.ef)+' · 📱 '+fm(cobEfNq.nq)+'</div></div>'+
     '<div class="me"><div class="lb">% Cobrado</div><div class="vl" style="color:'+(pct>=100?'var(--gn)':pct>=50?'var(--am)':'var(--rd)')+'">'+pct+'%</div></div>'+
     '<div class="me"><div class="lb">Pendiente</div><div class="vl '+(pendiente>0?'gn2':'')+'">'+fm(pendiente)+'</div></div>';
+
   document.getElementById('COB-LIST').innerHTML=filas.map(function(f){return f.html;}).join('')||
     '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--tm)">✓ Sin cobros pendientes</td></tr>';
 }
+
+
 
 // Editar un pago existente
 function editarPago(pid, nCuota, dia){
@@ -1509,8 +1531,12 @@ function rFlujo(){
   var curRuta=rutaSel.value;
   rutaSel.innerHTML='<option value="">Todas</option>'+ST.rutas.map(function(r){return '<option value="'+r.id+'">'+r.nombre+'</option>';}).join('');
   rutaSel.value=curRuta;
-  var rutaFil=rutaSel.value;
+  var rutaFil=CU.rol==='admin'?rutaSel.value:CU.rutaId;
+  if(CU.rol!=='admin') rutaFil=CU.rutaId; // cobrador solo ve su ruta
   var rutas=rutaFil?ST.rutas.filter(function(r){return r.id===rutaFil;}):ST.rutas;
+  if(rutas.length===0){
+    document.getElementById('FC-CAJAS').innerHTML='<div class="empty">Cargando datos...</div>';
+  }
 
   // ── CAJA vs BASE por ruta ────────────────────
   var cajasH='';
@@ -1587,6 +1613,20 @@ function rFlujo(){
   var segEfNq2=saldoSegurosEfNq();
   document.getElementById('SEG-SALDO').innerHTML=fm(segSaldoTotal)+
     '<div style="font-size:11px;color:#9C27B0;font-weight:400;margin-top:2px">💵 '+fm(Math.max(0,segEfNq2.ef))+' · 📱 '+fm(Math.max(0,segEfNq2.nq))+'</div>';
+
+  // Actualizar fondo de reembolsos
+  var reemTotal=saldoReembolsos();
+  var reemEfNq=saldoReembolsosEfNq();
+  var reemHoyTot=reembolsosDia(rutaFil||'',ISO);
+  var reemHoyEN=reembolsosDiaEfNq(rutaFil||'',ISO);
+  var reemEl=document.getElementById('REEM-SALDO');
+  if(reemEl) reemEl.innerHTML=fm(reemTotal)+
+    '<div style="font-size:11px;color:#0288D1;font-weight:400;margin-top:2px">💵 '+fm(Math.max(0,reemEfNq.ef))+' · 📱 '+fm(Math.max(0,reemEfNq.nq))+'</div>';
+  var reemMet=document.getElementById('REEM-MET');
+  if(reemMet) reemMet.innerHTML=
+    '<div class="me"><div class="lb">Recaudado hoy</div><div class="vl" style="color:#0288D1">'+fm(reemHoyTot)+'</div>'+
+      '<div class="sb2">💵 '+fm(reemHoyEN.ef)+' · 📱 '+fm(reemHoyEN.nq)+'</div></div>'+
+    '<div class="me"><div class="lb">Acumulado total</div><div class="vl" style="color:#0288D1">'+fm(reemTotal)+'</div></div>';
 
   var segCen=saldoSegurosEfNq(rutaFilSeg||undefined);
   document.getElementById('SEG-MET').innerHTML=
@@ -1945,32 +1985,28 @@ function rCli(){
     var hayMoroso=activos.some(function(p){return pI(p).est==='moroso';});
     var avColor=activos.length===0?'#9E9E9E':hayMoroso?'var(--rd)':'var(--bl)';
 
-    // Filas de créditos activos
-    var credRows='';
+    var credRows=''; // no sub-filas — detalle se ve al hacer clic
+
+    // Calcular totales del cliente
+    var totalPag=0,totalDias=0,saldoTotal=0,vencTotal=0;
     activos.forEach(function(p){
       var i=pI(p);
-      var B={completado:'bg3',moroso:'br2',atraso:'ba',activo:'bb'};
-      var T={completado:'Cancelado',moroso:'Moroso',atraso:'Con atraso',activo:'Al día'};
-      credRows+=
-        '<tr style="background:var(--bll)">'+
-          '<td></td>'+
-          '<td style="padding-left:2rem;font-size:12px;color:var(--tm)">→ '+fm(p.capital)+' / '+p.dias+'d</td>'+
-          '<td style="font-size:12px">'+i.pag+'/'+p.dias+'</td>'+
-          '<td><span class="badge '+B[i.est]+'">'+T[i.est]+'</span></td>'+
-          '<td style="font-size:12px;font-weight:700">'+fm(i.saldoReal)+'</td>'+
-          '<td></td>'+
-        '</tr>';
+      totalPag+=i.pag; totalDias+=p.dias;
+      saldoTotal+=i.saldoReal;
+      vencTotal+=i.venc.length;
     });
-
+    var estadoBadge=activos.length===0?
+      '<span class="badge bg3">Sin créditos</span>':
+      (hayMoroso?'<span class="badge br2">'+vencTotal+' en mora</span>':'<span class="badge bb">Al día</span>');
     html+=
       '<tr onclick="verCli(\''+c.id+'\')" style="cursor:pointer">'+
         '<td><div class="cli-av" style="background:'+avColor+';width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700">'+initials+'</div></td>'+
         '<td><strong>'+c.nombre+'</strong><br><span style="font-size:11px;color:var(--tm)">'+(c.cedula?'CC '+c.cedula:'')+(r?' · '+r.nombre:'')+'</span></td>'+
-        '<td style="font-size:12px">'+(activos.length>0?activos[0].pagos?Object.keys(activos[0].pagos).filter(function(k){return activos[0].pagos[k];}).length:0:'—')+'/'+( activos.length>0?activos[0].dias:'—')+'</td>'+
-        '<td>'+(hayMoroso?'<span class="badge br2">'+activos.filter(function(p){return pI(p).est==="moroso";}).reduce(function(t,p){return t+pI(p).venc.length;},0)+' en mora</span>':'<span class="badge bb">Al día</span>')+'</td>'+
-        '<td style="font-weight:700">'+(activos.length>0?fm(activos[0].capital*((activos.length>0?1:1))):'—')+'</td>'+
+        '<td style="font-size:12px">'+(activos.length>0?totalPag+'/'+totalDias:'—')+'</td>'+
+        '<td>'+estadoBadge+(activos.length>1?'<br><span style="font-size:10px;color:var(--tm)">'+activos.length+' créditos</span>':'')+'</td>'+
+        '<td style="font-weight:700">'+(activos.length>0?fm(saldoTotal):'$0')+'</td>'+
         '<td style="font-size:18px;color:var(--tm)">›</td>'+
-      '</tr>'+credRows;
+      '</tr>';
   });
 
   var listEl=document.getElementById('CLI-LIST');
