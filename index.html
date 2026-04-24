@@ -1434,16 +1434,34 @@ function rCob(){
         ST.rutas.map(function(r){return '<option value="'+r.id+'">'+r.nombre+'</option>';}).join('');
     if(rutaFil&&sel) sel.value=rutaFil;
   }
+
+  // Filtrar préstamos
   var pres=rutaFil
     ? ST.prestamos.filter(function(p){var c=gC(p.clienteId);return c&&c.rutaId===rutaFil;})
-    : myP();
+    : ST.prestamos;
 
-  // Métricas
-  var estimado=0, cobrado=recaudoDia(rutaFil,ISO);
+  // Estimado FIJO: suma de cuotas programadas para HOY de todos los clientes activos
+  // (independiente de si ya se cobró o no)
+  var estimado=0;
+  pres.forEach(function(p){
+    var i=pI(p);
+    if(i.est==='completado') return;
+    Object.keys(i.fechas).forEach(function(n){
+      if(i.fechas[n]===ISO) estimado+=i.c;
+    });
+    // También sumar cuotas vencidas sin pagar
+    i.venc.forEach(function(n){
+      var pg=p.pagos||{};
+      if(!pg[n]) estimado+=i.c;
+    });
+  });
+
+  var cobrado=recaudoDia(rutaFil,ISO);
   var cobEfNq=recaudoEfNq(rutaFil,ISO);
+  var pendiente=Math.max(0,estimado-cobrado);
+  var pct=estimado>0?Math.round(cobrado*100/estimado):0;
 
-  // Agrupar por cliente: un cliente puede tener varias cuotas pendientes
-  // pero mostramos UNA fila por préstamo con resumen de cuotas
+  // Filas: solo cuotas PENDIENTES (no cobradas hoy)
   var filas=[];
   pres.forEach(function(p){
     var c=gC(p.clienteId); if(!c) return;
@@ -1452,64 +1470,68 @@ function rCob(){
     var pg=p.pagos||{};
     var r=gR(c.rutaId);
 
-    // Cuota programada para hoy (si existe)
+    // Cuota de hoy pendiente
     var cuotaHoy=null;
     Object.keys(i.fechas).forEach(function(n){
-      if(i.fechas[n]===ISO&&!pg[parseInt(n)]) cuotaHoy=parseInt(n);
+      var nInt=parseInt(n);
+      if(i.fechas[n]!==ISO) return;
+      var pagoN=pg[nInt];
+      // Pendiente si no tiene pago registrado hoy
+      if(!pagoN) cuotaHoy=nInt;
     });
 
     // Cuotas vencidas sin pagar
     var vencSinPagar=i.venc.filter(function(n){return !pg[n];});
 
-    // Si no tiene cuota hoy ni vencidas → no mostrar
-    if(!cuotaHoy && vencSinPagar.length===0) return;
+    // Si no hay nada pendiente → no mostrar (ya cobrado → va a Recaudos)
+    if(cuotaHoy===null && vencSinPagar.length===0) return;
 
-    // Calcular estimado
-    if(cuotaHoy) estimado+=i.c;
-    estimado+=vencSinPagar.length*i.c;
-
-    // Cuota a cobrar: la más antigua pendiente
-    var cuotaCobrar=cuotaHoy;
-    if(vencSinPagar.length>0) cuotaCobrar=Math.min.apply(null,vencSinPagar);
-
+    var cuotaCobrar=vencSinPagar.length>0?Math.min.apply(null,vencSinPagar):cuotaHoy;
     var tieneVenc=vencSinPagar.length>0;
-    var totalPend=(cuotaHoy?1:0)+vencSinPagar.length;
+    var bgRow=tieneVenc?'background:#FFF3E0':'';
+    var bgBtn=tieneVenc?'var(--rd)':'var(--bl)';
 
-    filas.push({ord:c.orden||999,
-      html:'<tr style="'+(tieneVenc?'background:#FFF3E0':'')+'">'+
-        '<td style="font-size:11px;color:var(--tm);text-align:center">'+(c.orden||'—')+'</td>'+
-        '<td><strong>'+c.nombre+'</strong>'+(r?'<br><span style="font-size:10px;color:var(--tm)">'+r.nombre+'</span>':'')+'</td>'+
-        '<td style="font-size:11px">'+fm(p.capital)+'/'+p.dias+'d</td>'+
-        '<td style="font-size:12px">'+(cuotaHoy?cuotaHoy+'/'+p.dias:'—')+
-          (vencSinPagar.length>0?'<br><span style="color:var(--rd);font-size:10px;font-weight:700">'+vencSinPagar.length+' venc.</span>':'')+
-        '</td>'+
-        '<td style="font-weight:700">'+fm(i.c)+'</td>'+
-        '<td>'+
-          (tieneVenc?
-            '<span class="badge" style="background:var(--rd);color:#fff">'+vencSinPagar.length+' vencida'+(vencSinPagar.length>1?'s':'')+'</span>':
-            '<span class="badge" style="background:#FF9800;color:#fff">Pendiente</span>'
-          )+
-        '</td>'+
-        '<td><button onclick="aCob(\''+p.id+'\','+cuotaCobrar+','+Math.round(i.c)+',\''+c.nombre+'\'" '+
-          'style="padding:4px 12px;background:'+(tieneVenc?'var(--rd)':'var(--bl)')+';color:#fff;border:none;border-radius:var(--rs);font-size:12px;cursor:pointer;font-family:inherit">Cobrar</button></td>'+
-      '</tr>'
-    });
+    var html='<tr style="'+bgRow+'">'+
+      '<td style="font-size:11px;color:var(--tm);text-align:center">'+(c.orden||'—')+'</td>'+
+      '<td><strong>'+c.nombre+'</strong>'+(r?'<br><span style="font-size:10px;color:var(--tm)">'+r.nombre+'</span>':'')+'</td>'+
+      '<td style="font-size:11px">'+fm(p.capital)+'/'+p.dias+'d</td>'+
+      '<td style="font-size:12px">'+(cuotaHoy?cuotaHoy+'/'+p.dias:'—')+
+        (vencSinPagar.length>0?'<br><span style="color:var(--rd);font-size:10px;font-weight:700">'+vencSinPagar.length+' venc.</span>':'')+
+      '</td>'+
+      '<td style="font-weight:700">'+fm(i.c)+'</td>'+
+      '<td>'+
+        (tieneVenc?
+          '<span class="badge" style="background:var(--rd);color:#fff">'+vencSinPagar.length+' vencida'+(vencSinPagar.length>1?'s':'')+'</span>':
+          '<span class="badge" style="background:#FF9800;color:#fff">Pendiente</span>'
+        )+
+      '</td>'+
+      '<td id="btn-cob-'+p.id+'-'+cuotaCobrar+'"><button style="padding:4px 12px;background:'+bgBtn+';color:#fff;border:none;border-radius:var(--rs);font-size:12px;cursor:pointer;font-family:inherit">Cobrar</button></td>'+
+    '</tr>';
+
+    filas.push({ord:c.orden||999, pid:p.id, n:cuotaCobrar, c:Math.round(i.c), nom:c.nombre, html:html});
   });
 
-  // Quitar duplicados (mismo clienteId puede tener 2 préstamos → 2 filas OK)
   filas.sort(function(a,b){return a.ord-b.ord;});
-  var pendiente=Math.max(0,estimado-cobrado);
-  var pct=estimado>0?Math.round(cobrado*100/estimado):0;
 
   document.getElementById('COB-MET').innerHTML=
-    '<div class="me"><div class="lb">Estimado</div><div class="vl">'+fm(estimado)+'</div></div>'+
+    '<div class="me"><div class="lb">Estimado</div><div class="vl">'+fm(estimado)+'</div><div class="sb2">Cuotas del día</div></div>'+
     '<div class="me"><div class="lb">Cobrado hoy</div><div class="vl gp">'+fm(cobrado)+'</div>'+
-      '<div class="sb2">💵 '+fm(cobEfNq.ef)+' · 📱 '+fm(cobEfNq.nq)+'</div></div>'+
+      '<div class="sb2">'+'\uD83D\uDCB5'+' '+fm(cobEfNq.ef)+' · '+'\uD83D\uDCF1'+' '+fm(cobEfNq.nq)+'</div></div>'+
     '<div class="me"><div class="lb">% Cobrado</div><div class="vl" style="color:'+(pct>=100?'var(--gn)':pct>=50?'var(--am)':'var(--rd)')+'">'+pct+'%</div></div>'+
     '<div class="me"><div class="lb">Pendiente</div><div class="vl '+(pendiente>0?'gn2':'')+'">'+fm(pendiente)+'</div></div>';
 
-  document.getElementById('COB-LIST').innerHTML=filas.map(function(f){return f.html;}).join('')||
-    '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--tm)">✓ Sin cobros pendientes</td></tr>';
+  var tbody=document.getElementById('COB-LIST');
+  tbody.innerHTML=filas.map(function(f){return f.html;}).join('')||
+    '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--tm)">'+String.fromCharCode(10003)+' Sin cobros pendientes</td></tr>';
+
+  // Agregar event listeners a los botones (evita problemas de escape en onclick inline)
+  filas.forEach(function(f){
+    var cell=document.getElementById('btn-cob-'+f.pid+'-'+f.n);
+    if(cell){
+      var btn=cell.querySelector('button');
+      if(btn) btn.onclick=function(){aCob(f.pid,f.n,f.c,f.nom);};
+    }
+  });
 }
 
 
@@ -2015,13 +2037,11 @@ function rCli(){
   });
   var dashEl=document.getElementById('CLI-DASH');
   if(dashEl) dashEl.innerHTML=
-    '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:1.25rem">'+
     '<div class="me"><div class="lb">Clientes</div><div class="vl">'+clis.length+'</div></div>'+
     '<div class="me"><div class="lb">Créditos activos</div><div class="vl" style="color:var(--bl)">'+totalCred+'</div></div>'+
     '<div class="me"><div class="lb">Capital en calle</div><div class="vl gp">'+fm(capitalCalle)+'</div></div>'+
     '<div class="me"><div class="lb">Préstamos hoy</div><div class="vl gp">'+prestHoy+'</div></div>'+
-    '<div class="me"><div class="lb">Reembolsos hoy</div><div class="vl" style="color:#0288D1">'+reembHoy+'</div></div>'+
-    '</div>';
+    '<div class="me"><div class="lb">Reembolsos hoy</div><div class="vl" style="color:#0288D1">'+reembHoy+'</div></div>';
 
   // Lista de clientes
   clis.sort(function(a,b){return (a.nombre||'').localeCompare(b.nombre||'');});
