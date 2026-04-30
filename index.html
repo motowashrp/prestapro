@@ -555,7 +555,6 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
                 <th>Dif. Cierre</th>
                 <th style="color:var(--rd)">Retiro Inv.</th>
                 <th style="color:var(--bl)">Base asig.</th>
-                <th style="color:#6A1B9A">Seguros</th>
                 <th>Saldo caja</th>
               </tr></thead>
               <tbody id="FC-BODY"></tbody>
@@ -3176,10 +3175,10 @@ async function limpiarFirebase(){
   var adminEmail=user.email;
   var adminNombre=CU.nombre||'Administrador';
 
-  if(!confirm('¿Borrar TODOS los datos?\n\nSe borrarán: rutas, clientes, préstamos, gastos, cierres y cobradores.\n\nTu usuario admin se conservará automáticamente.'))return;
+  if(!confirm('¿Borrar TODOS los datos?\n\nSe borrarán: rutas, clientes, préstamos, gastos, cierres, seguros, reembolsos y cobradores.\n\nTu usuario admin se conservará automáticamente.'))return;
 
   toast('Limpiando base de datos...','');
-  var colecciones=['rutas','clientes','prestamos','gastos','cierres','bases','seguros','config'];
+  var colecciones=['rutas','clientes','prestamos','gastos','cierres','bases','seguros','reembolsos','config'];
   var total=0;
   try{
     // 1. Borrar todas las colecciones EXCEPTO usuarios
