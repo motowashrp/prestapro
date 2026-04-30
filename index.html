@@ -83,7 +83,7 @@ html,body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:
 
 /* METRICS */
 .met{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:1.25rem}
-.me{background:var(--wh);border-radius:var(--rm);padding:12px 14px;border:1px solid var(--br);min-width:0;word-break:break-word}
+.me{background:var(--wh);border-radius:var(--rm);padding:12px 14px;border:1px solid var(--br);min-width:0;overflow:hidden}
 .me .lb{font-size:10px;color:var(--tm);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
 .me .vl{font-size:20px;font-weight:700;color:var(--bd)}
 .me .sb2{font-size:11px;margin-top:2px;color:var(--tm)}
@@ -470,7 +470,7 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
       </div>
       <div class="sc" id="sc-cli">
         <!-- Mini dashboard -->
-        <div class="mini-dash" id="CLI-DASH"></div>
+        <div class="met" style="margin-bottom:1rem" id="CLI-DASH"></div>
         <div id="FIL-Cli" class="ruta-fil-bar" style="display:none">
           <label>Ruta:</label>
           <select id="SEL-Cli" onchange="setRutaFil('Cli',this.value)"><option value="">Todas las rutas</option></select>
@@ -2058,14 +2058,10 @@ function rCli(){
   });
   var dashEl=document.getElementById('CLI-DASH');
   if(dashEl) dashEl.innerHTML=
-    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">'+
       '<div class="me"><div class="lb">Clientes</div><div class="vl">'+clis.length+'</div></div>'+
       '<div class="me"><div class="lb">Créditos activos</div><div class="vl" style="color:var(--bl)">'+totalCred+'</div></div>'+
-      '<div class="me"><div class="lb">Capital en calle</div><div class="vl gp" style="font-size:14px">'+fm(capitalCalle)+'</div></div>'+
-    '</div>'+
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
-      '<div class="me"><div class="lb">Préstamos hoy</div><div class="vl gp">'+prestHoy+'</div></div>'+
-      '<div class="me"><div class="lb">Reembolsos hoy</div><div class="vl" style="color:#0288D1">'+reembHoy+'</div></div>'+
+      '<div class="me"><div class="lb">Capital en calle</div><div class="vl gp">'+fm(capitalCalle)+'</div></div>'+
     '</div>';
 
   // Lista de clientes
@@ -3615,12 +3611,20 @@ function setRutaFil(varName, val){
 // PARÁMETROS DEL SISTEMA
 // ══════════════════════════════════════════════
 var PAR = {
+  domingos: false,
+  interes: 20,
+  dias: 30,
+  seguroPct: 6,
+  reembolsoPct: 6,
+  reembolsoActivo: true,
+  cuotasMoroso: 3,
+  minimo: 100000,
+  // aliases para compatibilidad
   domingosCobroban: false,
   interesDef: 20,
   plazoDef: 30,
-  seguroTipo: 'cuota',   // 'cuota' o 'valor'
-  seguroValor: 0,        // si seguroTipo='valor'
-  cuotasMoroso: 3,
+  seguroTipo: 'porcentaje',
+  seguroValor: 0,
   montoMinimo: 100000
 };
 var _parCargado = false;
@@ -3629,7 +3633,14 @@ function cargarParams(){
   db.collection('config').doc('params').get().then(function(doc){
     if(doc.exists){
       var d=doc.data();
-      Object.keys(d).forEach(function(k){if(PAR.hasOwnProperty(k))PAR[k]=d[k];});
+      Object.keys(d).forEach(function(k){PAR[k]=d[k];});
+      // Normalizar nombres
+      if(d.domingosCobroban!==undefined) PAR.domingos=d.domingosCobroban;
+      if(d.interesDef!==undefined) PAR.interes=d.interesDef;
+      if(d.plazoDef!==undefined) PAR.dias=d.plazoDef;
+      if(d.montoMinimo!==undefined) PAR.minimo=d.montoMinimo;
+      if(d.interes!==undefined) PAR.interesDef=d.interes;
+      if(d.dias!==undefined) PAR.plazoDef=d.dias;
     }
     _parCargado=true;
     aplicarParams();
