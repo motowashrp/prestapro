@@ -1078,9 +1078,9 @@ function gastosDiaEfNq(rutaId, fecha){
 function gastosDia(rutaId, fecha) {
   // Incluye gastos de la ruta Y gastos sin ruta asignada del mismo día
   return ST.gastos.filter(function(g){
-    if(g.fecha!==fecha)return false;
-    if(rutaId) return g.rutaId===rutaId || !g.rutaId;
-    return true;
+    if(g.fecha!==fecha) return false;
+    if(!rutaId) return true;
+    return g.rutaId===rutaId;
   }).reduce(function(s,g){return s+(g.monto||0);},0);
 }
 
@@ -1880,7 +1880,7 @@ function rCie(){
     });
     var pre=preEf+preNq;
     // Gastos con desglose
-    var gasEfNqCie=gastosDiaEfNqC(ruta.id,ISO);
+    var gasEfNqCie=gastosDiaEfNq(ruta.id,ISO);
     var gas=gasEfNqCie.ef+gasEfNqCie.nq;
     // Base método
     var baseEf=ST.bases.filter(function(x){return x.rutaId===ruta.id&&x.fecha===ISO&&x.tipo==='base'&&x.metodo!=='nequi';}).reduce(function(s,x){return s+(x.monto||0);},0);
@@ -2488,10 +2488,9 @@ function sNuevoCli(){
   var cuota=Math.round(tot/dias);
   // Seguro = % del capital (configurable, default 6%)
   var seguro=PAR.seguroTipo==='valor'?PAR.seguroValor:Math.round(cap*((PAR.seguroPct||6)/100));
-  // Reembolso = % del capital (configurable, default 6%)
-  var reembolso=PAR.reembolsoActivo?Math.round(cap*((PAR.reembolsoPct||6)/100)):0;
+  // Reembolso: NUNCA en cliente nuevo (no tiene crédito previo que cancelar)
+  var reembolso=0;
   var recibe=cap-seguro;
-  // Método del seguro: donde va el mayor monto
   var metodoSeg=mixtoNC.nq>0&&mixtoNC.nq>=mixtoNC.ef?'nequi':'efectivo';
   var cliRef=null;
   db.collection('clientes').add({
@@ -2521,18 +2520,8 @@ function sNuevoCli(){
       creadoPor:{nombre:CU.nombre,rol:CU.rol},createdAt:Date.now()
     });
   }).then(function(){
-    // Registrar reembolso si está activo
-    if(reembolso>0){
-      return db.collection('reembolsos').add({
-        prestamoId:_lastPRef.id,clienteId:cliRef.id,rutaId:rut,
-        monto:reembolso,fecha:fec,tipo:'ingreso',
-        concepto:'Reembolso préstamo — '+nom,metodo:metodoSeg,
-        creadoPor:{nombre:CU.nombre,rol:CU.rol},createdAt:Date.now()
-      });
-    }
-  }).then(function(){
     cM('m-nuevo-cli');
-    toast('Crédito creado · Seguro: '+fm(seguro)+(reembolso?' · Reembolso: '+fm(reembolso):''),'ok');
+    toast('Crédito creado · Seguro: '+fm(seguro),'ok');
     _lastPRef=null;
   }).catch(function(e){toast('Error al crear: '+e.message,'err');console.error(e);});
 }
