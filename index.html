@@ -249,7 +249,7 @@ tr:hover td{background:var(--bll)}
 
 /* RESPONSIVE */
 @media(max-width:900px){
-  .met{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .met{grid-template-columns:repeat(2,1fr)}
   .caja-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .tc{grid-template-columns:1fr}
   .s3{grid-template-columns:1fr 1fr}
@@ -261,6 +261,7 @@ tr:hover td{background:var(--bll)}
   .sidebar.open{transform:translateX(0)}
   .main{padding:1rem}
   .met{grid-template-columns:1fr 1fr;gap:8px}
+  #CLI-DASH{grid-template-columns:1fr 1fr 1fr}
   /* mini-dash usa auto-fit */
   .me{padding:10px 8px}
   .me .vl{font-size:16px}
@@ -470,7 +471,7 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
       </div>
       <div class="sc" id="sc-cli">
         <!-- Mini dashboard -->
-        <div class="met" style="margin-bottom:1rem" id="CLI-DASH"></div>
+        <div class="met" style="margin-bottom:1rem;grid-template-columns:repeat(3,1fr)" id="CLI-DASH"></div>
         <div id="FIL-Cli" class="ruta-fil-bar" style="display:none">
           <label>Ruta:</label>
           <select id="SEL-Cli" onchange="setRutaFil('Cli',this.value)"><option value="">Todas las rutas</option></select>
@@ -2058,11 +2059,9 @@ function rCli(){
   });
   var dashEl=document.getElementById('CLI-DASH');
   if(dashEl) dashEl.innerHTML=
-    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">'+
-      '<div class="me"><div class="lb">Clientes</div><div class="vl">'+clis.length+'</div></div>'+
-      '<div class="me"><div class="lb">Créditos activos</div><div class="vl" style="color:var(--bl)">'+totalCred+'</div></div>'+
-      '<div class="me"><div class="lb">Capital en calle</div><div class="vl gp">'+fm(capitalCalle)+'</div></div>'+
-    '</div>';
+    '<div class="me"><div class="lb">Clientes</div><div class="vl">'+clis.length+'</div></div>'+
+    '<div class="me"><div class="lb">Créditos activos</div><div class="vl" style="color:var(--bl)">'+totalCred+'</div></div>'+
+    '<div class="me"><div class="lb">Capital en calle</div><div class="vl gp">'+fm(capitalCalle)+'</div></div>';
 
   // Lista de clientes
   clis.sort(function(a,b){return (a.nombre||'').localeCompare(b.nombre||'');});
@@ -3648,31 +3647,40 @@ function cargarParams(){
 }
 
 function aplicarParams(){
-  // Leer valores del formulario y actualizar PAR
-  var int=parseFloat(document.getElementById('PAR-INT')?document.getElementById('PAR-INT').value:PAR.interes);
-  var dias=parseInt(document.getElementById('PAR-DIA')?document.getElementById('PAR-DIA').value:PAR.dias);
-  var min=parseFloat(document.getElementById('PAR-MIN')?document.getElementById('PAR-MIN').value:PAR.minimo);
-  var mor=parseInt(document.getElementById('PAR-MOR')?document.getElementById('PAR-MOR').value:PAR.moroso);
-  var dom=document.getElementById('PAR-DOM')?document.getElementById('PAR-DOM').checked:PAR.domingos;
-  var segPct=parseFloat(document.getElementById('PAR-SEG-PCT')?document.getElementById('PAR-SEG-PCT').value:PAR.seguroPct||6);
-  var reemPct=parseFloat(document.getElementById('PAR-REEM-PCT')?document.getElementById('PAR-REEM-PCT').value:PAR.reembolsoPct||6);
-  var reemAct=document.getElementById('PAR-REEM-ACT')?document.getElementById('PAR-REEM-ACT').checked:PAR.reembolsoActivo;
+  // Solo actualiza PAR en memoria desde el formulario (sin guardar en Firebase)
+  var intEl=document.getElementById('PAR-INT');
+  var diasEl=document.getElementById('PAR-DIA');
+  var minEl=document.getElementById('PAR-MIN');
+  var morEl=document.getElementById('PAR-MOR');
+  var domEl=document.getElementById('PAR-DOM');
+  var segEl=document.getElementById('PAR-SEG-PCT');
+  var reemEl=document.getElementById('PAR-REEM-PCT');
+  var reemActEl=document.getElementById('PAR-REEM-ACT');
+  var int=intEl?parseFloat(intEl.value):0;
+  var dias=diasEl?parseInt(diasEl.value):0;
+  var min=minEl?parseFloat(minEl.value):0;
+  var mor=morEl?parseInt(morEl.value):0;
   if(int>0) PAR.interes=int;
   if(dias>0) PAR.dias=dias;
   if(min>0) PAR.minimo=min;
   if(mor>0) PAR.moroso=mor;
-  PAR.domingos=dom;
+  if(domEl) PAR.domingos=domEl.checked;
   PAR.seguroTipo='porcentaje';
-  PAR.seguroPct=segPct||6;
-  PAR.reembolsoPct=reemPct||6;
-  PAR.reembolsoActivo=reemAct;
-  guardarParams();
+  if(segEl) PAR.seguroPct=parseFloat(segEl.value)||6;
+  if(reemEl) PAR.reembolsoPct=parseFloat(reemEl.value)||6;
+  if(reemActEl) PAR.reembolsoActivo=reemActEl.checked;
+  // NO llama guardarParams — solo actualiza memoria
+}
+
+function guardarParamsBtnClick(){
+  aplicarParams(); // leer formulario
+  guardarParams(); // guardar en Firebase
 }
 
 function guardarParams(){
   db.collection('config').doc('params').set(PAR)
-    .then(function(){toast('Parámetros guardados','ok');aplicarParams();})
-    .catch(function(e){toast('Error','err');console.error(e);});
+    .then(function(){toast('Parámetros guardados','ok');})
+    .catch(function(e){toast('Error al guardar','err');console.error(e);});
 }
 
 function rPar(){
@@ -3785,12 +3793,28 @@ function toggleSegVal(){
 }
 
 function leerYGuardarParams(){
-  PAR.interesDef=parseFloat(document.getElementById('P-INT').value)||20;
-  PAR.plazoDef=parseInt(document.getElementById('P-PLA').value)||30;
-  PAR.montoMinimo=parseFloat(document.getElementById('P-MIN').value)||100000;
-  PAR.cuotasMoroso=parseInt(document.getElementById('P-MOR').value)||3;
-  PAR.seguroTipo=document.getElementById('P-SEGTP').value;
-  PAR.seguroValor=parseFloat(document.getElementById('P-SEGVAL').value)||0;
+  // Leer IDs nuevos del formulario de parámetros
+  var intEl=document.getElementById('PAR-INT')||document.getElementById('P-INT');
+  var diasEl=document.getElementById('PAR-DIA')||document.getElementById('P-PLA');
+  var minEl=document.getElementById('PAR-MIN')||document.getElementById('P-MIN');
+  var morEl=document.getElementById('PAR-MOR')||document.getElementById('P-MOR');
+  var domEl=document.getElementById('PAR-DOM');
+  var segEl=document.getElementById('PAR-SEG-PCT');
+  var reemEl=document.getElementById('PAR-REEM-PCT');
+  var reemActEl=document.getElementById('PAR-REEM-ACT');
+  if(intEl&&parseFloat(intEl.value)>0) PAR.interes=parseFloat(intEl.value);
+  if(diasEl&&parseInt(diasEl.value)>0) PAR.dias=parseInt(diasEl.value);
+  if(minEl&&parseFloat(minEl.value)>0) PAR.minimo=parseFloat(minEl.value);
+  if(morEl&&parseInt(morEl.value)>0) PAR.moroso=parseInt(morEl.value);
+  if(domEl) PAR.domingos=domEl.checked;
+  PAR.seguroTipo='porcentaje';
+  if(segEl&&parseFloat(segEl.value)>0) PAR.seguroPct=parseFloat(segEl.value);
+  if(reemEl&&parseFloat(reemEl.value)>0) PAR.reembolsoPct=parseFloat(reemEl.value);
+  if(reemActEl) PAR.reembolsoActivo=reemActEl.checked;
+  // También actualizar aliases para compatibilidad
+  PAR.interesDef=PAR.interes;
+  PAR.plazoDef=PAR.dias;
+  PAR.montoMinimo=PAR.minimo;
   guardarParams();
 }
 
