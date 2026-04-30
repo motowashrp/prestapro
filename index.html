@@ -1397,7 +1397,7 @@ function rDash(){
   var rutas=rutaFil?ST.rutas.filter(function(r){return r.id===rutaFil;}):ST.rutas;
   var html='';
   rutas.forEach(function(ruta){
-    // Capital en calle
+    // Saldo en calle
     var capitalCalle=0, numClientes=0, morosos=0, valorMora=0;
     var cliIds=ST.clientes.filter(function(c){return c.rutaId===ruta.id;}).map(function(c){return c.id;});
     numClientes=cliIds.length;
@@ -2071,7 +2071,7 @@ function rCli(){
   if(dashEl) dashEl.innerHTML=
     '<div class="me"><div class="lb">Clientes</div><div class="vl">'+clis.length+'</div></div>'+
     '<div class="me"><div class="lb">Créditos activos</div><div class="vl" style="color:var(--bl)">'+totalCred+'</div></div>'+
-    '<div class="me"><div class="lb">Capital en calle</div><div class="vl gp">'+fm(capitalCalle)+'</div></div>';
+    '<div class="me"><div class="lb">Saldo en calle</div><div class="vl gp">'+fm(capitalCalle)+'</div></div>';
 
   // Lista de clientes
   clis.sort(function(a,b){return (a.nombre||'').localeCompare(b.nombre||'');});
@@ -2195,7 +2195,7 @@ function rRut(){
       '<div class="ts">Saldo de caja</div></div></div>'+
       '<div class="caja-grid">'+
       '<div class="caja-stat"><div class="lb">Clientes</div><div class="vl">'+clis.length+'</div></div>'+
-      '<div class="caja-stat success"><div class="lb">Capital en calle</div><div class="vl">'+fm(capitalCalle)+'</div></div>'+
+      '<div class="caja-stat success"><div class="lb">Saldo en calle</div><div class="vl">'+fm(capitalCalle)+'</div></div>'+
       '<div class="caja-stat danger"><div class="lb">Morosos</div><div class="vl">'+morosos+'</div></div>'+
       '<div class="caja-stat"><div class="lb">Créditos activos</div><div class="vl">'+pres.filter(function(p){return pI(p).est!=='completado';}).length+'</div></div>'+
       '</div>'+
