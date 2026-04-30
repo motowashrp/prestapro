@@ -662,7 +662,15 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
     </div>
     <div id="CR-MIXTO-INFO" style="font-size:11px;color:var(--tm);padding:4px 0"></div>
   </div>
-  <div id="CR-REEM-SHOW" style="display:none;background:#E3F2FD;border-radius:6px;padding:8px 12px;font-size:12px;color:#1565C0;margin-bottom:8px"></div>
+  <div id="CR-REEM-SHOW" style="display:none;background:#E3F2FD;border-radius:8px;padding:12px;margin-bottom:10px">
+    <div style="font-size:13px;font-weight:700;color:#1565C0;margin-bottom:8px">🔄 Renovación detectada</div>
+    <div id="CR-REEM-MONTO" style="font-size:12px;color:#1565C0;margin-bottom:10px"></div>
+    <div style="font-size:12px;font-weight:600;color:#1565C0;margin-bottom:6px">¿Cobrar cargo de reembolso?</div>
+    <div style="display:flex;gap:8px">
+      <button id="CR-REEM-SI" onclick="setReembolso(true)" style="flex:1;padding:8px;border:2px solid #0288D1;border-radius:6px;background:#0288D1;color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">✓ Sí, cobrar</button>
+      <button id="CR-REEM-NO" onclick="setReembolso(false)" style="flex:1;padding:8px;border:2px solid #ccc;border-radius:6px;background:#fff;color:#666;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">✗ No cobrar</button>
+    </div>
+  </div>
   <div class="mf"><button class="bg2 bs" onclick="cM('m-credito')">Cancelar</button><button class="bp bs" onclick="sCredito()">Crear crédito</button></div>
 </div></div>
 
@@ -1397,7 +1405,7 @@ function rDash(){
     ST.prestamos.forEach(function(p){
       if(cliIds.indexOf(p.clienteId)<0) return;
       var i=pI(p);
-      if(i.est!=='completado') capitalCalle+=p.capital;
+      if(i.est!=='completado') capitalCalle+=i.saldoReal; // saldo real pendiente
       if(i.est==='moroso'){ morosos++; valorMora+=i.venc.length*i.c; }
     });
     // Cobro estimado hoy (cuotas programadas para hoy)
@@ -1423,7 +1431,7 @@ function rDash(){
         '<div style="font-size:10px;color:var(--tm);text-align:right;margin-top:-12px;margin-bottom:10px">'+
           '💵 '+fm(cajaEfNq.ef)+' · 📱 '+fm(cajaEfNq.nq)+' — Saldo de caja</div>'+
         '<div class="met">'+
-          '<div class="me"><div class="lb">Capital en calle</div><div class="vl gp">'+fm(capitalCalle)+'</div></div>'+
+          '<div class="me"><div class="lb">Saldo en calle</div><div class="vl gp">'+fm(capitalCalle)+'</div></div>'+
           '<div class="me"><div class="lb">Clientes</div><div class="vl" style="color:var(--bl)">'+numClientes+'</div></div>'+
           '<div class="me"><div class="lb">Estimado hoy</div><div class="vl">'+fm(estimadoHoy)+'</div></div>'+
           '<div class="me"><div class="lb">Valor en mora</div><div class="vl '+(valorMora>0?'gn2':'')+'">'+fm(valorMora)+'</div></div>'+
@@ -4050,12 +4058,17 @@ function calcMixto(prefix){
     var capCR=getCapVal('CR-CAP','CR-CAP-VAL')||0;
     var reemCR=presActCR.length>0&&PAR.reembolsoActivo&&capCR?Math.round(capCR*((PAR.reembolsoPct||6)/100)):0;
     var reemInfoEl=document.getElementById('CR-REEM-SHOW');
+    var reemMontoEl=document.getElementById('CR-REEM-MONTO');
     if(reemInfoEl){
       if(reemCR>0){
         reemInfoEl.style.display='block';
-        reemInfoEl.innerHTML='🔄 <strong>Renovación detectada</strong> — Se cobrará reembolso del '+(PAR.reembolsoPct||6)+'% = <strong>'+fm(reemCR)+'</strong>';
+        if(reemMontoEl) reemMontoEl.textContent='Cargo del '+(PAR.reembolsoPct||6)+'% sobre capital '+fm(capCR)+' = '+fm(reemCR);
+        // Reset selección
+        _cobrarReembolso=false;
+        setReembolso(false);
       } else {
         reemInfoEl.style.display='none';
+        _cobrarReembolso=false;
       }
     }
   }
@@ -4329,6 +4342,21 @@ function sRetiroReem(){
       btn.disabled=false; btn.textContent='Registrar retiro';
       toast('Error: '+e.message,'err');
     });
+}
+
+
+function setReembolso(cobrar){
+  _cobrarReembolso=cobrar;
+  var btnSi=document.getElementById('CR-REEM-SI');
+  var btnNo=document.getElementById('CR-REEM-NO');
+  if(btnSi&&btnNo){
+    btnSi.style.background=cobrar?'#0288D1':'#fff';
+    btnSi.style.color=cobrar?'#fff':'#666';
+    btnSi.style.borderColor=cobrar?'#0288D1':'#ccc';
+    btnNo.style.background=cobrar?'#fff':'#E53935';
+    btnNo.style.color=cobrar?'#666':'#fff';
+    btnNo.style.borderColor=cobrar?'#ccc':'#E53935';
+  }
 }
 
 auth.onAuthStateChanged(function(user){
