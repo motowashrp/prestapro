@@ -1818,7 +1818,6 @@ function rFlujo(){
       '<td>'+(r.dif!==null?'<span class="'+(r.difVal>=0?'flujo-entry':'flujo-exit')+'">'+(r.difVal>=0?'+':'-')+fm(Math.abs(r.difVal))+'</span>':'—')+'</td>'+
       '<td>'+(r.retE?'<span class="flujo-exit">-'+fm(r.retE)+'</span>':'—')+'</td>'+
       '<td>'+(r.baseAsig?'<span style="color:var(--bl);font-weight:700">-'+fm(r.baseAsig)+'</span>':'—')+'</td>'+
-      '<td>'+(r.seg?'<span style="color:#6A1B9A;font-weight:700">+'+fm(r.seg)+'</span>':'—')+'</td>'+
       '<td class="'+(r.saldo>=0?'flujo-saldo-pos':'flujo-saldo-neg')+'"><strong>'+fm(r.saldo)+'</strong></td>'+
     '</tr>';
   }).join('');
@@ -1836,7 +1835,7 @@ function rFlujo(){
     '<td class="'+(totDif>=0?'flujo-entry':'flujo-exit')+'">'+fm(totDif)+'</td>'+
     '<td><span class="flujo-exit">'+fm(totRet)+'</span></td>'+
     '<td style="color:var(--bl);font-weight:700">'+fm(rows.reduce(function(s,r){return s+(r.baseAsig||0);},0))+'</td>'+
-    '<td style="color:#6A1B9A;font-weight:700">'+fm(totSeg)+'</td>'+
+    
     '<td class="'+(saldoFinal>=0?'flujo-saldo-pos':'flujo-saldo-neg')+'"><strong>'+fm(saldoFinal)+'</strong></td>'+
   '</tr>';
 }
@@ -3221,6 +3220,8 @@ async function limpiarFirebase(){
 
     document.getElementById('confirm-limpiar').value='';
     document.getElementById('panel-limpiar').style.display='none';
+    // Restaurar parámetros por defecto después de limpiar
+    await db.collection('config').doc('params').set(PAR);
     toast('✓ Base limpiada. '+(total+borradosU)+' registros borrados. Recargando...','ok');
     setTimeout(function(){location.reload();},2000);
   }catch(e){
