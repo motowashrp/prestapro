@@ -75,15 +75,15 @@ html,body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:
 .slo:hover{color:#fff}
 
 /* MAIN */
-.main{flex:1;padding:1.25rem;overflow:auto;background:var(--bg);min-width:0}
+.main{flex:1;padding:1rem;overflow-y:auto;overflow-x:hidden;background:var(--bg);min-width:0;-webkit-overflow-scrolling:touch}
 .sc{display:none}.sc.active{display:block}
 .tb{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;gap:8px}
 .tb h2{font-size:17px;font-weight:700;color:var(--bd)}
 .tbd{font-size:12px;color:var(--tm);font-weight:600}
 
 /* METRICS */
-.met{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:1.25rem}
-.me{background:var(--wh);border-radius:var(--rm);padding:12px 14px;border:1px solid var(--br)}
+.met{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:1.25rem}
+.me{background:var(--wh);border-radius:var(--rm);padding:12px 14px;border:1px solid var(--br);min-width:0;word-break:break-word}
 .me .lb{font-size:10px;color:var(--tm);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
 .me .vl{font-size:20px;font-weight:700;color:var(--bd)}
 .me .sb2{font-size:11px;margin-top:2px;color:var(--tm)}
@@ -117,7 +117,8 @@ html,body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:
 .sr input:focus{outline:none;border-color:var(--bl)}
 
 /* TABLE */
-.tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch;width:100%;scrollbar-width:thin}
+.tw table{min-width:600px}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{text-align:left;padding:7px 10px;font-size:10px;font-weight:700;color:var(--tm);border-bottom:1px solid var(--br);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
 td{padding:9px 10px;border-bottom:1px solid var(--bll);color:var(--tx);vertical-align:middle}
@@ -256,7 +257,10 @@ tr:hover td{background:var(--bll)}
   .sidebar.open{transform:translateX(0)}
   .main{padding:1rem}
   .met{grid-template-columns:1fr 1fr;gap:8px}
-  .mini-dash{grid-template-columns:repeat(3,1fr);gap:8px}
+  /* mini-dash usa auto-fit */
+  .me{padding:10px 8px}
+  .me .vl{font-size:16px !important}
+  .me .lb{font-size:9px !important}
   .caja-grid{grid-template-columns:1fr 1fr}
   .tc{grid-template-columns:1fr}
   .fr{grid-template-columns:1fr}
@@ -1229,7 +1233,7 @@ function doLogin(){
       document.getElementById('SBR').textContent=CU.rol==='admin'?'Administrador':'Ruta '+(r?r.nombre:'');
       document.getElementById('MUN').textContent=CU.nombre.split(' ')[0];
       fcMes=ISO.slice(0,7);
-      buildNav(); cargarParams(); goto('cob'); subAll();
+      buildNav(); cargarParams(); goto('dash'); subAll();
       iniciarWatchMedianoche();
       setTimeout(function(){
         toast('✓ Bienvenido, '+CU.nombre.split(' ')[0],'ok');
@@ -1379,14 +1383,14 @@ function rDash(){
   var html='';
   rutas.forEach(function(ruta){
     // Capital en calle
-    var capitalCalle=0, numClientes=0, morosos=0;
+    var capitalCalle=0, numClientes=0, morosos=0, valorMora=0;
     var cliIds=ST.clientes.filter(function(c){return c.rutaId===ruta.id;}).map(function(c){return c.id;});
     numClientes=cliIds.length;
     ST.prestamos.forEach(function(p){
       if(cliIds.indexOf(p.clienteId)<0) return;
       var i=pI(p);
       if(i.est!=='completado') capitalCalle+=p.capital;
-      if(i.est==='moroso') morosos++;
+      if(i.est==='moroso'){ morosos++; valorMora+=i.venc.length*i.c; }
     });
     // Cobro estimado hoy (cuotas programadas para hoy)
     var estimadoHoy=0, cobradoHoy=0;
@@ -1415,7 +1419,7 @@ function rDash(){
           '<div class="me"><div class="lb">Clientes</div><div class="vl" style="color:var(--bl)">'+numClientes+'</div></div>'+
           '<div class="me"><div class="lb">Estimado hoy</div><div class="vl">'+fm(estimadoHoy)+'</div></div>'+
           '<div class="me"><div class="lb">% Cobrado</div><div class="vl" style="color:'+(pctCob>=100?'var(--gn)':pctCob>=50?'var(--am)':'var(--rd)')+'">'+pctCob+'%</div></div>'+
-          '<div class="me"><div class="lb">Morosos</div><div class="vl '+(morosos>0?'gn2':'')+'">'+morosos+'</div></div>'+
+          '<div class="me"><div class="lb">Valor en mora</div><div class="vl '+(valorMora>0?'gn2':'')+'">'+fm(valorMora)+'</div></div>'+
         '</div>'+
       '</div>';
   });
@@ -1466,19 +1470,23 @@ function rCob(){
     var r=gR(c.rutaId);
 
     // Cuota de hoy pendiente
+    // Regla: si hizo CUALQUIER pago hoy → va a Recaudos (no a Cobros)
+    var pagoHoy=Object.keys(pg).some(function(k){
+      return pg[k]&&pg[k].fecha===ISO&&!pg[k].esAdicional;
+    });
+    if(pagoHoy) return; // ya cobrado hoy → Recaudos
+
+    // Cuota programada para hoy
     var cuotaHoy=null;
     Object.keys(i.fechas).forEach(function(n){
       var nInt=parseInt(n);
-      if(i.fechas[n]!==ISO) return;
-      var pagoN=pg[nInt];
-      // Pendiente si no tiene pago registrado hoy
-      if(!pagoN) cuotaHoy=nInt;
+      if(i.fechas[n]===ISO&&!pg[nInt]) cuotaHoy=nInt;
     });
 
     // Cuotas vencidas sin pagar
     var vencSinPagar=i.venc.filter(function(n){return !pg[n];});
 
-    // Si no hay nada pendiente → no mostrar (ya cobrado → va a Recaudos)
+    // Si no tiene cuota hoy ni vencidas → skip
     if(cuotaHoy===null && vencSinPagar.length===0) return;
 
     var cuotaCobrar=vencSinPagar.length>0?Math.min.apply(null,vencSinPagar):cuotaHoy;
@@ -1500,10 +1508,10 @@ function rCob(){
           '<span class="badge" style="background:#FF9800;color:#fff">Pendiente</span>'
         )+
       '</td>'+
-      '<td id="btn-cob-'+p.id+'-'+cuotaCobrar+'"><button style="padding:4px 12px;background:'+bgBtn+';color:#fff;border:none;border-radius:var(--rs);font-size:12px;cursor:pointer;font-family:inherit">Cobrar</button></td>'+
+      '<td><button class="btn-cobrar" data-pid="'+p.id+'" data-n="'+cuotaCobrar+'" data-c="'+Math.round(i.c)+'" data-nom="'+c.nombre.replace(/"/g,'').replace(/'/g,'')+'" style="padding:4px 12px;background:'+bgBtn+';color:#fff;border:none;border-radius:var(--rs);font-size:12px;cursor:pointer;font-family:inherit">Cobrar</button></td>'+
     '</tr>';
 
-    filas.push({ord:c.orden||999, pid:p.id, n:cuotaCobrar, c:Math.round(i.c), nom:c.nombre, html:html});
+    filas.push({ord:c.orden||999, html:html});
   });
 
   filas.sort(function(a,b){return a.ord-b.ord;});
@@ -1519,14 +1527,17 @@ function rCob(){
   tbody.innerHTML=filas.map(function(f){return f.html;}).join('')||
     '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--tm)">'+String.fromCharCode(10003)+' Sin cobros pendientes</td></tr>';
 
-  // Agregar event listeners a los botones (evita problemas de escape en onclick inline)
-  filas.forEach(function(f){
-    var cell=document.getElementById('btn-cob-'+f.pid+'-'+f.n);
-    if(cell){
-      var btn=cell.querySelector('button');
-      if(btn) btn.onclick=function(){aCob(f.pid,f.n,f.c,f.nom);};
-    }
-  });
+  // Event delegation: un solo listener en el tbody
+  var tbody2=document.getElementById('COB-LIST');
+  tbody2.onclick=function(e){
+    var btn=e.target.closest('.btn-cobrar');
+    if(!btn) return;
+    var pid=btn.dataset.pid;
+    var n=parseInt(btn.dataset.n);
+    var c=parseInt(btn.dataset.c);
+    var nom=btn.dataset.nom;
+    aCob(pid,n,c,nom);
+  };
 }
 
 
@@ -2282,9 +2293,11 @@ function cfCob(){
     });
     clearCache();
     cM('m-cob');
-    // Forzar actualización de ambos módulos inmediatamente
     rCob();
     rRec();
+    // Actualizar dash si está visible
+    var activeSc=document.querySelector('.sc.active');
+    if(activeSc&&activeSc.id==='sc-dash') rDash();
     toast(marcadas>1?marcadas+' cuotas — '+fm(val):'Cuota '+_cobN+' — '+fm(val),'ok');
   }
   // Luego sincronizar con Firebase en background
@@ -4290,7 +4303,7 @@ auth.onAuthStateChanged(function(user){
             document.getElementById('SBR').textContent=CU.rol==='admin'?'Administrador':'Ruta '+(r?r.nombre:'');
             document.getElementById('MUN').textContent=CU.nombre.split(' ')[0];
             fcMes=ISO.slice(0,7);
-            buildNav(); cargarParams(); goto('cob'); subAll();
+            buildNav(); cargarParams(); goto('dash'); subAll();
             iniciarWatchMedianoche();
           }
         }
