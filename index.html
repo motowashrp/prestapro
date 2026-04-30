@@ -118,6 +118,10 @@ html,body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:
 
 /* TABLE */
 .tw{overflow-x:auto;-webkit-overflow-scrolling:touch;width:100%;scrollbar-width:thin}
+.cli-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;width:100%;scrollbar-width:thin;border-radius:var(--rs)}
+.cli-table-wrap table td,.cli-table-wrap table th{padding:10px 8px;border-bottom:1px solid var(--br);font-size:13px;vertical-align:middle}
+.cli-table-wrap table tbody tr:hover{background:var(--bll);cursor:pointer}
+.cli-table-wrap table tbody tr:active{background:var(--bb)}
 .tw table{min-width:600px}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{text-align:left;padding:7px 10px;font-size:10px;font-weight:700;color:var(--tm);border-bottom:1px solid var(--br);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
@@ -259,6 +263,8 @@ tr:hover td{background:var(--bll)}
   .met{grid-template-columns:1fr 1fr;gap:8px}
   /* mini-dash usa auto-fit */
   .me{padding:10px 8px}
+  .me .vl{font-size:16px}
+  .me .lb{font-size:9px}
   .me .vl{font-size:16px !important}
   .me .lb{font-size:9px !important}
   .caja-grid{grid-template-columns:1fr 1fr}
@@ -2052,11 +2058,15 @@ function rCli(){
   });
   var dashEl=document.getElementById('CLI-DASH');
   if(dashEl) dashEl.innerHTML=
-    '<div class="me"><div class="lb">Clientes</div><div class="vl">'+clis.length+'</div></div>'+
-    '<div class="me"><div class="lb">Créditos activos</div><div class="vl" style="color:var(--bl)">'+totalCred+'</div></div>'+
-    '<div class="me"><div class="lb">Capital en calle</div><div class="vl gp">'+fm(capitalCalle)+'</div></div>'+
-    '<div class="me"><div class="lb">Préstamos hoy</div><div class="vl gp">'+prestHoy+'</div></div>'+
-    '<div class="me"><div class="lb">Reembolsos hoy</div><div class="vl" style="color:#0288D1">'+reembHoy+'</div></div>';
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">'+
+      '<div class="me"><div class="lb">Clientes</div><div class="vl">'+clis.length+'</div></div>'+
+      '<div class="me"><div class="lb">Créditos activos</div><div class="vl" style="color:var(--bl)">'+totalCred+'</div></div>'+
+      '<div class="me"><div class="lb">Capital en calle</div><div class="vl gp" style="font-size:14px">'+fm(capitalCalle)+'</div></div>'+
+    '</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
+      '<div class="me"><div class="lb">Préstamos hoy</div><div class="vl gp">'+prestHoy+'</div></div>'+
+      '<div class="me"><div class="lb">Reembolsos hoy</div><div class="vl" style="color:#0288D1">'+reembHoy+'</div></div>'+
+    '</div>';
 
   // Lista de clientes
   clis.sort(function(a,b){return (a.nombre||'').localeCompare(b.nombre||'');});
@@ -2094,9 +2104,17 @@ function rCli(){
   });
 
   var listEl=document.getElementById('CLI-LIST');
-  if(listEl) listEl.innerHTML=html?'<table style="width:100%"><thead><tr>'+
-    '<th style="width:40px"></th><th>Cliente</th><th>Cuotas</th><th>Estado</th><th>Saldo</th><th></th>'+
-    '</tr></thead><tbody>'+html+'</tbody></table>':
+  if(listEl) listEl.innerHTML=html?
+    '<div class="cli-table-wrap">'+
+    '<table style="width:100%;border-collapse:collapse"><thead><tr>'+
+    '<th style="width:44px;padding:8px 4px"></th>'+
+    '<th style="text-align:left;padding:8px;min-width:120px">Cliente</th>'+
+    '<th style="text-align:center;padding:8px;white-space:nowrap">Cuotas</th>'+
+    '<th style="text-align:center;padding:8px;white-space:nowrap">Estado</th>'+
+    '<th style="text-align:right;padding:8px;white-space:nowrap">Saldo</th>'+
+    '<th style="width:20px;padding:8px"></th>'+
+    '</tr></thead><tbody>'+html+'</tbody></table>'+
+    '</div>':
     '<div class="empty">Sin clientes</div>';
 }
 
