@@ -1611,8 +1611,8 @@ function rFlujo(){
   // ── CAJA vs BASE por ruta ────────────────────
   var cajasH='';
   rutas.forEach(function(r){
-    var saldoCajaR=saldoCajaC(r.id);
-    var cen=saldoCajaEfNqC(r.id);
+    var saldoCajaR=saldoCaja(r.id); // sin caché para datos frescos
+    var cen=saldoCajaEfNq(r.id);
     var aportesMes=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='aporte';}).reduce(function(s,b){return s+(b.monto||0);},0);
     var retirosMes=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='retiro';}).reduce(function(s,b){return s+(b.monto||0);},0);
     var basesMes=ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo==='base';}).reduce(function(s,b){return s+(b.monto||0);},0);
@@ -1887,7 +1887,7 @@ function rCie(){
     var baseNq=ST.bases.filter(function(x){return x.rutaId===ruta.id&&x.fecha===ISO&&x.tipo==='base'&&x.metodo==='nequi';}).reduce(function(s,x){return s+(x.monto||0);},0);
     // Diferencia
     var dif=rec+b.base-pre-gas;
-    var cajaSaldo=saldoCajaC(ruta.id);
+    var cajaSaldo=saldoCaja(ruta.id); // sin caché para datos frescos
     // Saldo ef/nq estimado: recaudo ef - prestamos ef + base ef
     // Reembolsos del día
     var reemHoyEfNq=reembolsosDiaEfNq(ruta.id,ISO);
@@ -1899,7 +1899,11 @@ function rCie(){
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px">'+
       '<div><div style="font-size:15px;font-weight:700;color:'+ruta.color+'">Ruta '+ruta.nombre+'</div>'+
       '<div class="ts">Cierre del '+HOY.toLocaleDateString('es-CO',{day:'numeric',month:'long'})+'</div></div>'+
-      '<div style="font-size:13px;font-weight:700;color:var(--bd)">Caja: '+fm(cajaSaldo)+'</div></div>'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'+
+          '<div style="font-size:12px;color:var(--tm)">Saldo de caja acumulado</div>'+
+          '<div style="font-size:18px;font-weight:800;color:'+(cajaSaldo>=0?'var(--gn)':'var(--rd)')+'">'+fm(cajaSaldo)+'</div>'+
+        '</div>'+
+      '</div>'+
       '<div class="cie-formula">'+
         '<div class="cie-formula-row"><span class="cie-formula-label">Recaudo del día</span>'+
           '<div style="text-align:right"><span class="gp">+'+fm(rec)+'</span>'+
