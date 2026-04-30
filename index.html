@@ -2065,7 +2065,7 @@ function rCli(){
   ST.prestamos.forEach(function(p){
     if(cliIds.indexOf(p.clienteId)<0) return;
     var i=pI(p);
-    if(i.est!=='completado') capitalCalle+=p.capital;
+    if(i.est!=='completado') capitalCalle+=i.saldoReal;
   });
   var dashEl=document.getElementById('CLI-DASH');
   if(dashEl) dashEl.innerHTML=
