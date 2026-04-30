@@ -256,6 +256,7 @@ tr:hover td{background:var(--bll)}
   .sidebar.open{transform:translateX(0)}
   .main{padding:1rem}
   .met{grid-template-columns:1fr 1fr;gap:8px}
+  .mini-dash{grid-template-columns:repeat(3,1fr);gap:8px}
   .caja-grid{grid-template-columns:1fr 1fr}
   .tc{grid-template-columns:1fr}
   .fr{grid-template-columns:1fr}
@@ -1440,19 +1441,13 @@ function rCob(){
     ? ST.prestamos.filter(function(p){var c=gC(p.clienteId);return c&&c.rutaId===rutaFil;})
     : ST.prestamos;
 
-  // Estimado FIJO: suma de cuotas programadas para HOY de todos los clientes activos
-  // (independiente de si ya se cobró o no)
+  // Estimado FIJO = cuotas programadas para HOY (cobradas o no)
   var estimado=0;
   pres.forEach(function(p){
     var i=pI(p);
     if(i.est==='completado') return;
     Object.keys(i.fechas).forEach(function(n){
       if(i.fechas[n]===ISO) estimado+=i.c;
-    });
-    // También sumar cuotas vencidas sin pagar
-    i.venc.forEach(function(n){
-      var pg=p.pagos||{};
-      if(!pg[n]) estimado+=i.c;
     });
   });
 
@@ -1837,9 +1832,18 @@ function rCie(){
     var yaC=ST.cierres.filter(function(c){return c.id===ckey||c.ckey===ckey;})[0];
     var cIds=ST.clientes.filter(function(c){return c.rutaId===ruta.id;}).map(function(c){return c.id;});
     var pres=ST.prestamos.filter(function(p){return cIds.indexOf(p.clienteId)>=0;});
-    // Recaudo del día con desglose
+    // Recaudo del día: usar fecha REAL de cobro (no fecha programada)
     var recEf=0,recNq=0;
-    pres.forEach(function(p){var i=pI(p),pg=p.pagos||{};Object.keys(i.fechas).forEach(function(n){if(i.fechas[n]===ISO&&pg[n]){var v=pg[n].valor||i.c;if(pg[n].metodo==='nequi')recNq+=v;else recEf+=v;}});});
+    pres.forEach(function(p){
+      var pg=p.pagos||{};
+      Object.keys(pg).forEach(function(k){
+        var pago=pg[k];
+        if(pago&&pago.fecha===ISO&&!pago.esAdicional){
+          var v=pago.valor||0;
+          if(pago.metodo==='nequi') recNq+=v; else recEf+=v;
+        }
+      });
+    });
     var rec=recEf+recNq;
     // Base del día
     var b=baseDia(ruta.id,ISO);
@@ -2276,9 +2280,11 @@ function cfCob(){
       pagos:pg, updatedAt:now,
       ultimoCobro:{por:CU.nombre,rol:CU.rol,fecha:hoy}
     });
-    clearCache(); // limpiar caché para que pI() recalcule
-    cM('m-cob'); // cerrar modal inmediatamente
-    refSc(); // re-renderizar al instante
+    clearCache();
+    cM('m-cob');
+    // Forzar actualización de ambos módulos inmediatamente
+    rCob();
+    rRec();
     toast(marcadas>1?marcadas+' cuotas — '+fm(val):'Cuota '+_cobN+' — '+fm(val),'ok');
   }
   // Luego sincronizar con Firebase en background
