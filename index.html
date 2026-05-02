@@ -670,7 +670,7 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
       <button id="CR-REEM-NO" onclick="setReembolso(false)" style="flex:1;padding:8px;border:2px solid #ccc;border-radius:6px;background:#fff;color:#666;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">✗ No cobrar</button>
     </div>
   </div>
-  <div class="mf"><button class="bg2 bs" onclick="cM('m-credito')">Cancelar</button><button class="bp bs" onclick="sCredito()">Crear crédito</button></div>
+  <div class="mf"><button class="bg2 bs" onclick="cM('m-credito')">Cancelar</button><button class="bp bs" id="CRED-SAVE" onclick="sCredito()">Crear crédito</button></div>
 </div></div>
 
 <!-- COBRO MODAL -->
@@ -2633,44 +2633,70 @@ function sCredito(){
   }
   var tot=cap*(1+int/100);
   var cuota=Math.round(tot/dias);
-  // Seguro = % del capital (configurable, default 6%)
-  var seguro=PAR.seguroTipo==='valor'?PAR.seguroValor:Math.round(cap*((PAR.seguroPct||6)/100));
-  // Reembolso = % del capital (configurable, default 6%)
-  var reembolso=PAR.reembolsoActivo?Math.round(cap*((PAR.reembolsoPct||6)/100)):0;
+  var seguro=Math.round(cap*((PAR.seguroPct||6)/100));
   var recibe=cap-seguro;
+  var metodoSeg=mixto.nq>0&&mixto.nq>=mixto.ef?'nequi':'efectivo';
+
+  // Verificar renovación: cliente canceló crédito HOY → cobrar reembolso si usuario dijo SÍ
+  var canceladoHoy=ST.prestamos.some(function(p){
+    if(p.clienteId!==_creditoCliId) return false;
+    var pg=p.pagos||{};
+    var pagosHoy=Object.keys(pg).filter(function(k){
+      return pg[k]&&pg[k].fecha===ISO&&!pg[k].esAdicional;
+    });
+    if(!pagosHoy.length) return false;
+    return pI(p).est==='completado';
+  });
+  var cobrarReem=(_cobrarReembolso===true)&&canceladoHoy&&PAR.reembolsoActivo;
+  var reembolso=cobrarReem?Math.round(cap*((PAR.reembolsoPct||6)/100)):0;
+
+  var btn=document.getElementById('CRED-SAVE');
+  if(btn){btn.disabled=true;btn.textContent='Creando...';}
+
+  // Crear préstamo
+  var prestamoId=null;
   db.collection('prestamos').add({
     clienteId:_creditoCliId,capital:cap,interes:int,dias:dias,
     fechaInicio:fec,pagos:{},
     seguro:seguro,recibeCliente:recibe,
     metodoPago:mixto.total===mixto.ef?'efectivo':mixto.total===mixto.nq?'nequi':'mixto',
-    montoEf:mixto.ef, montoNq:mixto.nq,
+    montoEf:mixto.ef,montoNq:mixto.nq,
     creadoPor:{nombre:CU.nombre,rol:CU.rol},
-      createdAt:Date.now()
+    createdAt:Date.now()
   }).then(function(pRef){
+    prestamoId=pRef.id; // guardar id del préstamo
+    // Registrar seguro
     return db.collection('seguros').add({
-      prestamoId:pRef.id,clienteId:_creditoCliId,rutaId:rutaId,
+      prestamoId:prestamoId,clienteId:_creditoCliId,rutaId:rutaId,
       monto:seguro,fecha:fec,tipo:'ingreso',
-      concepto:'Seguro préstamo — '+(c?c.nombre:''),
-      metodo:mixto.nq>0&&mixto.nq>=mixto.ef?'nequi':'efectivo',
+      concepto:'Seguro — '+(c?c.nombre:''),
+      metodo:metodoSeg,
       creadoPor:{nombre:CU.nombre,rol:CU.rol},
       createdAt:Date.now()
     });
   }).then(function(){
-    if(reembolso>0){
-      var c2=gC(_creditoCliId);
+    // Registrar reembolso SOLO si cobrarReem=true
+    if(reembolso>0&&prestamoId){
       return db.collection('reembolsos').add({
-        prestamoId:_lastCredPRef,clienteId:_creditoCliId,
-        rutaId:c2?c2.rutaId:null,
+        prestamoId:prestamoId,clienteId:_creditoCliId,
+        rutaId:rutaId,
         monto:reembolso,fecha:fec,tipo:'ingreso',
-        concepto:'Reembolso préstamo — '+(c2?c2.nombre:''),
-        metodo:mixto.nq>0&&mixto.nq>=mixto.ef?'nequi':'efectivo',
-        creadoPor:{nombre:CU.nombre,rol:CU.rol},createdAt:Date.now()
+        concepto:'Reembolso renovación — '+(c?c.nombre:''),
+        metodo:metodoSeg,
+        creadoPor:{nombre:CU.nombre,rol:CU.rol},
+        createdAt:Date.now()
       });
     }
   }).then(function(){
+    if(btn){btn.disabled=false;btn.textContent='Crear crédito';}
+    _cobrarReembolso=false; // resetear
     cM('m-credito');
     toast('Crédito creado · Seguro: '+fm(seguro)+(reembolso?' · Reembolso: '+fm(reembolso):''),'ok');
-  }).catch(function(e){toast('Error','err');console.error(e);});
+  }).catch(function(e){
+    if(btn){btn.disabled=false;btn.textContent='Crear crédito';}
+    console.error('Error sCredito:',e);
+    toast('Error al crear crédito: '+e.message,'err');
+  });
 }
 
 
