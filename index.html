@@ -2580,7 +2580,7 @@ function oCred(cliId,nomCli){
   document.getElementById('CR-CAP').value='';
   document.getElementById('CR-CAP-VAL').value='';
   document.getElementById('CR-INT').value=PAR.interes||20;
-  document.getElementById('CR-DIA').value=PAR.dias||30; // default 30, editable
+  document.getElementById('CR-DIA').value=PAR.dias||PAR.plazoDef||30;
   document.getElementById('CR-PREV').innerHTML='';
   document.getElementById('CR-DISP').innerHTML='';
   limpiarMixto('CR');
@@ -3086,13 +3086,13 @@ function oM(id){
     document.getElementById('NC-RUT').innerHTML=ST.rutas.map(function(r){return '<option value="'+r.id+'">'+r.nombre+'</option>';}).join('');
     ['NC-NOM','NC-CED','NC-TEL','NC-DIR','NC-CAP','NC-CIU','NC-CAP-VAL','NC-EF-MON','NC-NQ-MON','NC-EF-VAL','NC-NQ-VAL'].forEach(function(f){var el=document.getElementById(f);if(el)el.value='';});
     document.getElementById('NC-INT').value=PAR.interesDef;
-    document.getElementById('NC-DIA').value=PAR.plazoDef;
+    document.getElementById('NC-DIA').value=PAR.dias||PAR.plazoDef||30;
     // Para cobrador: plazo e interés fijos (solo lectura)
     var esAdmin=CU.rol==='admin';
     document.getElementById('NC-INT').readOnly=!esAdmin;
-    document.getElementById('NC-DIA').readOnly=!esAdmin;
-    document.getElementById('NC-INT').style.background=esAdmin?'':'var(--bll)';
-    document.getElementById('NC-DIA').style.background=esAdmin?'':'var(--bll)';
+    document.getElementById('NC-DIA').readOnly=false; // editable para todos
+    document.getElementById('NC-INT').style.background=esAdmin?'':'var(--bll)'; // interés: gris para cobrador
+    document.getElementById('NC-DIA').style.background=''; // plazo: blanco para todos (editable)
     document.getElementById('NC-PREV').innerHTML='';
     document.getElementById('NC-DISP').innerHTML='';
     limpiarMixto('NC');
