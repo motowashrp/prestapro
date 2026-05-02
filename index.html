@@ -1576,7 +1576,7 @@ function editarPago(pid, nCuota, dia){
   pgNuevo[nCuota]=Object.assign({},pagoActual,{valor:Math.round(val),metodo:metNuevo,editadoPor:{nombre:CU.nombre,rol:CU.rol},editadoAt:Date.now()});
   db.collection('prestamos').doc(pid).update({pagos:pgNuevo,updatedAt:Date.now()})
     .then(function(){toast('Pago actualizado','ok');})
-    .catch(function(e){toast('Error','err');console.error(e);});
+    .catch(function(e){toast('Error al crear crédito: '+e.message,'err');console.error('sCredito error:',e);});
 }
 
 // Eliminar un pago
