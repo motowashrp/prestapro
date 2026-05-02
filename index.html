@@ -1957,6 +1957,31 @@ function rCie(){
         '</div>';
     }
 
+    // ── Reembolsos recaudados hoy ──
+    var reemsHoy=(ST.reembolsos||[]).filter(function(r){
+      return r.tipo==='ingreso'&&r.fecha===ISO&&r.rutaId===ruta.id;
+    });
+    if(reemsHoy.length>0){
+      var reemEfH=reemsHoy.filter(function(r){return (r.metodo||'efectivo')!=='nequi';}).reduce(function(t,r){return t+(r.monto||0);},0);
+      var reemNqH=reemsHoy.filter(function(r){return r.metodo==='nequi';}).reduce(function(t,r){return t+(r.monto||0);},0);
+      var reemTotH=reemEfH+reemNqH;
+      html+=
+        '<div class="cie-desglose" style="margin-top:1rem;border:1px solid #81D4FA;background:#E1F5FE">'+
+          '<div style="font-size:10px;font-weight:700;color:#0288D1;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">'+
+            '🔄 Reembolsos recaudados hoy ('+reemsHoy.length+' renovación'+(reemsHoy.length>1?'es':'')+')</div>'+
+          '<div class="cie-desglose-row"><span>💵 Efectivo</span><span style="color:#0288D1">'+fm(reemEfH)+'</span></div>'+
+          '<div class="cie-desglose-row"><span>📱 Nequi</span><span style="color:#0288D1">'+fm(reemNqH)+'</span></div>'+
+          '<div class="cie-desglose-row" style="border-top:1px solid #81D4FA;padding-top:4px;margin-top:4px;font-weight:700">'+
+            '<span>Total reembolsos hoy</span><span style="color:#0288D1">'+fm(reemTotH)+'</span></div>'+
+          '<div style="font-size:10px;color:#0288D1;margin-top:6px;padding-top:6px;border-top:1px solid #81D4FA">'+
+            reemsHoy.map(function(r){
+              var cli=gC(r.clienteId);var met=r.metodo||'efectivo';
+              return (cli?cli.nombre:'Cliente')+': '+fm(r.monto||0)+' ('+(met==='nequi'?'📱 Nequi':'💵 Ef.')+')';
+            }).join(' &middot; ')+
+          '</div>'+
+        '</div>';
+    }
+
         if(yaC){
       html+='<div class="cie-cuadre cie-ok" style="margin-top:1rem">&#10003; Cierre registrado — '+fd(yaC.fecha)+' a las '+yaC.hora+'</div>';
     }else{
