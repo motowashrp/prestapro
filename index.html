@@ -2554,10 +2554,12 @@ function oCred(cliId,nomCli){
   limpiarMixto('CR');
   ['CR-CAP','CR-CAP-VAL','CR-EF-MON','CR-NQ-MON','CR-EF-VAL','CR-NQ-VAL'].forEach(function(f){var el=document.getElementById(f);if(el)el.value='';});
   var esAdmin=CU.rol==='admin';
+  // Interés: solo admin puede editar
   document.getElementById('CR-INT').readOnly=!esAdmin;
-  document.getElementById('CR-DIA').readOnly=!esAdmin;
   document.getElementById('CR-INT').style.background=esAdmin?'':'var(--bll)';
-  document.getElementById('CR-DIA').style.background=esAdmin?'':'var(--bll)';
+  // Plazo: todos pueden editar (cobrador puede cambiar de 30 días)
+  document.getElementById('CR-DIA').readOnly=false;
+  document.getElementById('CR-DIA').style.background='';
   // Mostrar disponible
   var cli=ST.clientes.find(function(c){return c.id===cliId;});
   var rid=cli?cli.rutaId:(CU.rol==='ruta'?CU.rutaId:(ST.rutas.length>0?ST.rutas[0].id:null));
@@ -4103,9 +4105,21 @@ function calcMixto(prefix){
 function getMixtoEfNq(prefix){
   var ef=parseFloat(document.getElementById(prefix+'-EF-VAL').value)||0;
   var nq=parseFloat(document.getElementById(prefix+'-NQ-VAL').value)||0;
-  // Si no llenaron los campos mixtos, usar el capital total como efectivo
+  // Si no llenaron los campos mixtos, usar el capital total
   if(ef===0&&nq===0){
     var cap=getCapVal(prefix+'-CAP',prefix+'-CAP-VAL');
+    // Detectar método disponible: si hay rutaId, usar el que tenga saldo
+    var cliId=typeof _creditoCliId!=='undefined'?_creditoCliId:null;
+    var c=cliId?gC(cliId):null;
+    if(c&&c.rutaId){
+      var d=disponibleRutaEfNq(c.rutaId);
+      if(d.ef>=cap) return {ef:cap,nq:0,total:cap};
+      if(d.nq>=cap) return {ef:0,nq:cap,total:cap};
+      // Mixto automático
+      var efAuto=Math.min(cap,Math.max(0,d.ef));
+      var nqAuto=cap-efAuto;
+      return {ef:efAuto,nq:nqAuto,total:cap};
+    }
     return {ef:cap,nq:0,total:cap};
   }
   return {ef:ef,nq:nq,total:ef+nq};
@@ -4140,19 +4154,20 @@ function disponibleRutaEfNq(rutaId){
 function validarDisponibleMixto(rutaId, mixto){
   var d=disponibleRutaEfNq(rutaId);
   var errores=[];
-  // Validar total
+  // Solo validar por método si el usuario especificó montos
+  // El total debe alcanzar
   if(mixto.total>d.total){
     errores.push('Saldo total insuficiente. Disponible: '+fm(d.total)+' · Solicitado: '+fm(mixto.total));
-  } else {
-    // Validar por método
-    if(mixto.ef>0&&mixto.ef>d.ef){
-      errores.push('💵 Efectivo insuficiente. Disponible: '+fm(d.ef)+' · Solicitado: '+fm(mixto.ef));
-    }
-    if(mixto.nq>0&&mixto.nq>d.nq){
-      errores.push('📱 Nequi insuficiente. Disponible: '+fm(d.nq)+' · Solicitado: '+fm(mixto.nq));
-    }
+    return errores;
   }
-  return errores; // array vacío = OK
+  // Validar método solo si hay monto positivo
+  if(mixto.ef>0&&mixto.ef>d.ef){
+    errores.push('💵 Efectivo insuficiente. Disponible: '+fm(d.ef)+' · Solicitado: '+fm(mixto.ef));
+  }
+  if(mixto.nq>0&&mixto.nq>d.nq){
+    errores.push('📱 Nequi insuficiente. Disponible: '+fm(d.nq)+' · Solicitado: '+fm(mixto.nq));
+  }
+  return errores;
 }
 
 
