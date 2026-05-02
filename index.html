@@ -2931,9 +2931,9 @@ function expFlujo(){
   var rutas=rutaFil?ST.rutas.filter(function(r){return r.id===rutaFil;}):ST.rutas;
   var mesNombre=(MESES[parseInt(fcMes.slice(5,7))-1]||fcMes)+' '+fcMes.slice(0,4);
 
-  // ── Hoja 1: Flujo de caja ──
-  var data=[['Fecha','Ruta','Aporte Inv.','Recaudo','Préstamos','Gastos','Dif. Cierre','Retiro Inv.','Base Asig.','Seguros','Saldo Caja']];
-  var totBase=0,totRec=0,totPre=0,totGas=0,totDif=0,totRet=0,totSeg=0,totBaseA=0;
+  // ── Hoja 1: Flujo de caja (con Reembolsos) ──
+  var data=[['Fecha','Ruta','Aporte Inv.','Recaudo','Préstamos','Gastos','Dif. Cierre','Retiro Inv.','Base Asig.','Seguros','Reembolsos','Saldo Caja']];
+  var totBase=0,totRec=0,totPre=0,totGas=0,totDif=0,totRet=0,totSeg=0,totBaseA=0,totReem=0;
   rutas.forEach(function(ruta){
     var inicioOps=primerDiaRuta(ruta.id);
     var mesPrimero=inicioOps?inicioOps.slice(0,7):fcMes;
@@ -2956,60 +2956,130 @@ function expFlujo(){
       var dif=difCierre(ruta.id,fecha);
       var difVal=dif!==null?dif:0;
       var seg=segurosDia(ruta.id,fecha);
+      var reem=reembolsosDia(ruta.id,fecha);
       saldoAcum+=b.aporte-b.retiros-b.base+difVal;
-      totBase+=b.aporte;totRec+=rec;totPre+=pre;totGas+=gas;totDif+=difVal;totRet+=b.retiros;totSeg+=seg;totBaseA+=b.base;
-      data.push([fecha,ruta.nombre,b.aporte||0,rec||0,pre||0,gas||0,dif!==null?Math.round(difVal):0,b.retiros||0,b.base||0,seg||0,Math.round(saldoAcum)]);
+      totBase+=b.aporte;totRec+=rec;totPre+=pre;totGas+=gas;
+      totDif+=difVal;totRet+=b.retiros;totSeg+=seg;totBaseA+=b.base;totReem+=reem;
+      data.push([fecha,ruta.nombre,b.aporte||0,rec||0,pre||0,gas||0,
+        dif!==null?Math.round(difVal):0,b.retiros||0,b.base||0,
+        seg||0,reem||0,Math.round(saldoAcum)]);
     });
   });
-  data.push(['TOTAL',mesNombre,totBase,totRec,totPre,totGas,Math.round(totDif),totRet,totBaseA,totSeg,'']);
+  data.push(['TOTAL',mesNombre,totBase,totRec,totPre,totGas,Math.round(totDif),totRet,totBaseA,totSeg,totReem,'']);
   var ws=XLSX.utils.aoa_to_sheet(data);
-  ws['!cols']=[{wch:12},{wch:16},{wch:12},{wch:12},{wch:12},{wch:10},{wch:12},{wch:12},{wch:12},{wch:10},{wch:14}];
+  ws['!cols']=[{wch:12},{wch:16},{wch:12},{wch:12},{wch:12},{wch:10},{wch:12},{wch:12},{wch:12},{wch:10},{wch:12},{wch:14}];
   XLSX.utils.book_append_sheet(wb,ws,'Flujo de Caja');
 
   // ── Hoja 2: Resumen por ruta ──
-  var dataR=[['Ruta','Saldo Caja Actual','Aportes Mes','Retiros Mes','Base Mes','Recaudo Mes','Préstamos Mes','Gastos Mes','Seguros Mes']];
+  var dataR=[['Ruta','Saldo Caja','Aportes Mes','Retiros Mes','Base Mes','Recaudo Mes','Préstamos Mes','Gastos Mes','Seguros Mes','Reembolsos Mes','Saldo Seguros','Saldo Reembolsos']];
   rutas.forEach(function(r){
-    var sc=saldoCajaC(r.id),ap=0,ret=0,ba=0,rec=0,pre=0,gas=0,seg=0;
+    var sc=saldoCaja(r.id),ap=0,ret=0,ba=0,rec=0,pre=0,gas=0,seg=0,reem=0;
     diasDelMes(fcMes).forEach(function(fecha){
       var b=baseDia(r.id,fecha);
       ap+=b.aporte;ret+=b.retiros;ba+=b.base;
       rec+=recaudoDia(r.id,fecha);pre+=prestamosDia(r.id,fecha);
       gas+=gastosDia(r.id,fecha);seg+=segurosDia(r.id,fecha);
+      reem+=reembolsosDia(r.id,fecha);
     });
-    dataR.push([r.nombre,Math.round(sc),ap,ret,ba,rec,pre,gas,seg]);
+    dataR.push([r.nombre,Math.round(sc),ap,ret,ba,rec,pre,gas,seg,reem,
+      Math.round(saldoSeguros(r.id)),Math.round(saldoReembolsos(r.id))]);
   });
   var wsR=XLSX.utils.aoa_to_sheet(dataR);
-  wsR['!cols']=[{wch:18},{wch:16},{wch:12},{wch:12},{wch:12},{wch:12},{wch:14},{wch:10},{wch:10}];
+  wsR['!cols']=[{wch:18},{wch:14},{wch:12},{wch:12},{wch:12},{wch:12},{wch:14},{wch:10},{wch:12},{wch:14},{wch:14},{wch:16}];
   XLSX.utils.book_append_sheet(wb,wsR,'Resumen por Ruta');
 
   // ── Hoja 3: Seguros ──
-  var dataSeg=[['Fecha','Tipo','Concepto','Ruta','Monto']];
+  var dataSeg=[['Fecha','Tipo','Cliente','Ruta','Método','Monto']];
   ST.seguros.filter(function(s){return s.fecha&&s.fecha.slice(0,7)===fcMes&&(!rutaFil||s.rutaId===rutaFil);})
     .sort(function(a,b){return (a.fecha||'').localeCompare(b.fecha||'');})
-    .forEach(function(s){var r=gR(s.rutaId);dataSeg.push([s.fecha,s.tipo==='ingreso'?'Ingreso':'Retiro',s.concepto,r?r.nombre:'General',s.monto||0]);});
+    .forEach(function(s){
+      var r=gR(s.rutaId),c=gC(s.clienteId);
+      dataSeg.push([s.fecha,s.tipo==='ingreso'?'Ingreso':'Retiro',
+        c?c.nombre:(s.concepto||'—'),r?r.nombre:'General',
+        s.metodo==='nequi'?'Nequi':'Efectivo',s.monto||0]);
+    });
   var wsSeg=XLSX.utils.aoa_to_sheet(dataSeg);
-  wsSeg['!cols']=[{wch:12},{wch:10},{wch:35},{wch:16},{wch:12}];
+  wsSeg['!cols']=[{wch:12},{wch:10},{wch:25},{wch:16},{wch:10},{wch:12}];
   XLSX.utils.book_append_sheet(wb,wsSeg,'Seguros');
 
-  // ── Hoja 4: Cartera activa ──
-  var dataCli=[['Cliente','Cédula','Teléfono','Ciudad','Ruta','Capital','Interés%','Días','Pagadas','Vencidas','Saldo','Estado']];
-  ST.clientes.forEach(function(c){
-    var r=gR(c.rutaId);
-    if(rutaFil&&c.rutaId!==rutaFil)return;
-    ST.prestamos.filter(function(p){return p.clienteId===c.id;}).forEach(function(p){
-      var i=pI(p);
-      var estados={completado:'Completado',moroso:'Moroso',atraso:'Atraso',activo:'Activo'};
-      dataCli.push([c.nombre,c.cedula||'',c.tel||'',c.ciudad||'',r?r.nombre:'',p.capital,p.interes||0,p.dias,i.pag,i.venc.length,Math.round(saldoPendiente(p)),estados[i.est]||i.est]);
+  // ── Hoja 4: Reembolsos ──
+  var dataReem=[['Fecha','Tipo','Cliente','Ruta','Método','Monto','Concepto']];
+  (ST.reembolsos||[]).filter(function(r){return r.fecha&&r.fecha.slice(0,7)===fcMes&&(!rutaFil||r.rutaId===rutaFil);})
+    .sort(function(a,b){return (a.fecha||'').localeCompare(b.fecha||'');})
+    .forEach(function(r){
+      var ruta=gR(r.rutaId),c=gC(r.clienteId);
+      dataReem.push([r.fecha,r.tipo==='ingreso'?'Ingreso':'Retiro',
+        c?c.nombre:'—',ruta?ruta.nombre:'General',
+        r.metodo==='nequi'?'Nequi':'Efectivo',r.monto||0,r.concepto||'—']);
+    });
+  var wsReem=XLSX.utils.aoa_to_sheet(dataReem);
+  wsReem['!cols']=[{wch:12},{wch:10},{wch:25},{wch:16},{wch:10},{wch:12},{wch:30}];
+  XLSX.utils.book_append_sheet(wb,wsReem,'Reembolsos');
+
+  // ── Hoja 5: Cartera activa ──
+  var dataCli=[['Cliente','Cédula','Teléfono','Ruta','Capital','Interés%','Plazo','Cuota','Pagadas','Vencidas','Saldo Real','Estado','Fecha Inicio']];
+  rutas.forEach(function(r){
+    ST.clientes.filter(function(c){return c.rutaId===r.id;}).forEach(function(c){
+      ST.prestamos.filter(function(p){return p.clienteId===c.id;}).forEach(function(p){
+        var i=pI(p);
+        var estados={completado:'Cancelado',moroso:'Moroso',atraso:'Con atraso',activo:'Al día'};
+        dataCli.push([c.nombre,c.cedula||'',c.tel||'',r.nombre,
+          p.capital,p.interes||0,p.dias,i.c,
+          i.pag,i.venc.length,Math.round(i.saldoReal),
+          estados[i.est]||i.est,p.fechaInicio||'']);
+      });
     });
   });
   var wsCli=XLSX.utils.aoa_to_sheet(dataCli);
-  wsCli['!cols']=[{wch:22},{wch:12},{wch:12},{wch:14},{wch:16},{wch:12},{wch:8},{wch:8},{wch:8},{wch:8},{wch:12},{wch:12}];
+  wsCli['!cols']=[{wch:22},{wch:12},{wch:12},{wch:16},{wch:12},{wch:8},{wch:8},{wch:12},{wch:8},{wch:8},{wch:12},{wch:12},{wch:12}];
   XLSX.utils.book_append_sheet(wb,wsCli,'Cartera');
 
-  XLSX.writeFile(wb,'RutaCobro_'+mesNombre.replace(' ','_')+'.xlsx');
-  toast('Excel descargado: '+mesNombre,'ok');
-}
+  // ── Hoja 6: Morosos ──
+  var dataMor=[['Cliente','Cédula','Teléfono','Ruta','Cuotas en Mora','Días en Mora','Valor en Mora','Capital','Saldo Real']];
+  rutas.forEach(function(r){
+    ST.clientes.filter(function(c){return c.rutaId===r.id;}).forEach(function(c){
+      ST.prestamos.filter(function(p){return p.clienteId===c.id;}).forEach(function(p){
+        var i=pI(p);
+        if(i.est!=='moroso') return;
+        var primerVenc=Math.min.apply(null,i.venc);
+        var fechaPV=i.fechas[primerVenc]||ISO;
+        var diasMora=Math.max(0,Math.floor((new Date(ISO+'T12:00:00')-new Date(fechaPV+'T12:00:00'))/(1000*60*60*24)));
+        dataMor.push([c.nombre,c.cedula||'',c.tel||'',r.nombre,
+          i.venc.length,diasMora,Math.round(i.venc.length*i.c),
+          p.capital,Math.round(i.saldoReal)]);
+      });
+    });
+  });
+  var wsMor=XLSX.utils.aoa_to_sheet(dataMor);
+  wsMor['!cols']=[{wch:22},{wch:12},{wch:12},{wch:16},{wch:14},{wch:12},{wch:14},{wch:12},{wch:12}];
+  XLSX.utils.book_append_sheet(wb,wsMor,'Morosos');
 
+  // ── Hoja 7: Cobros del mes ──
+  var dataCob=[['Fecha Cobro','Cliente','Ruta','Capital Crédito','Cuota #','Valor Cobrado','Método']];
+  rutas.forEach(function(r){
+    ST.clientes.filter(function(c){return c.rutaId===r.id;}).forEach(function(c){
+      ST.prestamos.filter(function(p){return p.clienteId===c.id;}).forEach(function(p){
+        var pg=p.pagos||{};
+        Object.keys(pg).forEach(function(k){
+          var pago=pg[k];
+          if(!pago||!pago.fecha) return;
+          if(pago.fecha.slice(0,7)!==fcMes) return;
+          if(pago.esAdicional) return; // solo cuotas principales
+          dataCob.push([pago.fecha,c.nombre,r.nombre,p.capital,
+            parseInt(k),pago.valor||0,
+            pago.metodo==='nequi'?'Nequi':'Efectivo']);
+        });
+      });
+    });
+  });
+  dataCob.sort(function(a,b){return (a[0]||'').localeCompare(b[0]||'');});
+  var wsCob=XLSX.utils.aoa_to_sheet(dataCob);
+  wsCob['!cols']=[{wch:12},{wch:22},{wch:16},{wch:12},{wch:8},{wch:14},{wch:10}];
+  XLSX.utils.book_append_sheet(wb,wsCob,'Cobros del Mes');
+
+  XLSX.writeFile(wb,'RutaCobro_'+mesNombre.replace(' ','_')+'.xlsx');
+  toast('Excel descargado: '+mesNombre+' ('+wb.SheetNames.length+' hojas)','ok');
+}
 // MODALES
 function oM(id){
   if(id==='m-nuevo-cli'){
