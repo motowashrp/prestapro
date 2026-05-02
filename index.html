@@ -1055,7 +1055,7 @@ function recaudoDia(rutaId, fecha) {
 // Préstamos entregados en fecha por ruta
 function prestamosDia(rutaId, fecha) {
   var tot = 0;
-  var cIds = ST.clientes.filter(function(c){return c.rutaId===rutaId;}).map(function(c){return c.id;});
+  var cIds = ST.clientes.filter(function(c){return !rutaId||c.rutaId===rutaId;}).map(function(c){return c.id;});
   ST.prestamos.filter(function(p){return cIds.indexOf(p.clienteId)>=0 && p.fechaInicio===fecha;}).forEach(function(p){ tot+=p.capital; });
   return tot;
 }
@@ -3863,7 +3863,7 @@ function disp(rutaId, elId, capIngresado){
     if(!sinConex) setTimeout(function(){disp(rutaId,elId,capIngresado);},800);
     return;
   }
-  var ISO2=fechaLocal(new Date());
+  var ISO2=ISO; // fecha consistente con el resto del sistema
   var bd=baseDia(rutaId,ISO2);
   // Desglose base ef/nq
   var baseEf=ST.bases.filter(function(b){return b.rutaId===rutaId&&b.fecha===ISO2&&b.tipo==='base'&&b.metodo!=='nequi';}).reduce(function(s,b){return s+(b.monto||0);},0);
@@ -4123,7 +4123,7 @@ function limpiarMixto(prefix){
 
 // ── Disponible por método para validación al crear crédito ──
 function disponibleRutaEfNq(rutaId){
-  var ISO2=fechaLocal(new Date());
+  var ISO2=ISO; // usar la misma fecha global para consistencia
   var bd=baseDia(rutaId,ISO2);
   var baseEf=ST.bases.filter(function(b){return b.rutaId===rutaId&&b.fecha===ISO2&&b.tipo==='base'&&b.metodo!=='nequi';}).reduce(function(s,b){return s+(b.monto||0);},0);
   var baseNq=ST.bases.filter(function(b){return b.rutaId===rutaId&&b.fecha===ISO2&&b.tipo==='base'&&b.metodo==='nequi';}).reduce(function(s,b){return s+(b.monto||0);},0);
