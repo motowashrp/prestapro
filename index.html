@@ -1687,24 +1687,31 @@ function rFlujo(){
   document.getElementById('SEG-SALDO').innerHTML=fm(segSaldoTotal)+
     '<div style="font-size:11px;color:#9C27B0;font-weight:400;margin-top:2px">💵 '+fm(Math.max(0,segEfNq2.ef))+' · 📱 '+fm(Math.max(0,segEfNq2.nq))+'</div>';
 
-  // Actualizar fondo de reembolsos
-  var reemTotal=saldoReembolsos();
-  var reemEfNq=saldoReembolsosEfNq();
-  var reemHoyTot=reembolsosDia(rutaFil||'',ISO);
-  var reemHoyEN=reembolsosDiaEfNq(rutaFil||'',ISO);
+  // Actualizar fondo de reembolsos — filtrado por ruta igual que seguros
+  var rutaFilReem=rutaFil||null;
+  var reemTotal=saldoReembolsos(rutaFilReem);
+  var reemEfNq=saldoReembolsosEfNq(rutaFilReem);
+  var reemHoyTot=reembolsosDia(rutaFilReem,ISO);
+  var reemHoyEN=reembolsosDiaEfNq(rutaFilReem,ISO);
+  var reemRetTot=(ST.reembolsos||[]).filter(function(r){
+    return r.tipo==='retiro'&&(!rutaFilReem||r.rutaId===rutaFilReem);
+  }).reduce(function(t,r){return t+(r.monto||0);},0);
+  var reemIngTot=(ST.reembolsos||[]).filter(function(r){
+    return r.tipo==='ingreso'&&(!rutaFilReem||r.rutaId===rutaFilReem);
+  }).reduce(function(t,r){return t+(r.monto||0);},0);
   var reemEl=document.getElementById('REEM-SALDO');
   if(reemEl) reemEl.innerHTML=fm(reemTotal)+
     '<div style="font-size:11px;color:#0288D1;font-weight:400;margin-top:2px">💵 '+fm(Math.max(0,reemEfNq.ef))+' · 📱 '+fm(Math.max(0,reemEfNq.nq))+'</div>';
-  var reemRetTot=( ST.reembolsos||[]).filter(function(r){return r.tipo==='retiro';}).reduce(function(t,r){return t+(r.monto||0);},0);
-  var reemIngTot=(ST.reembolsos||[]).filter(function(r){return r.tipo==='ingreso';}).reduce(function(t,r){return t+(r.monto||0);},0);
   var reemMet=document.getElementById('REEM-MET');
   if(reemMet) reemMet.innerHTML=
     '<div class="me"><div class="lb">Acumulado del día</div><div class="vl" style="color:#0288D1">'+fm(reemHoyTot)+'</div><div class="sb2">Solo hoy</div></div>'+
     '<div class="me"><div class="lb">Acumulado total</div><div class="vl" style="color:#0288D1">'+fm(reemIngTot)+'</div><div class="sb2">Histórico</div></div>'+
     '<div class="me"><div class="lb">Retiros</div><div class="vl gn2">'+fm(reemRetTot)+'</div><div class="sb2">Total retirado</div></div>'+
     '<div class="me"><div class="lb">Saldo total</div><div class="vl" style="color:#0288D1;font-size:18px">'+fm(reemTotal)+'</div><div class="sb2">Disponible</div></div>';
-  // Movimientos de reembolsos hoy
-  var reemMovsHoy=(ST.reembolsos||[]).filter(function(r){return r.fecha===ISO;});
+  // Movimientos de reembolsos hoy filtrados por ruta
+  var reemMovsHoy=(ST.reembolsos||[]).filter(function(r){
+    return r.fecha===ISO&&(!rutaFilReem||r.rutaId===rutaFilReem);
+  });
   var reemMovsEl=document.getElementById('REEM-MOVS');
   if(reemMovsEl){
     if(reemMovsHoy.length>0){
