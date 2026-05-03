@@ -618,7 +618,15 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
   <div class="fr"><div class="fg2"><label>Ciudad / Municipio</label><input id="NC-CIU" type="text" placeholder="Ej: Bogotá, Medellín..."></div><div class="fg2"><label>Dirección / notas</label><input id="NC-DIR" type="text"></div></div>
   <div style="background:var(--bll);border-radius:var(--rs);padding:10px 14px;margin:1rem 0;font-size:12px;color:var(--bl);font-weight:600">Datos del crédito</div>
   <div class="fr"><div class="fg2"><label>Capital ($) * <span style="font-size:10px;color:var(--tm);font-weight:400">mín $100.000</span></label><input id="NC-CAP" type="text" inputmode="numeric" placeholder="100.000" oninput="fmtCap(this,'NC-CAP-VAL');calcPrev2()" style="font-weight:700"><input type="hidden" id="NC-CAP-VAL"></div><div class="fg2"><label>Interés (%)</label><input id="NC-INT" type="number" value="20" oninput="calcPrev2()"></div></div>
-  <div class="fg2"><label>Plazo (días) *</label><input id="NC-DIA" type="number" value="30" oninput="calcPrev2()"></div>
+  <div class="fg2">
+    <label>Frecuencia de cobro</label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+      <button id="NC-FREQ-D" onclick="setFreqNC('diario')" class="bp" style="padding:8px;font-size:13px;font-weight:700">📅 Diario</button>
+      <button id="NC-FREQ-S" onclick="setFreqNC('semanal')" class="bg2" style="padding:8px;font-size:13px;font-weight:700">📆 Semanal</button>
+    </div>
+    <input type="hidden" id="NC-FREQ" value="diario">
+  </div>
+  <div class="fg2"><label id="NC-DIA-LBL">Cuotas (días)</label><input id="NC-DIA" type="number" value="30" min="1" oninput="calcPrev2()"></div>
   <div id="NC-DISP" style="min-height:10px"></div>
   <div id="NC-PREV"></div>
   <div class="fg2"><label>Entrega del dinero</label>
@@ -643,7 +651,15 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
 <div id="m-credito" class="mov" style="display:none" onclick="cM('m-credito')"><div class="modal" onclick="event.stopPropagation()">
   <h3 id="CRED-TITLE">Nuevo crédito</h3>
   <div class="fr"><div class="fg2"><label>Capital ($) * <span style="font-size:10px;color:var(--tm);font-weight:400">mín $100.000</span></label><input id="CR-CAP" type="text" inputmode="numeric" placeholder="100.000" oninput="fmtCap(this,'CR-CAP-VAL');calcPrev3()" style="font-weight:700"><input type="hidden" id="CR-CAP-VAL"></div><div class="fg2"><label>Interés (%)</label><input id="CR-INT" type="number" value="20" oninput="calcPrev3()"></div></div>
-  <div class="fg2"><label>Plazo (días)</label><input id="CR-DIA" type="number" value="30" min="1" oninput="calcPrev3()" style="font-size:15px;font-weight:600"></div>
+  <div class="fg2">
+    <label>Frecuencia de cobro</label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+      <button id="CR-FREQ-D" onclick="setFreqCR('diario')" class="bp" style="padding:8px;font-size:13px;font-weight:700">📅 Diario</button>
+      <button id="CR-FREQ-S" onclick="setFreqCR('semanal')" class="bg2" style="padding:8px;font-size:13px;font-weight:700">📆 Semanal</button>
+    </div>
+    <input type="hidden" id="CR-FREQ" value="diario">
+  </div>
+  <div class="fg2"><label id="CR-DIA-LBL">Cuotas (días)</label><input id="CR-DIA" type="number" value="30" min="1" oninput="calcPrev3()" style="font-size:15px;font-weight:600"></div>
   <div id="CR-DISP"></div>
   <div id="CR-PREV"></div>
   <div class="fg2"><label>Entrega del dinero</label>
@@ -958,16 +974,11 @@ function pI(p) {
   var venc=cuotasVencidas(p);
   var est='activo';
   if(pag>=p.dias||saldoReal<=0) est='completado';
-  else if(venc.length>=PAR.cuotasMoroso) est='moroso';
+  else if(venc.length>=(p.frecuencia==='semanal'?1:PAR.cuotasMoroso)) est='moroso';
   else if(venc.length>0) est='atraso';
-  // Fechas saltando domingos si está configurado
-  var fechas={},cuotaNum=0;
-  for(var dayOffset=1;cuotaNum<p.dias;dayOffset++){
-    var d=new Date(ini); d.setDate(d.getDate()+dayOffset);
-    if(!PAR.domingos&&d.getDay()===0) continue;
-    cuotaNum++;
-    fechas[cuotaNum]=fechaLocal(d);
-  }
+  // Fechas según frecuencia del préstamo
+  var frecuencia=p.frecuencia||'diario';
+  var fechas=calcFechasCuotas(p.fechaInicio, p.dias, frecuencia);
   var res={tot:tot,c:c,pag:pag,venc:venc,prog:Math.min(100,(pag/p.dias)*100),
            est:est,fechas:fechas,valorCobrado:valorCobrado,saldoReal:saldoReal};
   _cache[ckey]=res;
@@ -1524,6 +1535,7 @@ function rCob(){
           '<span class="badge" style="background:var(--rd);color:#fff">'+vencSinPagar.length+' vencida'+(vencSinPagar.length>1?'s':'')+'</span>':
           '<span class="badge" style="background:#FF9800;color:#fff">Pendiente</span>'
         )+
+        (p.frecuencia==='semanal'?'<span class="badge" style="background:#7B1FA2;color:#fff;margin-left:3px">📆 Semanal</span>':'')+
       '</td>'+
       '<td><button class="btn-cobrar" data-pid="'+p.id+'" data-n="'+cuotaCobrar+'" data-c="'+Math.round(i.c)+'" data-nom="'+c.nombre.replace(/"/g,'').replace(/'/g,'')+'" style="padding:4px 12px;background:'+bgBtn+';color:#fff;border:none;border-radius:var(--rs);font-size:12px;cursor:pointer;font-family:inherit">Cobrar</button></td>'+
     '</tr>';
@@ -2510,6 +2522,7 @@ function sNuevoCli(){
   var ced=document.getElementById('NC-CED').value.trim();
   var cap=getCapVal('NC-CAP','NC-CAP-VAL');
   var dias=parseInt(document.getElementById('NC-DIA').value);
+  var freqNC=(document.getElementById('NC-FREQ')?document.getElementById('NC-FREQ').value:'diario')||'diario';
   var fec=ISO; // fecha automática hoy
   var rut=document.getElementById('NC-RUT').value;
   if(!nom||!cap||!dias||!rut){toast('Complete nombre, ruta y datos del crédito','err');return;}
@@ -2550,6 +2563,7 @@ function sNuevoCli(){
     cliRef=cRef;
     return db.collection('prestamos').add({
       clienteId:cRef.id,capital:cap,interes:int,dias:dias,
+      frecuencia:freqNC,
       fechaInicio:fec,pagos:{},
       seguro:seguro,recibeCliente:recibe,
       metodoPago:mixtoNC.total===mixtoNC.ef?'efectivo':mixtoNC.total===mixtoNC.nq?'nequi':'mixto',
@@ -2589,9 +2603,17 @@ function oCred(cliId,nomCli){
   // Interés: solo admin puede editar
   document.getElementById('CR-INT').readOnly=!esAdmin;
   document.getElementById('CR-INT').style.background=esAdmin?'':'var(--bll)';
-  // Plazo: todos pueden editar (cobrador puede cambiar de 30 días)
   document.getElementById('CR-DIA').readOnly=false;
   document.getElementById('CR-DIA').style.background='';
+  // Resetear frecuencia a diario
+  var crFreqEl=document.getElementById('CR-FREQ');
+  if(crFreqEl) crFreqEl.value='diario';
+  var crBtnD=document.getElementById('CR-FREQ-D');
+  var crBtnS=document.getElementById('CR-FREQ-S');
+  if(crBtnD) crBtnD.className='bp';
+  if(crBtnS) crBtnS.className='bg2';
+  var crLbl=document.getElementById('CR-DIA-LBL');
+  if(crLbl) crLbl.textContent='Cuotas (días hábiles)';
   // Mostrar disponible
   var cli=ST.clientes.find(function(c){return c.id===cliId;});
   var rid=cli?cli.rutaId:(CU.rol==='ruta'?CU.rutaId:(ST.rutas.length>0?ST.rutas[0].id:null));
@@ -2653,6 +2675,7 @@ function sCredito(){
   var cap=getCapVal('CR-CAP','CR-CAP-VAL');
   var int=parseFloat(document.getElementById('CR-INT').value)||0;
   var dias=parseInt(document.getElementById('CR-DIA').value);
+  var freqCR=(document.getElementById('CR-FREQ')?document.getElementById('CR-FREQ').value:'diario')||'diario';
   var fec=ISO;
   if(!_creditoCliId||!cap||!dias){toast('Complete todos los campos','err');return;}
   if(cap<PAR.montoMinimo){toast('Capital mínimo '+fm(PAR.montoMinimo),'err');return;}
@@ -2689,6 +2712,7 @@ function sCredito(){
   var prestamoId=null;
   db.collection('prestamos').add({
     clienteId:_creditoCliId,capital:cap,interes:int,dias:dias,
+    frecuencia:freqCR,
     fechaInicio:fec,pagos:{},
     seguro:seguro,recibeCliente:recibe,
     metodoPago:mixto.total===mixto.ef?'efectivo':mixto.total===mixto.nq?'nequi':'mixto',
@@ -2824,7 +2848,17 @@ function verCli(id){
   var B={completado:'bg3',moroso:'br2',atraso:'ba',activo:'bb'};
   var T={completado:'Cancelado',moroso:'Moroso',atraso:'Con atraso',activo:'Activo'};
   var activos=pres.filter(function(p){return pI(p).est!=='completado';});
-  var completados=pres.filter(function(p){return pI(p).est==='completado';});
+  // Ocultar cancelados de días anteriores (solo mostrar los de hoy)
+  var completados=pres.filter(function(p){
+    if(pI(p).est!=='completado') return false;
+    // Mostrar si fue cancelado HOY
+    var pg=p.pagos||{};
+    var ultimoPago=Object.keys(pg).reduce(function(max,k){
+      var pago=pg[k];
+      return (pago&&pago.fecha&&pago.fecha>max)?pago.fecha:max;
+    },'');
+    return ultimoPago===ISO;
+  });
   var ordenados=activos.concat(completados);
 
   var credHtml=ordenados.map(function(p){
@@ -3085,8 +3119,17 @@ function oM(id){
   if(id==='m-nuevo-cli'){
     document.getElementById('NC-RUT').innerHTML=ST.rutas.map(function(r){return '<option value="'+r.id+'">'+r.nombre+'</option>';}).join('');
     ['NC-NOM','NC-CED','NC-TEL','NC-DIR','NC-CAP','NC-CIU','NC-CAP-VAL','NC-EF-MON','NC-NQ-MON','NC-EF-VAL','NC-NQ-VAL'].forEach(function(f){var el=document.getElementById(f);if(el)el.value='';});
-    document.getElementById('NC-INT').value=PAR.interesDef;
-    document.getElementById('NC-DIA').value=PAR.dias||PAR.plazoDef||30;
+    document.getElementById('NC-INT').value=PAR.interes||PAR.interesDef||20;
+    document.getElementById('NC-DIA').value=PAR.dias||30;
+    // Resetear frecuencia a diario
+    var freqEl=document.getElementById('NC-FREQ');
+    if(freqEl) freqEl.value='diario';
+    var btnD=document.getElementById('NC-FREQ-D');
+    var btnS=document.getElementById('NC-FREQ-S');
+    if(btnD) btnD.className='bp';
+    if(btnS) btnS.className='bg2';
+    var lbl=document.getElementById('NC-DIA-LBL');
+    if(lbl) lbl.textContent='Cuotas (días hábiles)';
     // Para cobrador: plazo e interés fijos (solo lectura)
     var esAdmin=CU.rol==='admin';
     document.getElementById('NC-INT').readOnly=!esAdmin;
@@ -4535,6 +4578,70 @@ function poblarSel(elId, valorActual){
   sel.innerHTML='<option value="">Todas</option>'+
     ST.rutas.map(function(r){return '<option value="'+r.id+'">'+r.nombre+'</option>';}).join('');
   if(valorActual) sel.value=valorActual;
+}
+
+
+// ── Frecuencia de cobro ─────────────────────────────────
+function setFreqNC(freq){
+  document.getElementById('NC-FREQ').value=freq;
+  var btnD=document.getElementById('NC-FREQ-D');
+  var btnS=document.getElementById('NC-FREQ-S');
+  var lbl=document.getElementById('NC-DIA-LBL');
+  var diasEl=document.getElementById('NC-DIA');
+  if(freq==='diario'){
+    btnD.className='bp'; btnS.className='bg2';
+    if(lbl) lbl.textContent='Cuotas (días hábiles)';
+    if(diasEl) diasEl.value=PAR.dias||30;
+  } else {
+    btnD.className='bg2'; btnS.className='bp';
+    if(lbl) lbl.textContent='Cuotas (semanas)';
+    if(diasEl) diasEl.value=PAR.diasSemanal||4;
+  }
+  calcPrev2();
+}
+
+function setFreqCR(freq){
+  document.getElementById('CR-FREQ').value=freq;
+  var btnD=document.getElementById('CR-FREQ-D');
+  var btnS=document.getElementById('CR-FREQ-S');
+  var lbl=document.getElementById('CR-DIA-LBL');
+  var diasEl=document.getElementById('CR-DIA');
+  if(freq==='diario'){
+    btnD.className='bp'; btnS.className='bg2';
+    if(lbl) lbl.textContent='Cuotas (días hábiles)';
+    if(diasEl) diasEl.value=PAR.dias||30;
+  } else {
+    btnD.className='bg2'; btnS.className='bp';
+    if(lbl) lbl.textContent='Cuotas (semanas)';
+    if(diasEl) diasEl.value=PAR.diasSemanal||4;
+  }
+  calcPrev3();
+}
+
+// ── calcFechasCuotas: genera fechas según frecuencia ─────
+function calcFechasCuotas(fechaInicio, numCuotas, frecuencia){
+  var fechas={};
+  var ini=new Date(fechaInicio+'T12:00:00');
+  if(frecuencia==='semanal'){
+    // Cada 7 días, nunca en domingo
+    var cuotaNum=0;
+    for(var w=1; cuotaNum<numCuotas; w++){
+      var d=new Date(ini); d.setDate(d.getDate()+w*7);
+      if(d.getDay()===0) d.setDate(d.getDate()+1); // mueve al lunes si cae domingo
+      cuotaNum++;
+      fechas[cuotaNum]=fechaLocal(d);
+    }
+  } else {
+    // Diario: saltar domingos si PAR.domingos=false
+    var cuotaNum=0;
+    for(var dayOffset=1; cuotaNum<numCuotas; dayOffset++){
+      var d=new Date(ini); d.setDate(d.getDate()+dayOffset);
+      if(!PAR.domingos&&d.getDay()===0) continue;
+      cuotaNum++;
+      fechas[cuotaNum]=fechaLocal(d);
+    }
+  }
+  return fechas;
 }
 
 auth.onAuthStateChanged(function(user){
