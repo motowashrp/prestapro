@@ -2774,69 +2774,92 @@ function oEditRuta(rutaId){
 function sRuta(){
   var nom=document.getElementById('R-NOM').value.trim();
   if(!nom){toast('El nombre es obligatorio','err');return;}
-  var rutaData={nombre:nom,zona:document.getElementById('R-ZON').value,color:document.getElementById('R-COL').value,createdAt:Date.now()};
   var uNom=document.getElementById('R-UNOM').value.trim();
   var uUsr=document.getElementById('R-UUSR').value.trim();
-  var uPas=document.getElementById('R-UPAS').value;
+  var uPas=document.getElementById('R-UPAS').value.trim();
+  var zona=document.getElementById('R-ZON').value;
+  var color=document.getElementById('R-COL').value;
 
-  var saveRutaPromise;
-  if(_rutaEditId){
-    saveRutaPromise=db.collection('rutas').doc(_rutaEditId).update({nombre:nom,zona:rutaData.zona,color:rutaData.color});
-  } else {
-    saveRutaPromise=db.collection('rutas').add(rutaData);
+  if(!uNom||!uUsr){toast('Complete nombre y usuario del cobrador','err');return;}
+  if(!uPas||uPas.length<6){toast('La contraseña debe tener al menos 6 caracteres','err');return;}
+
+  var emailInterno=toAuthEmail(uUsr);
+
+  // PASO 1: Crear usuario en Firebase Auth PRIMERO
+  var secondaryApp;
+  try{ secondaryApp=firebase.app('secondary'); }
+  catch(e){
+    secondaryApp=firebase.initializeApp({
+      apiKey:"AIzaSyC4sD1rP2zidvXKEvX4NtGwdkUs5QSBOuQ",
+      authDomain:"rutacobro-d7737.firebaseapp.com",
+      projectId:"rutacobro-d7737",
+      storageBucket:"rutacobro-d7737.firebasestorage.app",
+      messagingSenderId:"541736943619",
+      appId:"1:541736943619:web:aa37087558ee177b008e36"
+    },'secondary');
   }
-  saveRutaPromise.then(function(ref){
-    var rutaId=_rutaEditId||(ref?ref.id:null);
-    if(!rutaId||!uNom||!uUsr) return;
-    var u=ST.usuarios.filter(function(x){return x.rutaId===rutaId;})[0];
-    var emailInterno=toAuthEmail(uUsr);
-    var uData={nombre:uNom,user:uUsr,email:emailInterno,rol:'ruta',rutaId:rutaId,updatedAt:Date.now()};
-    var firestorePromise;
-    if(u){
-      firestorePromise=db.collection('usuarios').doc(u.id).update(uData);
-    } else {
-      uData.createdAt=Date.now();
-      firestorePromise=db.collection('usuarios').add(uData);
-    }
-    return firestorePromise.then(function(){
-      if(uPas&&uPas.length>=6){
-        var secondaryApp;
-        try{
-          secondaryApp=firebase.app('secondary');
-        } catch(e){
-          secondaryApp=firebase.initializeApp({
-            apiKey:"AIzaSyC4sD1rP2zidvXKEvX4NtGwdkUs5QSBOuQ",
-            authDomain:"rutacobro-d7737.firebaseapp.com",
-            projectId:"rutacobro-d7737",
-            storageBucket:"rutacobro-d7737.firebasestorage.app",
-            messagingSenderId:"541736943619",
-            appId:"1:541736943619:web:aa37087558ee177b008e36"
-          },'secondary');
-        }
-        var secondaryAuth=secondaryApp.auth();
-        return secondaryAuth.createUserWithEmailAndPassword(emailInterno,uPas)
-          .then(function(cred){
-            var newUid=cred.user.uid;
-            secondaryAuth.signOut();
-            return db.collection('usuarios').doc(newUid).set(uData);
-          })
-          .catch(function(e){
-            if(e.code==='auth/email-already-in-use'){
-              toast('⚠️ Ese usuario ya existe. Ve a Firebase Console → Authentication y elimínalo primero.','err');
-            } else {
-              toast('Error Auth: '+e.message,'err');
-              console.error(e);
-            }
-          });
+  var secAuth=secondaryApp.auth();
+
+  toast('Creando usuario...','ok');
+
+  secAuth.createUserWithEmailAndPassword(emailInterno, uPas)
+    .then(function(cred){
+      var uid=cred.user.uid;
+      secAuth.signOut();
+      toast('Usuario creado en Auth ✓','ok');
+
+      // PASO 2: Guardar/actualizar ruta en Firestore
+      var rutaData={nombre:nom,zona:zona,color:color};
+      var rutaPromise=_rutaEditId
+        ? db.collection('rutas').doc(_rutaEditId).update(rutaData)
+        : db.collection('rutas').add(Object.assign({},rutaData,{createdAt:Date.now()}));
+
+      return rutaPromise.then(function(ref){
+        var rutaId=_rutaEditId||(ref?ref.id:null);
+        var uData={nombre:uNom,user:uUsr,email:emailInterno,
+          rol:'ruta',rutaId:rutaId,createdAt:Date.now(),updatedAt:Date.now()};
+
+        // PASO 3: Guardar usuario en Firestore con UID de Auth
+        return db.collection('usuarios').doc(uid).set(uData);
+      });
+    })
+    .then(function(){
+      _rutaEditId=null;
+      cM('m-ruta');
+      toast('✓ Ruta y cobrador creados correctamente','ok');
+    })
+    .catch(function(e){
+      if(e.code==='auth/email-already-in-use'){
+        // Ya existe en Auth — actualizar Firestore y la ruta sin tocar Auth
+        toast('Usuario ya existe en Auth. Actualizando datos...','ok');
+        var rutaData={nombre:nom,zona:zona,color:color};
+        var rutaPromise=_rutaEditId
+          ? db.collection('rutas').doc(_rutaEditId).update(rutaData)
+          : db.collection('rutas').add(Object.assign({},rutaData,{createdAt:Date.now()}));
+        rutaPromise.then(function(ref){
+          var rutaId=_rutaEditId||(ref?ref.id:null);
+          // Buscar el doc existente por email y actualizar
+          return db.collection('usuarios').where('email','==',emailInterno).get()
+            .then(function(snap){
+              var uData={nombre:uNom,user:uUsr,email:emailInterno,
+                rol:'ruta',rutaId:rutaId,updatedAt:Date.now()};
+              if(!snap.empty){
+                return db.collection('usuarios').doc(snap.docs[0].id).update(uData);
+              } else {
+                return db.collection('usuarios').add(Object.assign({},uData,{createdAt:Date.now()}));
+              }
+            });
+        }).then(function(){
+          _rutaEditId=null;
+          cM('m-ruta');
+          toast('✓ Ruta actualizada. Usa 🔑 Cambiar contraseña si el cobrador no puede entrar.','ok');
+        }).catch(function(e2){toast('Error: '+e2.message,'err');});
+      } else {
+        toast('Error al crear cobrador: '+e.message,'err');
+        console.error('sRuta error:',e.code,e.message);
       }
     });
-  }).then(function(){
-    _rutaEditId=null;
-    cM('m-ruta');
-    toast('Ruta guardada ✓','ok');
-  }).catch(function(e){toast('Error: '+e.message,'err');console.error(e);});
 }
-
 function cambiarPasswordCobrador(rutaId){
   var u=ST.usuarios.filter(function(x){return x.rutaId===rutaId;})[0];
   if(!u){toast('No hay cobrador asignado en esta ruta','err');return;}
