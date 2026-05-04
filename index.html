@@ -2799,7 +2799,7 @@ function sRuta(){
       firestorePromise=db.collection('usuarios').add(uData);
     }
     return firestorePromise.then(function(){
-      if(uPas&&uPas.length>=6&&!u){
+      if(uPas&&uPas.length>=6){
         var secondaryApp;
         try{
           secondaryApp=firebase.app('secondary');
