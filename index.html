@@ -2771,6 +2771,13 @@ function oEditRuta(rutaId){
   document.getElementById('R-UPAS').value=u?u.pass:'';
   document.getElementById('m-ruta').style.display='flex';
 }
+function getSecondaryAuth(){
+  var secondaryApp;
+  try{ secondaryApp=firebase.app('secondary'); }
+  catch(e){ secondaryApp=firebase.initializeApp(firebase.app().options,'secondary'); }
+  return secondaryApp.auth();
+}
+
 function sRuta(){
   var nom=document.getElementById('R-NOM').value.trim();
   if(!nom){toast('El nombre es obligatorio','err');return;}
@@ -2788,8 +2795,7 @@ function sRuta(){
   saveRutaPromise.then(function(ref){
     var rutaId=_rutaEditId||(ref?ref.id:null);
     if(!rutaId||!uNom||!uUsr) return;
-    // Guardar perfil en Firestore
-    var u=ST.usuarios.filter(function(u){return u.rutaId===rutaId;})[0];
+    var u=ST.usuarios.filter(function(x){return x.rutaId===rutaId;})[0];
     var emailInterno=toAuthEmail(uUsr);
     var uData={nombre:uNom,user:uUsr,email:emailInterno,rol:'ruta',rutaId:rutaId,updatedAt:Date.now()};
     var firestorePromise;
@@ -2799,34 +2805,91 @@ function sRuta(){
       uData.createdAt=Date.now();
       firestorePromise=db.collection('usuarios').add(uData);
     }
-    return firestorePromise.then(function(){
-      // Crear usuario en Firebase Auth SIN cerrar sesión del admin
-      // Usamos una segunda instancia de Firebase App
-      if(uPas&&uPas.length>=6&&!u){
-        var secondaryApp;
-        try{
-          secondaryApp=firebase.app('secondary');
-        }catch(e){
-          secondaryApp=firebase.initializeApp(firebase.app().options,'secondary');
+    if(!uPas||uPas.length<6){
+      // Sin contraseña: solo guardar en Firestore
+      return firestorePromise;
+    }
+    // Con contraseña: crear en Auth PRIMERO, luego Firestore con el UID correcto
+    var secAuth=getSecondaryAuth();
+    return secAuth.createUserWithEmailAndPassword(emailInterno,uPas)
+      .then(function(cred){
+        var uid=cred.user.uid;
+        secAuth.signOut();
+        // Guardar en Firestore con el UID de Auth como ID del documento
+        return db.collection('usuarios').doc(uid).set(Object.assign({},uData,{createdAt:Date.now()}));
+      })
+      .catch(function(e){
+        if(e.code==='auth/email-already-in-use'){
+          // Usuario ya existe en Auth → intentar login con la nueva contraseña
+          // para obtener su UID y actualizar Firestore
+          return secAuth.signInWithEmailAndPassword(emailInterno, uPas)
+            .then(function(cred2){
+              var uid=cred2.user.uid;
+              secAuth.signOut();
+              // Actualizar Firestore con el UID correcto
+              return db.collection('usuarios').doc(uid).set(
+                Object.assign({},uData,{createdAt:Date.now()})
+              );
+            })
+            .then(function(){
+              toast('✓ Cobrador vinculado correctamente','ok');
+            })
+            .catch(function(e2){
+              // La contraseña no coincide con la existente en Auth
+              // Guardar en Firestore de todas formas (se actualizará cuando cambie contraseña)
+              toast('⚠️ Usuario existe en Auth con otra contraseña. Usa el botón 🔑 Cambiar contraseña.','err');
+              return firestorePromise;
+            });
         }
-        var secondaryAuth=secondaryApp.auth();
-        return secondaryAuth.createUserWithEmailAndPassword(emailInterno, uPas)
-          .then(function(cred){
-            var newUid=cred.user.uid;
-            secondaryAuth.signOut();
-            return db.collection('usuarios').doc(newUid).set(uData);
+        toast('Error Auth: '+e.message,'err');
+        console.error(e);
+      });
+  }).then(function(){
+    _rutaEditId=null;
+    cM('m-ruta');
+    toast('Ruta guardada ✓','ok');
+  }).catch(function(e){toast('Error: '+e.message,'err');console.error(e);});
+}
+
+function cambiarPasswordCobrador(rutaId){
+  var u=ST.usuarios.filter(function(x){return x.rutaId===rutaId;})[0];
+  if(!u){toast('No hay cobrador asignado en esta ruta','err');return;}
+  var emailInterno=u.email||toAuthEmail(u.user||'');
+  var newPass=prompt('Nueva contraseña para '+u.nombre+'\n(mínimo 6 caracteres)\nEmail Auth: '+emailInterno);
+  if(!newPass){return;}
+  if(newPass.length<6){toast('Mínimo 6 caracteres','err');return;}
+  var secAuth=getSecondaryAuth();
+  var uData={nombre:u.nombre,user:u.user,email:emailInterno,
+    rol:'ruta',rutaId:rutaId,updatedAt:Date.now(),createdAt:u.createdAt||Date.now()};
+  // Intentar crear (si no existe en Auth)
+  secAuth.createUserWithEmailAndPassword(emailInterno,newPass)
+    .then(function(cred){
+      secAuth.signOut();
+      // Crear/actualizar doc en Firestore con el nuevo UID
+      return db.collection('usuarios').doc(cred.user.uid).set(uData);
+    })
+    .then(function(){
+      toast('✓ Contraseña creada para '+u.nombre+'. Ya puede ingresar.','ok');
+    })
+    .catch(function(e){
+      if(e.code==='auth/email-already-in-use'){
+        // Existe en Auth → hacer login con esa cuenta y cambiar password
+        secAuth.signInWithEmailAndPassword(emailInterno, newPass)
+          .then(function(cred2){
+            // Si llegó aquí es que la contraseña YA es la nueva
+            secAuth.signOut();
+            toast('✓ La contraseña ya estaba actualizada. Puede ingresar.','ok');
           })
-          .catch(function(e){
-            if(e.code==='auth/email-already-in-use'){
-              toast('Ese usuario ya existe en Auth','err');
-            } else {
-              console.warn('Auth create error:', e.code, e.message);
-            }
+          .catch(function(){
+            // No pudo entrar → la contraseña vieja es diferente
+            // Último recurso: borrar registro de Firestore y pedir que borre Auth manualmente
+            toast('⚠️ El usuario existe en Firebase Auth con otra contraseña.\nVe a Firebase Console → Authentication → Users → busca '+emailInterno+' → elimínalo → vuelve a intentar.','err');
           });
+      } else {
+        toast('Error: '+e.message,'err');
+        console.error(e);
       }
     });
-  }).then(function(){_rutaEditId=null;cM('m-ruta');toast('Ruta guardada','ok');})
-    .catch(function(e){toast('Error: '+e.message,'err');console.error(e);});
 }
 
 // VER CLIENTE
@@ -3421,7 +3484,7 @@ async function limpiarFirebase(){
     document.getElementById('panel-limpiar').style.display='none';
     // Restaurar parámetros por defecto después de limpiar
     await db.collection('config').doc('params').set(PAR);
-    toast('✓ Base limpiada. '+(total+borradosU)+' registros borrados. Recargando...','ok');
+    toast('✓ Base limpiada. '+(total+borradosU)+' registros borrados. Al recrear cobradores con el mismo usuario, usa el botón 🔑 en Rutas y Usuarios. Recargando...','ok');
     setTimeout(function(){location.reload();},2000);
   }catch(e){
     toast('Error: '+e.message,'err');
