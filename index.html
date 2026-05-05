@@ -4233,43 +4233,42 @@ async function cierreAutomatico(){
   var ayer=new Date(HOY); ayer.setDate(ayer.getDate()-1);
   var fechaAyer=fechaLocal(ayer);
 
-  for(var i=0;i<ST.rutas.length;i++){
-    var ruta=ST.rutas[i];
-    var ckey=ruta.id+'_'+fechaAyer;
-    // Verificar si ya existe cierre para ayer
-    var yaCerrado=ST.cierres.find(function(c){return c.rutaId===ruta.id&&c.fecha===fechaAyer;});
-    if(yaCerrado) continue;
-
-    // Calcular cierre de ayer
-    var cIds=ST.clientes.filter(function(c){return c.rutaId===ruta.id;}).map(function(c){return c.id;});
-    var pres=ST.prestamos.filter(function(p){return cIds.indexOf(p.clienteId)>=0;});
-    var rec=0;
-    pres.forEach(function(p){
-      var info=pI(p),pg=p.pagos||{};
-      Object.keys(info.fechas).forEach(function(n){
-        if(info.fechas[n]===fechaAyer&&pg[n]) rec+=pg[n].valor||info.c;
-      });
+  var rutasPendientes=ST.rutas.filter(function(ruta){
+    return !ST.cierres.find(function(c){
+      return c.rutaId===ruta.id&&c.fecha===fechaAyer;
     });
+  });
+
+  if(rutasPendientes.length===0) return;
+
+  var promesas=rutasPendientes.map(function(ruta){
+    // Usar recaudoDia para fecha real de cobro (no fecha programada)
+    var rec=recaudoDia(ruta.id,fechaAyer);
     var b=baseDia(ruta.id,fechaAyer);
     var pre=prestamosDia(ruta.id,fechaAyer);
     var gas=gastosDia(ruta.id,fechaAyer);
     var dif=rec+b.base-pre-gas;
+    var ckey=ruta.id+'_'+fechaAyer;
 
-    try {
-      await db.collection('cierres').doc(ckey).set({
-        ckey:ckey, rutaId:ruta.id, fecha:fechaAyer,
-        hora:'23:59',
-        recaudo:rec, base:b.base, prestamos:pre, gastos:gas,
-        diferencia:dif,
-        nota:'Cierre automático del sistema',
-        user:'Sistema', createdAt:Date.now()
-      });
-      console.log('Cierre automático registrado: '+ruta.nombre+' — '+fechaAyer);
-    } catch(e) {
-      console.error('Error cierre automático:', ruta.nombre, e);
-    }
-  }
-  toast('Nuevo día — cierres pendientes registrados automáticamente','ok');
+    return db.collection('cierres').doc(ckey).set({
+      ckey:ckey, rutaId:ruta.id, fecha:fechaAyer,
+      hora:'23:59',
+      recaudo:rec, base:b.base, prestamos:pre, gastos:gas,
+      diferencia:dif,
+      nota:'Cierre automático',
+      user:'Sistema', createdAt:Date.now()
+    }).then(function(){
+      console.log('Cierre automático: '+ruta.nombre+' — '+fechaAyer+' dif:'+dif);
+    }).catch(function(e){
+      console.error('Error cierre auto:', ruta.nombre, e);
+    });
+  });
+
+  Promise.all(promesas).then(function(){
+    toast('Nuevo día — cierres registrados automáticamente','ok');
+    clearCache();
+    refSc();
+  });
 }
 
 
