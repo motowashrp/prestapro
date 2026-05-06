@@ -865,7 +865,7 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
   <div class="mf"><button class="bg2 bs" onclick="cM('m-edit-gas')">Cancelar</button><button class="bp bs" onclick="sEditGas()">Guardar cambios</button></div>
 </div></div>
 
-<div class="mo" id="m-abono" style="display:none;z-index:1100"></div>
+<div class="mov" id="m-abono" style="display:none;z-index:1100" onclick="cM('m-abono')"><div class="mo modal" onclick="event.stopPropagation()" id="m-abono-inner"></div></div>
 <!-- DETALLE CLIENTE -->
 <div id="m-det" class="mov" style="display:none" onclick="cM('m-det')"><div class="modal mlg" onclick="event.stopPropagation()">
   <div id="DET-C"></div>
@@ -2350,7 +2350,7 @@ function cfCob(){
   // Verificar si ya está cobrada hoy
   var pgActual=p.pagos||{};
   var pagoHoyExiste=Object.keys(pgActual).some(function(k){
-    return pgActual[k]&&pgActual[k].fecha===ISO&&!pgActual[k].esAdicional;
+    return pgActual[k]&&pgActual[k].fecha===ISO&&!pgActual[k].esAdicional&&!pgActual[k].esParcial;
   });
   if(pagoHoyExiste){
     toast('Ya hay un cobro registrado hoy para este cliente','err');
@@ -4842,8 +4842,9 @@ function oAbono(preId){
   if(!p) return;
   var i=pI(p);
   var c=gC(p.clienteId);
-  var m=document.getElementById('m-abono');
-  if(!m) return;
+  var overlay=document.getElementById('m-abono');
+  var m=document.getElementById('m-abono-inner');
+  if(!m||!overlay) return;
   m.innerHTML='';
   var hdr=document.createElement('div'); hdr.className='mh';
   var tit=document.createElement('div'); tit.className='mt'; tit.textContent='Registrar abono';
@@ -4884,7 +4885,7 @@ function oAbono(preId){
   var bOk=document.createElement('button'); bOk.className='bp bs'; bOk.id='ABONO-OK';
   bOk.textContent='Confirmar abono'; bOk.onclick=cfAbono;
   mf.appendChild(bCan); mf.appendChild(bOk); body.appendChild(mf);
-  m.appendChild(body); m.style.display='flex';
+  m.appendChild(body); overlay.style.display='flex';
   _abonoMet='efectivo';
   setTimeout(function(){inp.focus();},100);
 }
