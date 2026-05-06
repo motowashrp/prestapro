@@ -1892,7 +1892,7 @@ function rCie(){
       var pg=p.pagos||{};
       Object.keys(pg).forEach(function(k){
         var pago=pg[k];
-        if(pago&&pago.fecha===ISO&&!pago.esAdicional){
+        if(pago&&pago.fecha===ISO&&!pago.esAdicional&&!pago.esParcial){
           var v=pago.valor||0;
           if(pago.metodo==='nequi') recNq+=v; else recEf+=v;
         }
