@@ -2311,7 +2311,7 @@ function vCob(){
   } else {
     b.disabled=false;b.style.opacity='';
     if(v>=_cobMin*2){
-      var q=Math.floor(v/_cobMin);
+      var q=Math.floor(v/Math.max(_cobMin,1));
       w.style.display='block';w.style.color='var(--gn)';
       w.textContent='✓ Cubre '+q+' cuotas de '+fm(_cobMin)+' c/u';
     } else { w.style.display='none'; }
@@ -2343,7 +2343,10 @@ function cfCob(){
     return;
   }
   var i=pI(p);
-  var q=Math.max(1,Math.floor(val/_cobMin));
+  // Usar el valor de cuota REAL del préstamo (no _cobMin del modal)
+  // para evitar discrepancias por redondeo
+  var cuotaReal=i.c||_cobMin;
+  var q=Math.max(1,Math.floor(val/cuotaReal));
   var pg=Object.assign({},pgActual);
   var hoy=fechaLocal(new Date());
   // La cuota principal guarda el valor TOTAL pagado hoy
