@@ -970,7 +970,8 @@ function pI(p) {
     if(!isNaN(n)&&n>=1&&n<=p.dias&&pagos[k]){
       pag++;
       // Sumar solo cuotas principales para evitar doble conteo
-      if(!pagos[k].esAdicional) valorCobrado+=(pagos[k].valor||0);
+      // Excluir adicionales Y parciales (el valor del parcial ya está en la principal)
+      if(!pagos[k].esAdicional && !pagos[k].esParcial) valorCobrado+=(pagos[k].valor||0);
     }
   });
   var saldoReal=Math.max(0,tot-valorCobrado);
@@ -3050,10 +3051,11 @@ function verCli(id){
             (i.est==='completado'?'✓ Pagado':fm(saldo))+
           '</div>'+
           '<div class="ts">'+(i.est==='completado'?'Crédito cancelado':'Saldo pendiente')+'</div>'+
-          (esHoy?'<div style="display:flex;gap:4px;margin-top:4px">'+
-            '<button class="bv" style="font-size:11px;padding:3px 8px" onclick="abrirEditPre(\''+p.id+'\');cM(\'m-det\')">Editar</button>'+
-            (i.est!=='completado'?'<button class="bp" style="font-size:11px;padding:3px 10px;margin-left:4px" onclick="oAbono(\''+p.id+'\')" >+ Abono</button>':'')+
-            '<button class="bd2" onclick="eliminarPre(\''+p.id+'\')">✕</button></div>':'')+
+          '<div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap">'+
+            (esHoy?'<button class="bv" style="font-size:11px;padding:3px 8px" onclick="abrirEditPre(\''+p.id+'\');cM(\'m-det\')">Editar</button>':'')+
+            (i.est!=='completado'?'<button class="bp" style="font-size:11px;padding:3px 10px" onclick="oAbono(\''+p.id+'\')">+ Abono</button>':'')+
+            (esHoy?'<button class="bd2" onclick="eliminarPre(\''+p.id+'\')">✕</button>':'')+
+          '</div>'+
         '</div>'+
       '</div>'+
       '<div class="pb"><div class="pf" style="width:'+i.prog.toFixed(0)+'%"></div></div>'+
