@@ -4801,31 +4801,52 @@ function marcaCuotas(p, pgActual, val, metodo, cuotaInicio){
   var hoy=ISO;
   var pg=Object.assign({},pgActual);
 
-  // Cuotas pendientes ordenadas (sin las ya pagadas)
+  // Cuotas pendientes: sin pagar O con pago parcial pendiente
   var pendientes=Object.keys(i.fechas).map(Number)
-    .filter(function(n){return !pg[n];})
+    .filter(function(n){
+      if(!pg[n]) return true; // sin pagar
+      if(pg[n].esParcial) return true; // parcial pendiente
+      return false;
+    })
     .sort(function(a,b){return a-b;});
 
   if(pendientes.length===0) return {pg:pg, marcadas:0, residuo:0};
 
   var marcadas=0;
   var restante=val;
+  var esPrimera=true; // primera cuota del cobro actual
 
   for(var k=0; k<pendientes.length && restante>0; k++){
     var n=pendientes[k];
-    if(restante>=cuotaReal){
-      // Cuota completa
-      if(marcadas===0){
-        pg[n]={valor:Math.round(val),metodo:metodo,fecha:hoy,esPrincipal:true};
+    // Si tiene pago parcial previo, el costo para completarla es el pendiente
+    var costoCuota=pg[n]&&pg[n].esParcial ? (pg[n].pendiente||cuotaReal) : cuotaReal;
+
+    if(restante>=costoCuota){
+      // Cubre esta cuota completa
+      if(esPrimera){
+        // Si era parcial → marcarla como completada (adicional)
+        // Si era nueva → marcarla como principal
+        if(pg[n]&&pg[n].esParcial){
+          pg[n]={valor:0,metodo:metodo,fecha:hoy,esAdicional:true,
+                 completadaEn:hoy}; // era parcial, ahora completada
+        } else {
+          pg[n]={valor:Math.round(val),metodo:metodo,fecha:hoy,esPrincipal:true};
+        }
+        esPrimera=false;
       } else {
         pg[n]={valor:0,metodo:metodo,fecha:hoy,esAdicional:true};
       }
-      restante-=cuotaReal;
+      restante-=costoCuota;
       marcadas++;
     } else {
-      // Pago parcial de esta cuota
-      pg[n]={valor:Math.round(restante),metodo:metodo,fecha:hoy,
-             esParcial:true,pendiente:Math.round(cuotaReal-restante)};
+      // Pago parcial — actualizar el parcial existente o crear nuevo
+      var abonado=Math.round(restante);
+      var prevAbono=pg[n]&&pg[n].esParcial?(pg[n].valor||0):0;
+      var totalAbonado=prevAbono+abonado;
+      var nuevoPendiente=Math.round(cuotaReal-totalAbonado);
+      pg[n]={valor:totalAbonado,metodo:metodo,fecha:hoy,
+             esParcial:true,pendiente:nuevoPendiente};
+      if(esPrimera) esPrimera=false;
       marcadas++;
       restante=0;
     }
