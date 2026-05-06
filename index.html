@@ -2369,7 +2369,7 @@ function cfCob(){
   if(pIdx>=0){
     ST.prestamos[pIdx]=Object.assign({},ST.prestamos[pIdx],{
       pagos:pg, updatedAt:now,
-      ultimoCobro:{por:CU.nombre,rol:CU.rol,fecha:hoy}
+      ultimoCobro:{por:CU.nombre,rol:CU.rol,fecha:ISO}
     });
     clearCache();
     cM('m-cob');
@@ -2385,7 +2385,7 @@ function cfCob(){
   // Luego sincronizar con Firebase en background
   db.collection('prestamos').doc(_cobPid).update({
     pagos:pg, updatedAt:now,
-    ultimoCobro:{por:CU.nombre,rol:CU.rol,fecha:hoy}
+    ultimoCobro:{por:CU.nombre,rol:CU.rol,fecha:ISO}
   }).catch(function(e){
     // Si falla, revertir el estado local y mostrar error
     if(pIdx>=0) ST.prestamos[pIdx]=Object.assign({},ST.prestamos[pIdx],{pagos:pgActual,updatedAt:p.updatedAt});
