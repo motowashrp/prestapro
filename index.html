@@ -141,7 +141,7 @@ tr:hover td{background:var(--bll)}
 .pr{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--bll)}
 .pr:last-child{border-bottom:none}
 .pnb{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
-.pok{background:#E8F5E9;color:#1B5E20}.phoy{background:#FFF3E0;color:#E65100}
+.pok{background:#E8F5E9;color:#1B5E20}.pparcial{background:#FFF8E1;border-color:#FF9800!important;color:#E65100}.phoy{background:#FFF3E0;color:#E65100}
 .pvec{background:#FFEBEE;color:#C62828}.ppend{background:#E3F2FD;color:#0D47A1}
 .pnm{font-size:13px;font-weight:600;color:var(--bd);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .psb{font-size:11px;color:var(--tm)}
@@ -865,6 +865,7 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
   <div class="mf"><button class="bg2 bs" onclick="cM('m-edit-gas')">Cancelar</button><button class="bp bs" onclick="sEditGas()">Guardar cambios</button></div>
 </div></div>
 
+<div class="mo" id="m-abono" style="display:none;z-index:1100"></div>
 <!-- DETALLE CLIENTE -->
 <div id="m-det" class="mov" style="display:none" onclick="cM('m-det')"><div class="modal mlg" onclick="event.stopPropagation()">
   <div id="DET-C"></div>
@@ -948,7 +949,9 @@ function cuotasVencidas(p) {
     if(!PAR.domingosCobroban && d.getDay()===0) continue;
     cuotaNum++;
     var iso = fechaLocal(d);
-    if(iso < ISO && !pagos[cuotaNum]) venc.push({n:cuotaNum, fecha:iso});
+    var pagoCuota=pagos[cuotaNum];
+    var pagada=pagoCuota&&!pagoCuota.esParcial;
+    if(iso < ISO && !pagada) venc.push({n:cuotaNum, fecha:iso});
   }
   return venc;
 }
@@ -1504,11 +1507,13 @@ function rCob(){
     });
     if(pagoHoy) return; // ya cobrado hoy → Recaudos
 
-    // Cuota programada para hoy
+    // Cuota programada para hoy (incluir parciales)
     var cuotaHoy=null;
     Object.keys(i.fechas).forEach(function(n){
       var nInt=parseInt(n);
-      if(i.fechas[n]===ISO&&!pg[nInt]) cuotaHoy=nInt;
+      var pago=pg[nInt];
+      // Pendiente si no tiene pago o si tiene pago parcial
+      if(i.fechas[n]===ISO&&(!pago||pago.esParcial)) cuotaHoy=nInt;
     });
 
     // Cuotas vencidas sin pagar
@@ -2325,44 +2330,37 @@ function cfCob(){
   if(btn){btn.disabled=true;btn.textContent='Guardando...';}
 
   var val=parseFloat(document.getElementById('COB-VAL').value)||0;
-  if(val<_cobMin){
-    toast('El valor no puede ser menor a la cuota pactada','err');
-    if(btn){btn.disabled=false;btn.textContent='Confirmar cobro';}
-    return;
-  }
   var p=gP(_cobPid);
   if(!p){
     if(btn){btn.disabled=false;btn.textContent='Confirmar cobro';}
     return;
   }
-  // Verificar si ya está cobrada (protección anti-doble)
+  var i=pI(p);
+  if(val<=0){
+    toast('Ingresa un valor mayor a $0','err');
+    if(btn){btn.disabled=false;btn.textContent='Confirmar cobro';}
+    return;
+  }
+  if(val>i.saldoReal){
+    toast('El valor supera el saldo pendiente: '+fm(i.saldoReal),'err');
+    if(btn){btn.disabled=false;btn.textContent='Confirmar cobro';}
+    return;
+  }
+  // Verificar si ya está cobrada hoy
   var pgActual=p.pagos||{};
-  if(pgActual[_cobN]){
-    toast('Esta cuota ya estaba cobrada','err');
+  var pagoHoyExiste=Object.keys(pgActual).some(function(k){
+    return pgActual[k]&&pgActual[k].fecha===ISO&&!pgActual[k].esAdicional;
+  });
+  if(pagoHoyExiste){
+    toast('Ya hay un cobro registrado hoy para este cliente','err');
     cM('m-cob');
     if(btn){btn.disabled=false;btn.textContent='Confirmar cobro';}
     return;
   }
-  var i=pI(p);
-  // Usar el valor de cuota REAL del préstamo (no _cobMin del modal)
-  // para evitar discrepancias por redondeo
-  var cuotaReal=i.c||_cobMin;
-  var q=Math.max(1,Math.floor(val/cuotaReal));
-  var pg=Object.assign({},pgActual);
-  var hoy=fechaLocal(new Date());
-  // La cuota principal guarda el valor TOTAL pagado hoy
-  // Las adicionales guardan el valor de cuota individual
-  pg[_cobN]={valor:Math.round(val),metodo:_cobMp,fecha:hoy,esPrincipal:true};
-  var marcadas=1;
-  if(q>1){
-    var pendientes=Object.keys(i.fechas).map(Number)
-      .filter(function(n){return n!==_cobN&&!pg[n];})
-      .sort(function(a,b){return a-b;});
-    for(var k=0;k<pendientes.length&&marcadas<q;k++){
-      pg[pendientes[k]]={valor:0,metodo:_cobMp,fecha:hoy,esAdicional:true};
-      marcadas++;
-    }
-  }
+  // Marcar cuotas usando función compartida
+  var res=marcaCuotas(p, pgActual, val, _cobMp, _cobN);
+  var pg=res.pg;
+  var marcadas=res.marcadas;
   var now=Date.now();
   // Actualización optimista: actualizar ST.prestamos localmente ANTES de Firebase
   // → UI se actualiza instantáneamente sin esperar respuesta del servidor
@@ -2379,7 +2377,9 @@ function cfCob(){
     // Actualizar dash si está visible
     var activeSc=document.querySelector('.sc.active');
     if(activeSc&&activeSc.id==='sc-dash') rDash();
-    toast(marcadas>1?marcadas+' cuotas — '+fm(val):'Cuota '+_cobN+' — '+fm(val),'ok');
+    var msgCob=marcadas>1?marcadas+' cuotas — '+fm(val):fm(val)+' registrado';
+    if(res&&res.residuo>0) msgCob+=' · parcial, pendiente '+fm(i.c-(val%i.c||i.c));
+    toast(msgCob,'ok');
   }
   // Luego sincronizar con Firebase en background
   db.collection('prestamos').doc(_cobPid).update({
@@ -3017,6 +3017,10 @@ function verCli(id){
         } else if(paid.esAdicional){
           valorMostrar=0;
           extraInfo=' · cubierta el '+fd(paid.fecha);
+        } else if(paid.esParcial){
+          valorMostrar=paid.valor||0;
+          cls='pparcial'; ico='◑';
+          extraInfo=' · parcial · pendiente '+fm(paid.pendiente||0)+' · '+fd(paid.fecha)+(paid.metodo==='nequi'?' 📱':' 💵');
         } else {
           valorMostrar=paid.valor||i.c;
           metStr=paid.metodo==='nequi'?' 📱':' 💵';
@@ -3048,6 +3052,7 @@ function verCli(id){
           '<div class="ts">'+(i.est==='completado'?'Crédito cancelado':'Saldo pendiente')+'</div>'+
           (esHoy?'<div style="display:flex;gap:4px;margin-top:4px">'+
             '<button class="bv" style="font-size:11px;padding:3px 8px" onclick="abrirEditPre(\''+p.id+'\');cM(\'m-det\')">Editar</button>'+
+            (i.est!=='completado'?'<button class="bp" style="font-size:11px;padding:3px 10px;margin-left:4px" onclick="oAbono(\''+p.id+'\')" >+ Abono</button>':'')+
             '<button class="bd2" onclick="eliminarPre(\''+p.id+'\')">✕</button></div>':'')+
         '</div>'+
       '</div>'+
@@ -4784,6 +4789,186 @@ function cobEsBloqueado(){
 
 function mensajeBloqueo(){
   toast('⛔ Operación bloqueada — ya se registró el cierre del día. Las operaciones se habilitarán mañana.','err');
+}
+
+
+// ── Función compartida: marcar cuotas según valor pagado ──────────────────
+function marcaCuotas(p, pgActual, val, metodo, cuotaInicio){
+  var i=pI(p);
+  var cuotaReal=i.c||1;
+  var hoy=ISO;
+  var pg=Object.assign({},pgActual);
+
+  // Cuotas pendientes ordenadas (sin las ya pagadas)
+  var pendientes=Object.keys(i.fechas).map(Number)
+    .filter(function(n){return !pg[n];})
+    .sort(function(a,b){return a-b;});
+
+  if(pendientes.length===0) return {pg:pg, marcadas:0, residuo:0};
+
+  var marcadas=0;
+  var restante=val;
+
+  for(var k=0; k<pendientes.length && restante>0; k++){
+    var n=pendientes[k];
+    if(restante>=cuotaReal){
+      // Cuota completa
+      if(marcadas===0){
+        pg[n]={valor:Math.round(val),metodo:metodo,fecha:hoy,esPrincipal:true};
+      } else {
+        pg[n]={valor:0,metodo:metodo,fecha:hoy,esAdicional:true};
+      }
+      restante-=cuotaReal;
+      marcadas++;
+    } else {
+      // Pago parcial de esta cuota
+      pg[n]={valor:Math.round(restante),metodo:metodo,fecha:hoy,
+             esParcial:true,pendiente:Math.round(cuotaReal-restante)};
+      marcadas++;
+      restante=0;
+    }
+  }
+  return {pg:pg, marcadas:marcadas, residuo:Math.round(restante)};
+}
+
+
+// ── Abono desde detalle del cliente ──────────────────────────────────────
+function oAbono(preId){
+  if(cobEsBloqueado()){mensajeBloqueo();return;}
+  _abonoPreId=preId;
+  var p=gP(preId);
+  if(!p) return;
+  var i=pI(p);
+  var c=gC(p.clienteId);
+  var m=document.getElementById('m-abono');
+  if(!m) return;
+  m.innerHTML='';
+  var hdr=document.createElement('div'); hdr.className='mh';
+  var tit=document.createElement('div'); tit.className='mt'; tit.textContent='Registrar abono';
+  var btnX=document.createElement('button'); btnX.className='mc'; btnX.textContent='✕';
+  btnX.onclick=function(){cM('m-abono');};
+  hdr.appendChild(tit); hdr.appendChild(btnX); m.appendChild(hdr);
+  var body=document.createElement('div'); body.className='mb'; body.style.padding='1.25rem';
+  var info=document.createElement('div'); info.style.marginBottom='12px';
+  info.innerHTML='<div style="font-weight:700;font-size:15px">'+(c?c.nombre:'')+'</div>'+
+    '<div style="font-size:12px;color:var(--tm)">Saldo pendiente: <strong>'+fm(i.saldoReal)+'</strong> · Cuota: '+fm(i.c)+'</div>';
+  body.appendChild(info);
+  var fg1=document.createElement('div'); fg1.className='fg';
+  var lbl=document.createElement('label'); lbl.textContent='Valor del abono';
+  var inp=document.createElement('input'); inp.id='ABONO-MON'; inp.type='text';
+  inp.inputMode='numeric'; inp.placeholder='0'; inp.style.cssText='font-size:18px;font-weight:700';
+  var hid=document.createElement('input'); hid.type='hidden'; hid.id='ABONO-VAL';
+  var sR=i.saldoReal, cV=i.c;
+  inp.oninput=function(){fmtCap(this,'ABONO-VAL');abonoInfo(sR,cV);};
+  fg1.appendChild(lbl); fg1.appendChild(inp); fg1.appendChild(hid);
+  body.appendChild(fg1);
+  var infoDiv=document.createElement('div'); infoDiv.id='ABONO-INFO';
+  infoDiv.style.cssText='font-size:12px;color:var(--bl);margin:8px 0;min-height:20px';
+  body.appendChild(infoDiv);
+  var fg2=document.createElement('div'); fg2.className='fg';
+  var lbl2=document.createElement('label'); lbl2.textContent='Método';
+  var grid=document.createElement('div'); grid.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:8px';
+  var bEf=document.createElement('button'); bEf.id='ABONO-EF'; bEf.className='bp';
+  bEf.style.cssText='padding:10px;font-size:13px'; bEf.textContent='💵 Efectivo';
+  bEf.onclick=function(){setAbonoMet('efectivo');};
+  var bNq=document.createElement('button'); bNq.id='ABONO-NQ'; bNq.className='bg2';
+  bNq.style.cssText='padding:10px;font-size:13px'; bNq.textContent='📱 Nequi';
+  bNq.onclick=function(){setAbonoMet('nequi');};
+  grid.appendChild(bEf); grid.appendChild(bNq);
+  fg2.appendChild(lbl2); fg2.appendChild(grid); body.appendChild(fg2);
+  var mf=document.createElement('div'); mf.className='mf'; mf.style.marginTop='1rem';
+  var bCan=document.createElement('button'); bCan.className='bg2 bs'; bCan.textContent='Cancelar';
+  bCan.onclick=function(){cM('m-abono');};
+  var bOk=document.createElement('button'); bOk.className='bp bs'; bOk.id='ABONO-OK';
+  bOk.textContent='Confirmar abono'; bOk.onclick=cfAbono;
+  mf.appendChild(bCan); mf.appendChild(bOk); body.appendChild(mf);
+  m.appendChild(body); m.style.display='flex';
+  _abonoMet='efectivo';
+  setTimeout(function(){inp.focus();},100);
+}
+
+function setAbonoMet(met){
+  _abonoMet=met;
+  var btnEf=document.getElementById('ABONO-EF');
+  var btnNq=document.getElementById('ABONO-NQ');
+  if(btnEf) btnEf.className=met==='efectivo'?'bp':'bg2';
+  if(btnNq) btnNq.className=met==='nequi'?'bp':'bg2';
+}
+
+function abonoInfo(saldoReal, cuota){
+  var val=parseFloat(document.getElementById('ABONO-VAL').value)||0;
+  var infoEl=document.getElementById('ABONO-INFO');
+  if(!infoEl) return;
+  if(val<=0){infoEl.textContent='';return;}
+  if(val>saldoReal){
+    infoEl.style.color='var(--rd)';
+    infoEl.textContent='⚠ Supera el saldo pendiente ('+fm(saldoReal)+')';
+    return;
+  }
+  var cuotasCompletas=Math.floor(val/cuota);
+  var residuo=Math.round(val-(cuotasCompletas*cuota));
+  var msg='';
+  if(cuotasCompletas>0) msg=cuotasCompletas+' cuota'+(cuotasCompletas>1?'s':'')+' completa'+(cuotasCompletas>1?'s':'');
+  if(residuo>0) msg+=(msg?' + ':'')+fm(residuo)+' parcial de siguiente cuota';
+  if(val===saldoReal) msg='Cancela el crédito completo ✓';
+  infoEl.style.color='var(--bl)';
+  infoEl.textContent=msg;
+}
+
+function cfAbono(){
+  if(cobEsBloqueado()){mensajeBloqueo();return;}
+  var btn=document.getElementById('ABONO-OK');
+  if(btn&&btn.disabled) return;
+  if(btn){btn.disabled=true;btn.textContent='Guardando...';}
+  var val=parseFloat(document.getElementById('ABONO-VAL').value)||0;
+  var p=gP(_abonoPreId);
+  if(!p){if(btn){btn.disabled=false;btn.textContent='Confirmar abono';}return;}
+  var i=pI(p);
+  if(val<=0){
+    toast('Ingresa un valor mayor a $0','err');
+    if(btn){btn.disabled=false;btn.textContent='Confirmar abono';}
+    return;
+  }
+  if(val>i.saldoReal){
+    toast('El abono supera el saldo pendiente: '+fm(i.saldoReal),'err');
+    if(btn){btn.disabled=false;btn.textContent='Confirmar abono';}
+    return;
+  }
+  var pgActual=p.pagos||{};
+  var res=marcaCuotas(p, pgActual, val, _abonoMet, null);
+  var pg=res.pg;
+  var marcadas=res.marcadas;
+  var now=Date.now();
+  // Actualización optimista
+  var pIdx=ST.prestamos.findIndex(function(x){return x.id===_abonoPreId;});
+  if(pIdx>=0){
+    ST.prestamos[pIdx]=Object.assign({},ST.prestamos[pIdx],{
+      pagos:pg, updatedAt:now,
+      ultimoCobro:{por:CU.nombre,rol:CU.rol,fecha:ISO}
+    });
+    clearCache();
+    cM('m-abono');
+    // Actualizar módulos
+    if(typeof rCob==='function') rCob();
+    if(typeof rRec==='function') rRec();
+    var activeSc=document.querySelector('.sc.active');
+    if(activeSc&&activeSc.id==='sc-dash') rDash();
+    var msg=marcadas>1?marcadas+' cuotas — '+fm(val):fm(val)+' registrado';
+    if(res.residuo>0) msg+=' (abono parcial)';
+    toast(msg,'ok');
+    // Reabrir detalle actualizado
+    setTimeout(function(){verCli(p.clienteId);},300);
+  }
+  // Sincronizar Firebase
+  db.collection('prestamos').doc(_abonoPreId).update({
+    pagos:pg, updatedAt:now,
+    ultimoCobro:{por:CU.nombre,rol:CU.rol,fecha:ISO}
+  }).catch(function(e){
+    if(pIdx>=0) ST.prestamos[pIdx]=Object.assign({},ST.prestamos[pIdx],{pagos:pgActual,updatedAt:p.updatedAt});
+    clearCache();refSc();
+    toast('Error al guardar abono','err');
+    console.error(e);
+  });
 }
 
 auth.onAuthStateChanged(function(user){
