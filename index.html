@@ -2318,6 +2318,7 @@ function vCob(){
   }
 }
 function cfCob(){
+  if(cobEsBloqueado()){mensajeBloqueo();return;}
   // Bloquear botón inmediatamente para evitar doble registro
   var btn=document.getElementById('COB-OK');
   if(btn&&btn.disabled) return; // ya está procesando
@@ -2521,6 +2522,7 @@ function calcPrev2(){
 }
 
 function sNuevoCli(){
+  if(cobEsBloqueado()){mensajeBloqueo();return;}
   var nom=document.getElementById('NC-NOM').value.trim().toUpperCase();
   var ced=document.getElementById('NC-CED').value.trim();
   var cap=getCapVal('NC-CAP','NC-CAP-VAL');
@@ -2675,6 +2677,7 @@ function calcPrev3(){
 }
 
 function sCredito(){
+  if(cobEsBloqueado()){mensajeBloqueo();return;}
   var cap=getCapVal('CR-CAP','CR-CAP-VAL');
   var int=parseFloat(document.getElementById('CR-INT').value)||0;
   var dias=parseInt(document.getElementById('CR-DIA').value);
@@ -3428,6 +3431,7 @@ function actualizarDispGasto(){
 }
 
 function sGasto(){
+  if(cobEsBloqueado()){mensajeBloqueo();return;}
   var conc=document.getElementById('GAS-CONC').value.trim().toUpperCase();
   var ef=parseFloat(document.getElementById('GAS-EF-VAL').value)||0;
   var nq=parseFloat(document.getElementById('GAS-NQ-VAL').value)||0;
@@ -4764,6 +4768,22 @@ function calcFechasCuotas(fechaInicio, numCuotas, frecuencia){
     }
   }
   return fechas;
+}
+
+
+// ── Verificar si el cobrador está bloqueado por cierre del día ──
+function cobEsBloqueado(){
+  if(!CU||CU.rol==='admin') return false; // admin nunca bloqueado
+  if(CU.rol!=='ruta') return false; // solo aplica a cobradores
+  var rutaId=CU.rutaId;
+  var tieneCierre=ST.cierres.some(function(c){
+    return c.rutaId===rutaId && c.fecha===ISO;
+  });
+  return tieneCierre;
+}
+
+function mensajeBloqueo(){
+  toast('⛔ Operación bloqueada — ya se registró el cierre del día. Las operaciones se habilitarán mañana.','err');
 }
 
 auth.onAuthStateChanged(function(user){
