@@ -969,9 +969,9 @@ function pI(p) {
     var n=parseInt(k);
     if(!isNaN(n)&&n>=1&&n<=p.dias&&pagos[k]){
       pag++;
-      // Sumar solo cuotas principales para evitar doble conteo
-      // Excluir adicionales Y parciales (el valor del parcial ya está en la principal)
-      if(!pagos[k].esAdicional && !pagos[k].esParcial) valorCobrado+=(pagos[k].valor||0);
+      // Sumar cuotas principales y parciales (el parcial descuenta del saldo)
+      // Solo excluir adicionales (su valor ya está en el principal)
+      if(!pagos[k].esAdicional) valorCobrado+=(pagos[k].valor||0);
     }
   });
   var saldoReal=Math.max(0,tot-valorCobrado);
@@ -1061,7 +1061,7 @@ function recaudoDia(rutaId, fecha) {
     // Las adicionales tienen valor=0 para evitar doble conteo
     Object.keys(pagos).forEach(function(k){
       var pg=pagos[k];
-      if(pg && pg.fecha===fecha && !pg.esAdicional) tot += pg.valor||0;
+      if(pg && pg.fecha===fecha && !pg.esAdicional && !pg.esParcial) tot += pg.valor||0;
     });
   });
   return tot;
@@ -1504,7 +1504,7 @@ function rCob(){
     // Cuota de hoy pendiente
     // Regla: si hizo CUALQUIER pago hoy → va a Recaudos (no a Cobros)
     var pagoHoy=Object.keys(pg).some(function(k){
-      return pg[k]&&pg[k].fecha===ISO&&!pg[k].esAdicional;
+      return pg[k]&&pg[k].fecha===ISO&&!pg[k].esAdicional&&!pg[k].esParcial;
     });
     if(pagoHoy) return; // ya cobrado hoy → Recaudos
 
@@ -1517,8 +1517,10 @@ function rCob(){
       if(i.fechas[n]===ISO&&(!pago||pago.esParcial)) cuotaHoy=nInt;
     });
 
-    // Cuotas vencidas sin pagar
-    var vencSinPagar=i.venc.filter(function(n){return !pg[n];});
+    // Cuotas vencidas sin pagar (incluye parciales pendientes)
+    var vencSinPagar=i.venc.filter(function(n){
+      return !pg[n]||(pg[n]&&pg[n].esParcial);
+    });
 
     // Si no tiene cuota hoy ni vencidas → skip
     if(cuotaHoy===null && vencSinPagar.length===0) return;
@@ -2055,7 +2057,7 @@ function rRec(){
     // Pagos del día
     Object.keys(pg).forEach(function(k){
       var pago=pg[k];
-      if(!pago||pago.fecha!==ISO||pago.esAdicional) return;
+      if(!pago||pago.fecha!==ISO||pago.esAdicional||pago.esParcial) return;
       var nInt=parseInt(k);
       var met=pago.metodo||'efectivo';
       var val=pago.valor||0;
@@ -3900,7 +3902,7 @@ function recaudoEfNq(rutaId, fecha){
     // Sumar todos los pagos cuya fecha de cobro coincide
     Object.keys(pg).forEach(function(k){
       var pago=pg[k];
-      if(pago && pago.fecha===fecha && !pago.esAdicional){
+      if(pago && pago.fecha===fecha && !pago.esAdicional && !pago.esParcial){
         var v=pago.valor||0, m=pago.metodo||'efectivo';
         if(m==='nequi') nq+=v; else ef+=v;
       }
