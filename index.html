@@ -1126,7 +1126,10 @@ function difCierreEfNq(rutaId, fecha){
   ST.prestamos.filter(function(p){return cIds.indexOf(p.clienteId)>=0;}).forEach(function(p){
     Object.keys(p.pagos||{}).forEach(function(k){
       var pg=p.pagos[k];
-      if(pg&&pg.fecha===fecha){if(pg.metodo==='nequi')recNq+=pg.valor||0;else recEf+=pg.valor||0;}
+      // Excluir adicionales y parciales (igual que recaudoEfNq)
+      if(pg&&pg.fecha===fecha&&!pg.esAdicional&&!pg.esParcial){
+        if(pg.metodo==='nequi') recNq+=pg.valor||0; else recEf+=pg.valor||0;
+      }
     });
   });
   var b=baseDia(rutaId,fecha);
