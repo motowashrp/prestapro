@@ -1268,9 +1268,14 @@ function doLogin(){
       fcMes=ISO.slice(0,7);
       buildNav(); cargarParams(); goto('dash'); subAll();
       iniciarWatchMedianoche();
+      setTimeout(function(){cierreAutomatico();},4000);
       setTimeout(function(){
         toast('✓ Bienvenido, '+CU.nombre.split(' ')[0],'ok');
       }, 1000);
+      // Verificar cierres pendientes después de que carguen los datos
+      setTimeout(function(){
+        cierreAutomatico();
+      }, 4000);
     })
     .catch(function(e){
       btn.disabled=false; btn.textContent='Ingresar a RutaCobro';
@@ -4247,12 +4252,18 @@ function iniciarWatchMedianoche(){
   }, msFaltanMedianoche());
 }
 
-async function cierreAutomatico(){
+function cierreAutomatico(){
   if(!CU||!ST.rutas||ST.rutas.length===0) return;
   var ayer=new Date(HOY); ayer.setDate(ayer.getDate()-1);
   var fechaAyer=fechaLocal(ayer);
 
-  var rutasPendientes=ST.rutas.filter(function(ruta){
+  // Admin registra cierres de todas las rutas
+  // Cobrador solo registra el cierre de su propia ruta
+  var rutasAplicables=CU.rol==='admin'
+    ? ST.rutas
+    : ST.rutas.filter(function(r){return r.id===CU.rutaId;});
+
+  var rutasPendientes=rutasAplicables.filter(function(ruta){
     return !ST.cierres.find(function(c){
       return c.rutaId===ruta.id&&c.fecha===fechaAyer;
     });
