@@ -1059,9 +1059,15 @@ function recaudoDia(rutaId, fecha) {
     var pagos=p.pagos||{};
     // Sumar pagos del día: solo cuotas principales (que tienen el valor total)
     // Las adicionales tienen valor=0 para evitar doble conteo
+    var tieneP=Object.keys(pagos).some(function(k){
+      return pagos[k]&&pagos[k].fecha===fecha&&pagos[k].esPrincipal;
+    });
     Object.keys(pagos).forEach(function(k){
       var pg=pagos[k];
-      if(pg && pg.fecha===fecha && !pg.esAdicional && !pg.esParcial) tot += pg.valor||0;
+      if(!pg||pg.fecha!==fecha||pg.esAdicional) return;
+      // Parcial solo suma si no hay cuota principal ese día (abono directo)
+      if(pg.esParcial&&tieneP) return;
+      tot += pg.valor||0;
     });
   });
   return tot;
@@ -1900,7 +1906,10 @@ function rCie(){
       var pg=p.pagos||{};
       Object.keys(pg).forEach(function(k){
         var pago=pg[k];
-        if(pago&&pago.fecha===ISO&&!pago.esAdicional&&!pago.esParcial){
+        var tienePCie=Object.keys(pg).some(function(k2){
+            return pg[k2]&&pg[k2].fecha===ISO&&pg[k2].esPrincipal;
+          });
+        if(pago&&pago.fecha===ISO&&!pago.esAdicional&&!(pago.esParcial&&tienePCie)){
           var v=pago.valor||0;
           if(pago.metodo==='nequi') recNq+=v; else recEf+=v;
         }
@@ -2065,7 +2074,14 @@ function rRec(){
     // Pagos del día
     Object.keys(pg).forEach(function(k){
       var pago=pg[k];
-      if(!pago||pago.fecha!==ISO||pago.esAdicional||pago.esParcial) return;
+      if(!pago||pago.fecha!==ISO||pago.esAdicional) return;
+      // Parcial solo aparece en recaudos si no hay cuota principal ese día
+      if(pago.esParcial){
+        var tieneP2=Object.keys(pg).some(function(k2){
+          return pg[k2]&&pg[k2].fecha===ISO&&pg[k2].esPrincipal;
+        });
+        if(tieneP2) return;
+      }
       var nInt=parseInt(k);
       var met=pago.metodo||'efectivo';
       var val=pago.valor||0;
@@ -2077,7 +2093,7 @@ function rRec(){
           '<td style="font-size:11px;color:var(--tm)">'+(c.orden||'—')+'</td>'+
           '<td><strong>'+c.nombre+'</strong>'+(r?'<br><span style="font-size:10px;color:var(--tm)">'+r.nombre+'</span>':'')+'</td>'+
           '<td style="font-size:11px">'+fm(p.capital)+'/'+p.dias+'d</td>'+
-          '<td>'+nInt+'/'+p.dias+'</td>'+
+          '<td>'+(isNaN(nInt)?'Abono':nInt+'/'+p.dias)+'</td>'+
           '<td>'+fm(val)+'</td>'+
           '<td><span class="badge '+(met==='nequi'?'bnq':'bef')+'">'+(met==='nequi'?'📱 Nequi':'💵 Ef.')+'</span>'+
             (porAdmin?'<span class="badge" style="background:#1565C0;color:#fff;margin-left:3px">Admin</span>':'')+
@@ -3910,7 +3926,10 @@ function recaudoEfNq(rutaId, fecha){
     // Sumar todos los pagos cuya fecha de cobro coincide
     Object.keys(pg).forEach(function(k){
       var pago=pg[k];
-      if(pago && pago.fecha===fecha && !pago.esAdicional && !pago.esParcial){
+      var tienePE=Object.keys(p.pagos||{}).some(function(k2){
+        return p.pagos[k2]&&p.pagos[k2].fecha===fecha&&p.pagos[k2].esPrincipal;
+      });
+      if(pago && pago.fecha===fecha && !pago.esAdicional && !(pago.esParcial&&tienePE)){
         var v=pago.valor||0, m=pago.metodo||'efectivo';
         if(m==='nequi') nq+=v; else ef+=v;
       }
@@ -4979,6 +4998,16 @@ function cfAbono(){
   var pg=res.pg;
   var marcadas=res.marcadas;
   var now=Date.now();
+  // Registrar el abono total como entrada de recaudo
+  // Usar clave especial 'ab_'+ISO para que no colisione con cuotas numeradas
+  // Solo si no hay ya una cuota esPrincipal con ese valor hoy
+  var tieneP=Object.keys(pg).some(function(k){
+    return pg[k]&&pg[k].fecha===ISO&&pg[k].esPrincipal&&pg[k].valor===Math.round(val);
+  });
+  if(!tieneP){
+    pg['ab_'+ISO]={valor:Math.round(val),metodo:_abonoMet,fecha:ISO,
+                   esAbono:true,esPrincipal:true};
+  }
   // Actualización optimista
   var pIdx=ST.prestamos.findIndex(function(x){return x.id===_abonoPreId;});
   if(pIdx>=0){
