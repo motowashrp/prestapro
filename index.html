@@ -1474,6 +1474,16 @@ function rDash(){
 function rCob(){
   actualizarFiltroRuta('cob');
   var rutaFil=CU.rol==='admin'?_rutaCob:CU.rutaId;
+  // Si hoy es domingo y no se cobra en domingos → mostrar mensaje
+  if(!PAR.domingos && new Date().getDay()===0){
+    var cobEl=document.getElementById('COB-LIST');
+    if(cobEl) cobEl.innerHTML='<div class="empty" style="padding:2rem;text-align:center">'+
+      '<div style="font-size:2rem;margin-bottom:8px">🔴</div>'+
+      '<div style="font-size:15px;font-weight:700;color:var(--tm)">Hoy es domingo</div>'+
+      '<div style="font-size:13px;color:var(--tm);margin-top:4px">No hay cobros programados para hoy</div>'+
+    '</div>';
+    return;
+  }
   if(CU.rol==='admin'){
     var filEl=document.getElementById('COB-FIL');
     if(filEl) filEl.style.display='flex';
