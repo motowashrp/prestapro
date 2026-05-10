@@ -969,9 +969,9 @@ function pI(p) {
     var n=parseInt(k);
     if(!isNaN(n)&&n>=1&&n<=p.dias&&pagos[k]){
       pag++;
-      // Sumar cuotas principales y parciales (el parcial descuenta del saldo)
-      // Solo excluir adicionales (su valor ya está en el principal)
-      if(!pagos[k].esAdicional) valorCobrado+=(pagos[k].valor||0);
+      // Solo sumar cuotas principales (tienen el valor total del cobro/abono)
+      // Excluir adicionales (valor:0) y parciales (su valor ya está en el principal)
+      if(!pagos[k].esAdicional && !pagos[k].esParcial) valorCobrado+=(pagos[k].valor||0);
     }
   });
   var saldoReal=Math.max(0,tot-valorCobrado);
@@ -4859,14 +4859,9 @@ function marcaCuotas(p, pgActual, val, metodo, cuotaInicio){
     if(restante>=costoCuota){
       // Cubre esta cuota completa
       if(esPrimera){
-        // Si era parcial → marcarla como completada (adicional)
-        // Si era nueva → marcarla como principal
-        if(pg[n]&&pg[n].esParcial){
-          pg[n]={valor:0,metodo:metodo,fecha:hoy,esAdicional:true,
-                 completadaEn:hoy}; // era parcial, ahora completada
-        } else {
-          pg[n]={valor:Math.round(val),metodo:metodo,fecha:hoy,esPrincipal:true};
-        }
+        // Primera cuota siempre es principal con el valor TOTAL del abono
+        // Así pI suma el total y el saldo descuenta correctamente
+        pg[n]={valor:Math.round(val),metodo:metodo,fecha:hoy,esPrincipal:true};
         esPrimera=false;
       } else {
         pg[n]={valor:0,metodo:metodo,fecha:hoy,esAdicional:true};
