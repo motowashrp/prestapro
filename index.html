@@ -3267,7 +3267,10 @@ function expFlujo(){
           var pago=pg[k];
           if(!pago||!pago.fecha) return;
           if(pago.fecha.slice(0,7)!==fcMes) return;
-          if(pago.esAdicional) return; // solo cuotas principales
+          if(pago.esAdicional) return; // excluir adicionales
+          if(pago.esParcial) return;   // excluir parciales
+          if(pago.esAbono) return;     // excluir registros internos ab_ISO
+          if(!pago.esPrincipal) return; // solo cuotas principales
           dataCob.push([pago.fecha,c.nombre,r.nombre,p.capital,
             parseInt(k),pago.valor||0,
             pago.metodo==='nequi'?'Nequi':'Efectivo']);
