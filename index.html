@@ -4111,13 +4111,18 @@ function rPar(){
   '<div class="param-card"><h3>Seguros</h3>'+
     '<div class="param-row">'+
       '<div><div class="param-label">Tipo de seguro</div>'+
-      '<div class="param-desc">¿El seguro equivale a 1 cuota o a un valor fijo?</div></div>'+
+      '<div class="param-desc">Porcentaje del capital o valor fijo</div></div>'+
       '<div class="param-ctrl">'+
         '<select id="P-SEGTP" onchange="toggleSegVal()">'+
           '<option value="porcentaje"'+(PAR.seguroTipo!=='valor'?' selected':'')+'>Porcentaje del capital (%)</option>'+
           '<option value="valor"'+(PAR.seguroTipo==='valor'?' selected':'')+'>Valor fijo ($)</option>'+
         '</select>'+
       '</div>'+
+    '</div>'+
+    '<div class="param-row" id="P-SEGPCT-ROW" style="'+(PAR.seguroTipo!=='valor'?'':'display:none')+'">'+
+      '<div><div class="param-label">% del seguro</div>'+
+      '<div class="param-desc">Porcentaje que se cobra sobre el capital</div></div>'+
+      '<div class="param-ctrl"><input type="number" id="PAR-SEG-PCT" value="'+(PAR.seguroPct||6)+'" min="0" max="100" step="0.5" style="width:80px"> %</div>'+
     '</div>'+
     '<div class="param-row" id="P-SEGVAL-ROW" style="'+(PAR.seguroTipo==='valor'?'':'display:none')+'">'+
       '<div><div class="param-label">Valor fijo del seguro ($)</div></div>'+
@@ -4196,6 +4201,8 @@ function leerYGuardarParams(){
   if(morEl&&parseInt(morEl.value)>0) PAR.moroso=parseInt(morEl.value);
   if(domEl) PAR.domingos=domEl.checked;
   PAR.seguroTipo='porcentaje';
+  var segtpEl=document.getElementById('P-SEGTP');
+  if(segtpEl) PAR.seguroTipo=segtpEl.value;
   if(segEl&&parseFloat(segEl.value)>0) PAR.seguroPct=parseFloat(segEl.value);
   if(reemEl&&parseFloat(reemEl.value)>0) PAR.reembolsoPct=parseFloat(reemEl.value);
   if(reemActEl) PAR.reembolsoActivo=reemActEl.checked;
