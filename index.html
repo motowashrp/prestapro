@@ -967,11 +967,16 @@ function pI(p) {
   var pag=0, valorCobrado=0;
   Object.keys(pagos).forEach(function(k){
     var n=parseInt(k);
-    if(!isNaN(n)&&n>=1&&n<=p.dias&&pagos[k]){
+    var pago=pagos[k];
+    if(!pago) return;
+    // Sumar registros ab_ISO (abonos desde detalle del cliente)
+    if(pago.esAbono&&pago.esPrincipal){
+      valorCobrado+=(pago.valor||0);
+      return;
+    }
+    if(!isNaN(n)&&n>=1&&n<=p.dias){
       pag++;
-      // Solo sumar cuotas principales (tienen el valor total del cobro/abono)
-      // Excluir adicionales (valor:0) y parciales (su valor ya está en el principal)
-      if(!pagos[k].esAdicional && !pagos[k].esParcial) valorCobrado+=(pagos[k].valor||0);
+      if(!pago.esAdicional && !pago.esParcial) valorCobrado+=(pago.valor||0);
     }
   });
   var saldoReal=Math.max(0,tot-valorCobrado);
@@ -4843,7 +4848,7 @@ function mensajeBloqueo(){
 
 
 // ── Función compartida: marcar cuotas según valor pagado ──────────────────
-function marcaCuotas(p, pgActual, val, metodo, cuotaInicio){
+function marcaCuotas(p, pgActual, val, metodo, cuotaInicio, esAbono){
   var i=pI(p);
   var cuotaReal=i.c||1;
   var hoy=ISO;
@@ -4872,9 +4877,13 @@ function marcaCuotas(p, pgActual, val, metodo, cuotaInicio){
     if(restante>=costoCuota){
       // Cubre esta cuota completa
       if(esPrimera){
-        // Primera cuota siempre es principal con el valor TOTAL del abono
-        // Así pI suma el total y el saldo descuenta correctamente
-        pg[n]={valor:Math.round(val),metodo:metodo,fecha:hoy,esPrincipal:true};
+        if(esAbono){
+          // Para abonos: cuota marcada como adicional (ab_ISO lleva el valor)
+          pg[n]={valor:0,metodo:metodo,fecha:hoy,esAdicional:true};
+        } else {
+          // Para cobros del día: cuota principal con valor total
+          pg[n]={valor:Math.round(val),metodo:metodo,fecha:hoy,esPrincipal:true};
+        }
         esPrimera=false;
       } else {
         pg[n]={valor:0,metodo:metodo,fecha:hoy,esAdicional:true};
@@ -5002,20 +5011,18 @@ function cfAbono(){
     return;
   }
   var pgActual=p.pagos||{};
-  var res=marcaCuotas(p, pgActual, val, _abonoMet, null);
+  var res=marcaCuotas(p, pgActual, val, _abonoMet, null, true);
   var pg=res.pg;
   var marcadas=res.marcadas;
   var now=Date.now();
   // Registrar el abono total como entrada de recaudo
   // Usar clave especial 'ab_'+ISO para que no colisione con cuotas numeradas
   // Solo si no hay ya una cuota esPrincipal con ese valor hoy
-  var tieneP=Object.keys(pg).some(function(k){
-    return pg[k]&&pg[k].fecha===ISO&&pg[k].esPrincipal&&pg[k].valor===Math.round(val);
-  });
-  if(!tieneP){
-    pg['ab_'+ISO]={valor:Math.round(val),metodo:_abonoMet,fecha:ISO,
-                   esAbono:true,esPrincipal:true};
-  }
+  // Siempre registrar el abono como entrada visible en recaudos
+  // La clave ab_+fecha garantiza que aparece en rRec aunque
+  // la cuota numerada no tenga fecha=ISO
+  pg['ab_'+ISO]={valor:Math.round(val),metodo:_abonoMet,fecha:ISO,
+                 esAbono:true,esPrincipal:true};
   // Actualización optimista
   var pIdx=ST.prestamos.findIndex(function(x){return x.id===_abonoPreId;});
   if(pIdx>=0){
