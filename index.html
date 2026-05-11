@@ -4114,8 +4114,8 @@ function rPar(){
       '<div class="param-desc">¿El seguro equivale a 1 cuota o a un valor fijo?</div></div>'+
       '<div class="param-ctrl">'+
         '<select id="P-SEGTP" onchange="toggleSegVal()">'+
-          '<option value="cuota"'+(PAR.seguroTipo==='cuota'?' selected':'')+'>1 cuota del crédito</option>'+
-          '<option value="valor"'+(PAR.seguroTipo==='valor'?' selected':'')+'>Valor fijo</option>'+
+          '<option value="porcentaje"'+(PAR.seguroTipo!=='valor'?' selected':'')+'>Porcentaje del capital (%)</option>'+
+          '<option value="valor"'+(PAR.seguroTipo==='valor'?' selected':'')+'>Valor fijo ($)</option>'+
         '</select>'+
       '</div>'+
     '</div>'+
