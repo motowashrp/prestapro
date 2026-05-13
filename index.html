@@ -6,8 +6,8 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>RutaCobro v34.3</title>
-<meta name="build" content="rcv34.3-mejoras">
+<title>RutaCobro v34.4</title>
+<meta name="build" content="rcv34.4-fix-semanal">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -1112,20 +1112,21 @@ function diasHabiles(desde, hasta) {
   return count;
 }
 
-// Cuotas vencidas sin contar domingos
+// Cuotas vencidas — respeta frecuencia diaria o semanal
 function cuotasVencidas(p) {
-  var ini = new Date(p.fechaInicio+'T12:00:00');
   var pagos = p.pagos||{};
+  var frecuencia = p.frecuencia||'diario';
+  // Usa calcFechasCuotas para respetar la frecuencia del credito
+  // (semanal: cada 7 dias; diario: cada dia habil)
+  var fechas = calcFechasCuotas(p.fechaInicio, p.dias, frecuencia);
   var venc = [];
-  var cuotaNum = 0;
-  for(var dayOffset=1; cuotaNum < p.dias; dayOffset++) {
-    var d = new Date(ini); d.setDate(d.getDate()+dayOffset);
-    if(!PAR.domingosCobroban && d.getDay()===0) continue;
-    cuotaNum++;
-    var iso = fechaLocal(d);
-    var pagoCuota=pagos[cuotaNum];
-    var pagada=pagoCuota&&!pagoCuota.esParcial;
-    if(iso < ISO && !pagada) venc.push({n:cuotaNum, fecha:iso});
+  for(var n=1; n<=p.dias; n++){
+    var iso = fechas[n];
+    if(!iso) continue;
+    if(iso >= ISO) break; // solo cuotas cuya fecha ya paso
+    var pagoCuota = pagos[n];
+    var pagada = pagoCuota && !pagoCuota.esParcial;
+    if(!pagada) venc.push({n:n, fecha:iso});
   }
   return venc;
 }
@@ -2456,7 +2457,7 @@ function rMor(){
   var totValor=morosos.reduce(function(t,m){return t+m.valorMora;},0);
 
   document.getElementById('MOR-MET').innerHTML=
-    '<div class="me"><div class="lb">Clientes morosos</div><div class="vl gn2">'+totMorosos+'</div><div class="sb2">3+ cuotas vencidas</div></div>'+
+    '<div class="me"><div class="lb">Clientes morosos</div><div class="vl gn2">'+totMorosos+'</div><div class="sb2">'+PAR.cuotasMoroso+'+ cuotas vencidas</div></div>'+
     '<div class="me"><div class="lb">Valor en mora</div><div class="vl gn2">'+fm(totValor)+'</div></div>';
 
   var rows=morosos.map(function(m){
