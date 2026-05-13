@@ -6,8 +6,8 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>RutaCobro v34.2</title>
-<meta name="build" content="rcv34.2-fix-cierre-auto">
+<title>RutaCobro v34.3</title>
+<meta name="build" content="rcv34.3-mejoras">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -495,7 +495,7 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
           </div>
         </div>
         <div class="ms" id="FC-MES"></div>
-        <div style="display:flex;gap:10px;align-items:center;margin-bottom:1rem;flex-wrap:wrap">
+        <div id="FC-RUTA-FIL" style="display:flex;gap:10px;align-items:center;margin-bottom:1rem;flex-wrap:wrap">
           <label style="font-size:11px;font-weight:700;color:var(--bl);text-transform:uppercase;letter-spacing:.05em">Ruta:</label>
           <select id="FC-RUTA" onchange="rFlujo()" style="padding:6px 10px;font-size:13px;font-family:inherit;border:1px solid var(--br);border-radius:var(--rs);background:var(--wh)">
             <option value="">Todas</option>
@@ -879,18 +879,26 @@ input[type=password],input[type=date],input[type=email]{text-transform:none}
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
-firebase.initializeApp({
+// ── Configuración Firebase (única fuente de verdad) ──
+var FIREBASE_CONFIG = {
   apiKey:"AIzaSyC4sD1rP2zidvXKEvX4NtGwdkUs5QSBOuQ",
   authDomain:"rutacobro-d7737.firebaseapp.com",
   projectId:"rutacobro-d7737",
   storageBucket:"rutacobro-d7737.firebasestorage.app",
   messagingSenderId:"541736943619",
   appId:"1:541736943619:web:aa37087558ee177b008e36"
-});
+};
+firebase.initializeApp(FIREBASE_CONFIG);
 var auth=firebase.auth();
 var db=firebase.firestore();
-// Persistencia offline: datos disponibles aunque no haya internet
-// Persistencia offline desactivada (incompatible con reglas de Auth)
+// Persistencia offline: guarda copia local para uso sin conexión
+db.enablePersistence({synchronizeTabs:true}).catch(function(e){
+  if(e.code==='failed-precondition'){
+    console.warn('Persistencia offline: múltiples pestañas activas — desactivada en esta pestaña');
+  } else if(e.code==='unimplemented'){
+    console.warn('Persistencia offline: navegador no compatible');
+  }
+});
 
 // Fecha local (sin desfase UTC — Colombia UTC-5)
 function fechaLocal(d){
@@ -902,6 +910,127 @@ function fechaLocal(d){
 var HOY = new Date();
 var ISO = fechaLocal(HOY);
 var MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+// ── Sistema de modales propio (reemplaza confirm/prompt nativos) ──────────────
+// Evita diálogos del navegador que se bloquean en móvil y se ven mal
+function showModal(cfg){
+  // cfg: { title, body, detail, icon, iconColor, btnOk, btnCancel, onOk, danger }
+  var ov=document.createElement('div');
+  ov.className='mov'; ov.style.zIndex='9000';
+  var iconHtml=cfg.icon
+    ? '<div style="width:48px;height:48px;border-radius:50%;background:'+(cfg.iconColor||'#FFEBEE')+
+      ';display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto 12px">'+cfg.icon+'</div>'
+    : '';
+  var detailHtml=cfg.detail
+    ? '<div style="font-size:12px;color:var(--tm);margin-top:6px;line-height:1.5">'+cfg.detail+'</div>'
+    : '';
+  ov.innerHTML=
+    '<div class="modal" onclick="event.stopPropagation()" style="max-width:380px;text-align:center">'+
+      iconHtml+
+      '<h3 style="font-size:14px;font-weight:700;color:var(--bd);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em">'+cfg.title+'</h3>'+
+      '<p style="font-size:13px;color:var(--tx);line-height:1.6;margin-bottom:4px">'+cfg.body+'</p>'+
+      detailHtml+
+      '<div class="mf" style="justify-content:center;margin-top:20px">'+
+        '<button class="bg2 bs" id="SM-CANCEL">'+( cfg.btnCancel||'Cancelar')+'</button>'+
+        '<button class="'+(cfg.danger?'':'bp')+' bs" id="SM-OK" style="'+(cfg.danger?'background:var(--rd);color:#fff;border:none;padding:8px 16px;border-radius:var(--rs);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit':'')+'">'+(cfg.btnOk||'Confirmar')+'</button>'+
+      '</div>'+
+    '</div>';
+  document.body.appendChild(ov);
+  ov.style.display='flex';
+  function cerrar(){ document.body.removeChild(ov); }
+  ov.querySelector('#SM-CANCEL').onclick=cerrar;
+  ov.querySelector('#SM-OK').onclick=function(){ cerrar(); if(cfg.onOk) cfg.onOk(); };
+  ov.onclick=cerrar;
+}
+
+function showPassModal(cfg){
+  // cfg: { nombre, email, onOk(pass) }
+  var ov=document.createElement('div');
+  ov.className='mov'; ov.style.zIndex='9000';
+  ov.innerHTML=
+    '<div class="modal" onclick="event.stopPropagation()" style="max-width:380px">'+
+      '<h3 style="font-size:13px;font-weight:700;color:var(--bd);margin-bottom:14px;text-transform:uppercase;letter-spacing:.05em">Cambiar contraseña</h3>'+
+      '<div style="font-size:13px;color:var(--tm);margin-bottom:6px">Cobrador: <strong style="color:var(--bd)">'+cfg.nombre+'</strong></div>'+
+      '<div style="font-size:11px;background:var(--bll);padding:6px 10px;border-radius:6px;color:var(--tm);margin-bottom:14px">'+cfg.email+'</div>'+
+      '<div class="fg2"><label>Nueva contraseña <span style="color:var(--rd);font-size:10px">(mínimo 6 caracteres)</span></label>'+
+      '<input type="password" id="SPM-PASS" placeholder="••••••••" style="width:100%;padding:9px 12px;font-size:14px;font-family:inherit;border:1px solid var(--br);border-radius:var(--rs);background:var(--wh);color:var(--tx)"></div>'+
+      '<div id="SPM-ERR" style="font-size:11px;color:var(--rd);margin-top:4px;min-height:16px"></div>'+
+      '<div class="mf">'+
+        '<button class="bg2 bs" id="SPM-CANCEL">Cancelar</button>'+
+        '<button class="bp bs" id="SPM-OK">Actualizar contraseña</button>'+
+      '</div>'+
+    '</div>';
+  document.body.appendChild(ov);
+  ov.style.display='flex';
+  setTimeout(function(){var i=document.getElementById('SPM-PASS');if(i)i.focus();},100);
+  function cerrar(){ document.body.removeChild(ov); }
+  ov.onclick=cerrar;
+  ov.querySelector('.modal').onclick=function(e){e.stopPropagation();};
+  ov.querySelector('#SPM-CANCEL').onclick=cerrar;
+  ov.querySelector('#SPM-OK').onclick=function(){
+    var pass=(document.getElementById('SPM-PASS').value||'').trim();
+    var errEl=document.getElementById('SPM-ERR');
+    if(!pass||pass.length<6){ if(errEl) errEl.textContent='Mínimo 6 caracteres'; return; }
+    cerrar();
+    if(cfg.onOk) cfg.onOk(pass);
+  };
+}
+
+function showEditPagoModal(cfg){
+  // cfg: { nCuota, cuota, valorActual, metodoActual, onOk(val, met) }
+  var ov=document.createElement('div');
+  ov.className='mov'; ov.style.zIndex='9000';
+  var metEf=cfg.metodoActual!=='nequi';
+  ov.innerHTML=
+    '<div class="modal" onclick="event.stopPropagation()" style="max-width:380px">'+
+      '<h3 style="font-size:13px;font-weight:700;color:var(--bd);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">Editar cobro — cuota '+cfg.nCuota+'</h3>'+
+      '<div style="font-size:12px;color:var(--tm);margin-bottom:14px">Cuota pactada: <strong style="color:var(--bd)">'+fm(cfg.cuota)+'</strong></div>'+
+      '<div class="fg2"><label style="font-size:11px;font-weight:700;color:var(--bl);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px">Valor del cobro</label>'+
+      '<input type="text" inputmode="numeric" id="EPM-VAL" value="'+(cfg.valorActual||cfg.cuota).toLocaleString('es-CO')+'" style="width:100%;padding:9px 12px;font-size:15px;font-weight:700;font-family:inherit;border:1px solid var(--br);border-radius:var(--rs);background:var(--wh);color:var(--tx)"></div>'+
+      '<input type="hidden" id="EPM-VAL-N" value="'+(cfg.valorActual||cfg.cuota)+'">'+
+      '<div class="fg2" style="margin-top:12px"><label style="font-size:11px;font-weight:700;color:var(--bl);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:8px">Método de pago</label>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
+        '<div id="EPM-EF" onclick="selEPM(\'efectivo\')" style="padding:10px;border-radius:8px;border:2px solid '+(metEf?'#2E7D32':'var(--br)')+';background:'+(metEf?'#E8F5E9':'var(--wh)')+';cursor:pointer;text-align:center">'+
+          '<div style="font-size:18px">💵</div><div style="font-size:12px;font-weight:700;color:'+(metEf?'#2E7D32':'var(--tm)')+'">Efectivo</div></div>'+
+        '<div id="EPM-NQ" onclick="selEPM(\'nequi\')" style="padding:10px;border-radius:8px;border:2px solid '+(!metEf?'#6A1B9A':'var(--br)')+';background:'+(!metEf?'#F3E5F5':'var(--wh)')+';cursor:pointer;text-align:center">'+
+          '<div style="font-size:18px">📱</div><div style="font-size:12px;font-weight:700;color:'+(!metEf?'#6A1B9A':'var(--tm)')+'">Nequi</div></div>'+
+      '</div></div>'+
+      '<input type="hidden" id="EPM-MET" value="'+(cfg.metodoActual||'efectivo')+'">'+
+      '<div class="mf">'+
+        '<button class="bg2 bs" id="EPM-CANCEL">Cancelar</button>'+
+        '<button class="bp bs" id="EPM-OK">Guardar cambio</button>'+
+      '</div>'+
+    '</div>';
+  document.body.appendChild(ov);
+  ov.style.display='flex';
+  setTimeout(function(){var i=document.getElementById('EPM-VAL');if(i){i.focus();i.select();}},100);
+  document.getElementById('EPM-VAL').oninput=function(){
+    var raw=this.value.replace(/[^0-9]/g,'');
+    document.getElementById('EPM-VAL-N').value=raw;
+    if(raw) this.value=parseInt(raw,10).toLocaleString('es-CO');
+  };
+  function cerrar(){ document.body.removeChild(ov); }
+  ov.onclick=cerrar;
+  ov.querySelector('.modal').onclick=function(e){e.stopPropagation();};
+  document.getElementById('EPM-CANCEL').onclick=cerrar;
+  document.getElementById('EPM-OK').onclick=function(){
+    var val=parseFloat(document.getElementById('EPM-VAL-N').value)||0;
+    var met=document.getElementById('EPM-MET').value;
+    if(!val||val<=0){toast('Valor inválido','err');return;}
+    cerrar();
+    if(cfg.onOk) cfg.onOk(val,met);
+  };
+}
+window.selEPM=function(met){
+  document.getElementById('EPM-MET').value=met;
+  var ef=met==='efectivo';
+  document.getElementById('EPM-EF').style.borderColor=ef?'#2E7D32':'var(--br)';
+  document.getElementById('EPM-EF').style.background=ef?'#E8F5E9':'var(--wh)';
+  document.getElementById('EPM-EF').querySelector('div:last-child').style.color=ef?'#2E7D32':'var(--tm)';
+  document.getElementById('EPM-NQ').style.borderColor=!ef?'#6A1B9A':'var(--br)';
+  document.getElementById('EPM-NQ').style.background=!ef?'#F3E5F5':'var(--wh)';
+  document.getElementById('EPM-NQ').querySelector('div:last-child').style.color=!ef?'#6A1B9A':'var(--tm)';
+};
 
 // ── PROTECCIÓN CAMBIO DE DÍA ──────────────────
 // Recalcula HOY e ISO en cada operación crítica.
@@ -1324,7 +1453,6 @@ function doLogin(){
       fcMes=ISO.slice(0,7);
       buildNav(); cargarParams(); goto('dash'); subAll();
       iniciarWatchMedianoche();
-      setTimeout(function(){cierreAutomatico();},4000);
       setTimeout(function(){
         toast('✓ Bienvenido, '+CU.nombre.split(' ')[0],'ok');
       }, 1000);
@@ -1464,7 +1592,7 @@ function rDash(){
   var rutaFil=CU.rol==='admin'?_rutaDash:CU.rutaId;
   // Filtro ruta para admin
   var filEl=document.getElementById('DASH-FIL');
-  if(filEl) filEl.style.display=CU.rol==='admin'?'flex':'none';
+  if(filEl) filEl.style.display=(CU.rol==='admin'&&ST.rutas.length>1)?'flex':'none';
   if(CU.rol==='admin'){
     var sel=document.getElementById('DASH-RUT');
     if(sel){
@@ -1536,7 +1664,7 @@ function rCob(){
   }
   if(CU.rol==='admin'){
     var filEl=document.getElementById('COB-FIL');
-    if(filEl) filEl.style.display='flex';
+    if(filEl) filEl.style.display=ST.rutas.length>1?'flex':'none';
     var sel=document.getElementById('COB-RUT');
     if(sel){
       var _prev_COB_RUT=sel.value;
@@ -1659,29 +1787,38 @@ function editarPago(pid, nCuota, dia){
   var i=pI(p);
   var pg=p.pagos||{};
   var pagoActual=pg[nCuota]||{};
-  var nuevoVal=prompt('Valor del pago (cuota '+nCuota+'):', pagoActual.valor||Math.round(i.c));
-  if(!nuevoVal) return;
-  var val=parseFloat(nuevoVal);
-  if(isNaN(val)||val<=0){toast('Valor inválido','err');return;}
-  var metodos=['efectivo','nequi'];
-  var metActual=pagoActual.metodo||'efectivo';
-  var metNuevo=confirm('¿Método Nequi? (Cancelar = Efectivo)')?'nequi':'efectivo';
-  var pgNuevo=Object.assign({},pg);
-  pgNuevo[nCuota]=Object.assign({},pagoActual,{valor:Math.round(val),metodo:metNuevo,editadoPor:{nombre:CU.nombre,rol:CU.rol},editadoAt:Date.now()});
-  db.collection('prestamos').doc(pid).update({pagos:pgNuevo,updatedAt:Date.now()})
-    .then(function(){toast('Pago actualizado','ok');})
-    .catch(function(e){toast('Error al crear crédito: '+e.message,'err');console.error('sCredito error:',e);});
+  showEditPagoModal({
+    nCuota:nCuota,
+    cuota:Math.round(i.c),
+    valorActual:pagoActual.valor||Math.round(i.c),
+    metodoActual:pagoActual.metodo||'efectivo',
+    onOk:function(val,met){
+      var pgNuevo=Object.assign({},pg);
+      pgNuevo[nCuota]=Object.assign({},pagoActual,{valor:Math.round(val),metodo:met,editadoPor:{nombre:CU.nombre,rol:CU.rol},editadoAt:Date.now()});
+      db.collection('prestamos').doc(pid).update({pagos:pgNuevo,updatedAt:Date.now()})
+        .then(function(){toast('Pago actualizado','ok');clearCache();refSc();})
+        .catch(function(e){toast('Error al actualizar pago: '+e.message,'err');console.error(e);});
+    }
+  });
 }
 
 // Eliminar un pago
 function eliminarPago(pid, nCuota){
-  if(!confirm('¿Eliminar el cobro de la cuota '+nCuota+'?')) return;
-  var p=gP(pid); if(!p) return;
-  var pgNuevo=Object.assign({},p.pagos||{});
-  delete pgNuevo[nCuota];
-  db.collection('prestamos').doc(pid).update({pagos:pgNuevo,updatedAt:Date.now()})
-    .then(function(){toast('Pago eliminado','ok');})
-    .catch(function(e){toast('Error','err');console.error(e);});
+  showModal({
+    title:'Eliminar cobro',
+    icon:'🗑️', iconColor:'#FFEBEE',
+    body:'¿Eliminar el cobro de la cuota <strong>'+nCuota+'</strong>?',
+    detail:'Esta acción marcará la cuota como no pagada.',
+    btnOk:'Sí, eliminar', danger:true,
+    onOk:function(){
+      var p=gP(pid); if(!p) return;
+      var pgNuevo=Object.assign({},p.pagos||{});
+      delete pgNuevo[nCuota];
+      db.collection('prestamos').doc(pid).update({pagos:pgNuevo,updatedAt:Date.now()})
+        .then(function(){toast('Pago eliminado','ok');clearCache();refSc();})
+        .catch(function(e){toast('Error','err');console.error(e);});
+    }
+  });
 }
 
 
@@ -1693,7 +1830,9 @@ function rFlujo(){
     return '<button class="mb'+(m===fcMes?' active':'')+'" onclick="setFCMes(this.dataset.m)" data-m="'+m+'">'+(MESES[parseInt(m.slice(5,7))-1]||'')+' '+m.slice(0,4)+'</button>';
   }).join('');
 
-  // Filtro ruta
+  // Filtro ruta — solo visible si hay más de una ruta
+  var fcRutaFil=document.getElementById('FC-RUTA-FIL');
+  if(fcRutaFil) fcRutaFil.style.display=(CU.rol==='admin'&&ST.rutas.length>1)?'flex':'none';
   var rutaSel=document.getElementById('FC-RUTA');
   var curRuta=rutaSel.value;
   rutaSel.innerHTML='<option value="">Todas</option>'+ST.rutas.map(function(r){return '<option value="'+r.id+'">'+r.nombre+'</option>';}).join('');
@@ -1951,6 +2090,17 @@ function fd2(d){try{return new Date(d+'T12:00:00').toLocaleDateString('es-CO',{d
 function rCie(){
   document.getElementById('CF').textContent=HOY.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   var rutaFil = CU.rol==='admin' ? _rutaCie : CU.rutaId;
+  // Mostrar filtro de ruta solo si hay más de una ruta
+  var filCie=document.getElementById('FIL-Cie');
+  if(filCie) filCie.style.display=(CU.rol==='admin'&&ST.rutas.length>1)?'flex':'none';
+  if(CU.rol==='admin'&&ST.rutas.length>1){
+    var selCie=document.getElementById('SEL-Cie');
+    if(selCie){
+      var curCie=_rutaCie||'';
+      selCie.innerHTML='<option value="">Todas las rutas</option>'+
+        ST.rutas.map(function(r){return '<option value="'+r.id+'"'+(r.id===curCie?' selected':'')+'>'+r.nombre+'</option>';}).join('');
+    }
+  }
   var rutas = CU.rol==='admin'
     ? (rutaFil ? ST.rutas.filter(function(r){return r.id===rutaFil;}) : ST.rutas)
     : ST.rutas.filter(function(r){return r.id===CU.rutaId;});
@@ -2111,7 +2261,7 @@ function rRec(){
   var rutaFil=CU.rol==='admin'?_rutaRec:CU.rutaId;
   if(CU.rol==='admin'){
     var filEl=document.getElementById('REC-FIL');
-    if(filEl) filEl.style.display='flex';
+    if(filEl) filEl.style.display=ST.rutas.length>1?'flex':'none';
     var sel=document.getElementById('REC-RUT');
     if(sel){
       var _prev_REC_RUT=sel.value;
@@ -2180,7 +2330,7 @@ function rCli(){
   var rutaFil=CU.rol==='admin'?_rutaCli:CU.rutaId;
   if(CU.rol==='admin'){
     var filEl=document.getElementById('FIL-Cli');
-    if(filEl) filEl.style.display='flex';
+    if(filEl) filEl.style.display=ST.rutas.length>1?'flex':'none';
   }
   var q=(document.getElementById('SCI')?document.getElementById('SCI').value:'').trim().toLowerCase();
   var clis=rutaFil?ST.clientes.filter(function(c){return c.rutaId===rutaFil;}):myC();
@@ -2272,7 +2422,7 @@ function rMor(){
   var rutaFil=CU.rol==='admin'?_rutaMor:CU.rutaId;
   if(CU.rol==='admin'){
     var morFilEl=document.getElementById('MOR-FIL');
-    if(morFilEl) morFilEl.style.display='flex';
+    if(morFilEl) morFilEl.style.display=ST.rutas.length>1?'flex':'none';
     poblarSel('MOR-RUT', _rutaMor);
   }
   var pres=rutaFil
@@ -2885,16 +3035,7 @@ function sRuta(){
   // PASO 1: Crear usuario en Firebase Auth PRIMERO
   var secondaryApp;
   try{ secondaryApp=firebase.app('secondary'); }
-  catch(e){
-    secondaryApp=firebase.initializeApp({
-      apiKey:"AIzaSyC4sD1rP2zidvXKEvX4NtGwdkUs5QSBOuQ",
-      authDomain:"rutacobro-d7737.firebaseapp.com",
-      projectId:"rutacobro-d7737",
-      storageBucket:"rutacobro-d7737.firebasestorage.app",
-      messagingSenderId:"541736943619",
-      appId:"1:541736943619:web:aa37087558ee177b008e36"
-    },'secondary');
-  }
+  catch(e){ secondaryApp=firebase.initializeApp(FIREBASE_CONFIG,'secondary'); }
   var secAuth=secondaryApp.auth();
 
   toast('Creando usuario...','ok');
@@ -2957,93 +3098,50 @@ function sRuta(){
       }
     });
 }
-function cambiarPasswordCobrador(rutaId){
-  var u=ST.usuarios.filter(function(x){return x.rutaId===rutaId;})[0];
-  if(!u){toast('No hay cobrador asignado en esta ruta','err');return;}
-  var emailInterno=u.email||toAuthEmail(u.user||'');
-  var newPass=prompt('Nueva contraseña para '+u.nombre+'\n(mínimo 6 caracteres)');
-  if(!newPass) return;
-  if(newPass.length<6){toast('Mínimo 6 caracteres','err');return;}
-  var secondaryApp;
-  try{ secondaryApp=firebase.app('secondary'); }
-  catch(e){
-    secondaryApp=firebase.initializeApp({
-      apiKey:"AIzaSyC4sD1rP2zidvXKEvX4NtGwdkUs5QSBOuQ",
-      authDomain:"rutacobro-d7737.firebaseapp.com",
-      projectId:"rutacobro-d7737",
-      storageBucket:"rutacobro-d7737.firebasestorage.app",
-      messagingSenderId:"541736943619",
-      appId:"1:541736943619:web:aa37087558ee177b008e36"
-    },'secondary');
-  }
-  var secAuth=secondaryApp.auth();
-  var uData={nombre:u.nombre,user:u.user,email:emailInterno,
-    rol:'ruta',rutaId:rutaId,updatedAt:Date.now(),createdAt:u.createdAt||Date.now()};
-  secAuth.createUserWithEmailAndPassword(emailInterno,newPass)
-    .then(function(cred){
-      secAuth.signOut();
-      return db.collection('usuarios').doc(cred.user.uid).set(uData);
-    })
-    .then(function(){
-      toast('✓ Contraseña creada. '+u.nombre+' ya puede ingresar.','ok');
-    })
-    .catch(function(e){
-      if(e.code==='auth/email-already-in-use'){
-        secAuth.signInWithEmailAndPassword(emailInterno,newPass)
-          .then(function(cred2){
-            secAuth.signOut();
-            return db.collection('usuarios').doc(cred2.user.uid).set(uData);
-          })
-          .then(function(){toast('✓ Cobrador vinculado. Ya puede ingresar.','ok');})
-          .catch(function(){
-            toast('Contraseña incorrecta. Ve a Firebase Console → Authentication → elimina '+emailInterno+' y vuelve a intentar.','err');
-          });
-      } else {
-        toast('Error: '+e.message,'err');
-        console.error(e);
-      }
-    });
+// ── Helper app secundaria Firebase (para crear cobradores sin cerrar sesión admin) ──
+function getSecondaryAuth(){
+  var app;
+  try{ app=firebase.app('secondary'); }
+  catch(e){ app=firebase.initializeApp(FIREBASE_CONFIG,'secondary'); }
+  return app.auth();
 }
 
 function cambiarPasswordCobrador(rutaId){
   var u=ST.usuarios.filter(function(x){return x.rutaId===rutaId;})[0];
   if(!u){toast('No hay cobrador asignado en esta ruta','err');return;}
   var emailInterno=u.email||toAuthEmail(u.user||'');
-  var newPass=prompt('Nueva contraseña para '+u.nombre+'\n(mínimo 6 caracteres)\nEmail Auth: '+emailInterno);
-  if(!newPass){return;}
-  if(newPass.length<6){toast('Mínimo 6 caracteres','err');return;}
-  var secAuth=getSecondaryAuth();
-  var uData={nombre:u.nombre,user:u.user,email:emailInterno,
-    rol:'ruta',rutaId:rutaId,updatedAt:Date.now(),createdAt:u.createdAt||Date.now()};
-  // Intentar crear (si no existe en Auth)
-  secAuth.createUserWithEmailAndPassword(emailInterno,newPass)
-    .then(function(cred){
-      secAuth.signOut();
-      // Crear/actualizar doc en Firestore con el nuevo UID
-      return db.collection('usuarios').doc(cred.user.uid).set(uData);
-    })
-    .then(function(){
-      toast('✓ Contraseña creada para '+u.nombre+'. Ya puede ingresar.','ok');
-    })
-    .catch(function(e){
-      if(e.code==='auth/email-already-in-use'){
-        // Existe en Auth → hacer login con esa cuenta y cambiar password
-        secAuth.signInWithEmailAndPassword(emailInterno, newPass)
-          .then(function(cred2){
-            // Si llegó aquí es que la contraseña YA es la nueva
-            secAuth.signOut();
-            toast('✓ La contraseña ya estaba actualizada. Puede ingresar.','ok');
-          })
-          .catch(function(){
-            // No pudo entrar → la contraseña vieja es diferente
-            // Último recurso: borrar registro de Firestore y pedir que borre Auth manualmente
-            toast('⚠️ El usuario existe en Firebase Auth con otra contraseña.\nVe a Firebase Console → Authentication → Users → busca '+emailInterno+' → elimínalo → vuelve a intentar.','err');
-          });
-      } else {
-        toast('Error: '+e.message,'err');
-        console.error(e);
-      }
-    });
+  showPassModal({
+    nombre:u.nombre,
+    email:emailInterno,
+    onOk:function(newPass){
+      var secAuth=getSecondaryAuth();
+      var uData={nombre:u.nombre,user:u.user,email:emailInterno,
+        rol:'ruta',rutaId:rutaId,updatedAt:Date.now(),createdAt:u.createdAt||Date.now()};
+      secAuth.createUserWithEmailAndPassword(emailInterno,newPass)
+        .then(function(cred){
+          secAuth.signOut();
+          return db.collection('usuarios').doc(cred.user.uid).set(uData);
+        })
+        .then(function(){
+          toast('✓ Contraseña creada para '+u.nombre+'. Ya puede ingresar.','ok');
+        })
+        .catch(function(e){
+          if(e.code==='auth/email-already-in-use'){
+            secAuth.signInWithEmailAndPassword(emailInterno, newPass)
+              .then(function(cred2){
+                secAuth.signOut();
+                toast('✓ La contraseña ya estaba actualizada. Puede ingresar.','ok');
+              })
+              .catch(function(){
+                toast('⚠️ El usuario existe con otra contraseña. Ve a Firebase Console → Authentication → Users → elimina '+emailInterno+' → vuelve a intentar.','err');
+              });
+          } else {
+            toast('Error: '+e.message,'err');
+            console.error(e);
+          }
+        });
+    }
+  });
 }
 
 // VER CLIENTE
@@ -3455,7 +3553,7 @@ function rGas(){
   var rutaFil=CU.rol==='admin'?_rutaGas:CU.rutaId;
   if(CU.rol==='admin'){
     var filEl=document.getElementById('GAS-FIL');
-    if(filEl) filEl.style.display='flex';
+    if(filEl) filEl.style.display=ST.rutas.length>1?'flex':'none';
     var sel=document.getElementById('GAS-RSEL');
     if(sel){
       var _prev_GAS_RSEL=sel.value;
@@ -3571,10 +3669,19 @@ function sGasto(){
 }
 
 function dGasto(id){
-  if(!confirm('¿Eliminar este gasto?'))return;
-  db.collection('gastos').doc(id).delete()
-    .then(function(){toast('Eliminado');rGas();})
-    .catch(function(e){toast('Error','err');console.error(e);});
+  var g=ST.gastos.find(function(x){return x.id===id;});
+  showModal({
+    title:'Eliminar gasto',
+    icon:'🗑️', iconColor:'#FFEBEE',
+    body:'¿Eliminar el gasto <strong>'+(g?g.concepto:'seleccionado')+'</strong>?',
+    detail:'Esta acción no se puede deshacer.',
+    btnOk:'Sí, eliminar', danger:true,
+    onOk:function(){
+      db.collection('gastos').doc(id).delete()
+        .then(function(){toast('Gasto eliminado','ok');rGas();})
+        .catch(function(e){toast('Error','err');console.error(e);});
+    }
+  });
 }
 
 
@@ -3811,12 +3918,21 @@ function sEditPre(){
 function eliminarPre(pid){
   var p=gP(pid); if(!p)return;
   if(p.fechaInicio!==ISO){toast('Solo se pueden eliminar préstamos creados hoy','err');return;}
-  if(!confirm('¿Eliminar este préstamo? También se eliminará el seguro asociado.'))return;
-  var segAnt=ST.seguros.find(function(s){return s.prestamoId===pid&&s.tipo==='ingreso';});
-  db.collection('prestamos').doc(pid).delete().then(function(){
-    if(segAnt) return db.collection('seguros').doc(segAnt.id).delete();
-  }).then(function(){toast('Préstamo eliminado','ok');cM('m-det');})
-    .catch(function(e){toast('Error','err');console.error(e);});
+  var c=gC(p.clienteId);
+  showModal({
+    title:'Eliminar préstamo',
+    icon:'🗑️', iconColor:'#FFEBEE',
+    body:'¿Eliminar el préstamo de <strong>'+(c?c.nombre:'este cliente')+'</strong>?',
+    detail:fm(p.capital)+' · '+p.dias+' días · También se eliminará el seguro asociado.',
+    btnOk:'Sí, eliminar', danger:true,
+    onOk:function(){
+      var segAnt=ST.seguros.find(function(s){return s.prestamoId===pid&&s.tipo==='ingreso';});
+      db.collection('prestamos').doc(pid).delete().then(function(){
+        if(segAnt) return db.collection('seguros').doc(segAnt.id).delete();
+      }).then(function(){toast('Préstamo eliminado','ok');cM('m-det');clearCache();refSc();})
+        .catch(function(e){toast('Error','err');console.error(e);});
+    }
+  });
 }
 
 // ══════════════════════════════════════════════
@@ -4447,25 +4563,36 @@ async function restaurarBackup(archivo){
     var texto=await archivo.text();
     var bk=JSON.parse(texto);
     if(!bk.colecciones){toast('Archivo inválido','err');return;}
-    if(!confirm('¿Restaurar backup del '+new Date(bk.fecha).toLocaleDateString('es-CO')+'?\n\nSobreescribirá los datos actuales. ¿Continuar?'))return;
-    toast('Restaurando...','');
-    var cols=Object.keys(bk.colecciones);
-    var total=0;
-    for(var i=0;i<cols.length;i++){
-      var col=cols[i];
-      var docs=bk.colecciones[col]||[];
-      if(!docs.length) continue;
-      var batch=db.batch();
-      docs.forEach(function(doc){
-        var id=doc._id;
-        var data=Object.assign({},doc); delete data._id;
-        batch.set(db.collection(col).doc(id),data);
-        total++;
-      });
-      await batch.commit();
-    }
-    toast('Restaurado: '+total+' registros','ok');
-  }catch(e){toast('Error al restaurar','err');console.error(e);}
+    var fechaBk=new Date(bk.fecha).toLocaleDateString('es-CO');
+    showModal({
+      title:'Restaurar backup',
+      icon:'⚠️', iconColor:'#FFF3E0',
+      body:'¿Restaurar el backup del <strong>'+fechaBk+'</strong>?',
+      detail:'Sobreescribirá todos los datos actuales. Esta acción no se puede deshacer.',
+      btnOk:'Sí, restaurar', danger:true,
+      onOk:async function(){
+        toast('Restaurando...','');
+        try{
+          var cols=Object.keys(bk.colecciones);
+          var total=0;
+          for(var i=0;i<cols.length;i++){
+            var col=cols[i];
+            var docs=bk.colecciones[col]||[];
+            if(!docs.length) continue;
+            var batch=db.batch();
+            docs.forEach(function(doc){
+              var id=doc._id;
+              var data=Object.assign({},doc); delete data._id;
+              batch.set(db.collection(col).doc(id),data);
+              total++;
+            });
+            await batch.commit();
+          }
+          toast('Restaurado: '+total+' registros','ok');
+        }catch(e){toast('Error al restaurar','err');console.error(e);}
+      }
+    });
+  }catch(e){toast('Error al leer archivo','err');console.error(e);}
 }
 
 
@@ -4607,6 +4734,21 @@ function subAll(){
   setSy('cn');
   var cols=['rutas','clientes','prestamos','gastos','cierres','bases','seguros','reembolsos'];
   var loaded=0;
+
+  // Detecta si el error es por sesión expirada y cierra automáticamente
+  function manejarErrorAuth(e, origen){
+    console.error(origen, e);
+    var erroresAuth=['permission-denied','unauthenticated','auth/network-request-failed'];
+    var esAuth=erroresAuth.some(function(c){return (e.code||'').includes(c);});
+    if(esAuth){
+      console.warn('Sesión expirada o sin permisos — cerrando sesión automáticamente');
+      toast('Tu sesión expiró. Inicia sesión nuevamente.','err');
+      setTimeout(function(){ cerrarSesion(); }, 2000);
+    } else {
+      setSy('offline');
+    }
+  }
+
   // Cargar todo con get() primero para mostrar datos rápido
   Promise.all(cols.map(function(col){
     return db.collection(col).get().then(function(snap){
@@ -4628,25 +4770,26 @@ function subAll(){
         if(snap.docChanges().length>0||newData.length!==oldLen){
           refSc();
         }
-      },function(e){console.error(col,e);setSy('offline');});
+      },function(e){ manejarErrorAuth(e, col); });
       unsubs.push(u);
     });
     // Usuarios
     var uU=db.collection('usuarios').onSnapshot(function(snap){
       ST.usuarios=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
-    },function(e){console.error('usuarios',e);});
+    },function(e){ manejarErrorAuth(e,'usuarios'); });
     unsubs.push(uU);
   }).catch(function(e){
-    console.error('subAll error:',e);
-    setSy('offline');
-    // Intentar solo con onSnapshot si get() falla
-    cols.forEach(function(col){
-      var u=db.collection(col).onSnapshot(function(snap){
-        ST[col]=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
-        setSy('online');refSc();
-      },function(e2){console.error(col,e2);});
-      unsubs.push(u);
-    });
+    manejarErrorAuth(e,'subAll-inicial');
+    // Intentar solo con onSnapshot si get() falla por razón no-auth
+    if(!(e.code||'').includes('permission-denied')&&!(e.code||'').includes('unauthenticated')){
+      cols.forEach(function(col){
+        var u=db.collection(col).onSnapshot(function(snap){
+          ST[col]=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+          setSy('online');refSc();
+        },function(e2){ manejarErrorAuth(e2, col); });
+        unsubs.push(u);
+      });
+    }
   });
 }
 
