@@ -7,7 +7,7 @@
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>RutaCobro v35.2</title>
-<meta name="build" content="rcv35.2-multi-credito">
+<meta name="build" content="rcv35.3-fix-syntax">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -1021,7 +1021,7 @@ function showEditPagoModal(cfg){
     if(cfg.onOk) cfg.onOk(val,met);
   };
 }
-window.selEPM=function(met){
+function selEPM(met){
   document.getElementById('EPM-MET').value=met;
   var ef=met==='efectivo';
   document.getElementById('EPM-EF').style.borderColor=ef?'#2E7D32':'var(--br)';
@@ -1030,7 +1030,7 @@ window.selEPM=function(met){
   document.getElementById('EPM-NQ').style.borderColor=!ef?'#6A1B9A':'var(--br)';
   document.getElementById('EPM-NQ').style.background=!ef?'#F3E5F5':'var(--wh)';
   document.getElementById('EPM-NQ').querySelector('div:last-child').style.color=!ef?'#6A1B9A':'var(--tm)';
-};
+}
 
 // ── PROTECCIÓN CAMBIO DE DÍA ──────────────────
 // Recalcula HOY e ISO en cada operación crítica.
@@ -2178,7 +2178,6 @@ function rCie(){
         if(pago.esParcial&&tienePCie) return;
         var v=pago.valor||0;
         if(pago.metodo==='nequi') recNq+=v; else recEf+=v;
-      });
       });
     });
     var rec=recEf+recNq;
