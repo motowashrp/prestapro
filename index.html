@@ -6,8 +6,8 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>RutaCobro v34.5</title>
-<meta name="build" content="rcv34.5-fix-base">
+<title>RutaCobro v35.2</title>
+<meta name="build" content="rcv35.2-multi-credito">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -1144,9 +1144,11 @@ function pI(p) {
     var n=parseInt(k);
     var pago=pagos[k];
     if(!pago) return;
-    // Sumar registros ab_ISO (abonos desde detalle del cliente)
-    if(pago.esAbono&&pago.esPrincipal){
-      valorCobrado+=(pago.valor||0);
+    // Sumar registros ab_ISO — compatibilidad con formato antiguo (esPrincipal) y nuevo (esHistorial)
+    if(pago.esAbono&&(pago.esPrincipal||pago.esHistorial)){
+      // Solo sumar si NO hay cuota numerada esPrincipal que ya lo contabilice
+      var nAb=parseInt(k); // ab_FECHA → NaN, no es numérico
+      if(isNaN(nAb)) valorCobrado+=(pago.valor||0);
       return;
     }
     if(!isNaN(n)&&n>=1&&n<=p.dias){
@@ -1237,16 +1239,21 @@ function recaudoDia(rutaId, fecha) {
   var cIds = ST.clientes.filter(function(c){return !rutaId||c.rutaId===rutaId;}).map(function(c){return c.id;});
   ST.prestamos.filter(function(p){return cIds.indexOf(p.clienteId)>=0;}).forEach(function(p){
     var pagos=p.pagos||{};
-    // Sumar pagos del día: solo cuotas principales (que tienen el valor total)
-    // Las adicionales tienen valor=0 para evitar doble conteo
-    var tieneP=Object.keys(pagos).some(function(k){
-      return pagos[k]&&pagos[k].fecha===fecha&&pagos[k].esPrincipal;
-    });
     Object.keys(pagos).forEach(function(k){
       var pg=pagos[k];
-      if(!pg||pg.fecha!==fecha||pg.esAdicional) return;
-      // Parcial solo suma si no hay cuota principal ese día (abono directo)
-      if(pg.esParcial&&tieneP) return;
+      if(!pg||pg.fecha!==fecha) return;
+      if(pg.esAdicional) return;       // cuotas adicionales valor:0 → ignorar
+      if(pg.esHistorial) return;       // ab_ISO historial → ignorar (valor ya en cuota)
+      if(pg.esAbono&&pg.esPrincipal&&!pg.esHistorial){
+        // ab_ISO antiguo (antes del fix) → sumar para compatibilidad
+        // Solo si NO hay cuota numerada esPrincipal ese día con el mismo valor
+        var yaEnCuota=Object.keys(pagos).some(function(k2){
+          return !k2.startsWith('ab_')&&pagos[k2]&&
+                 pagos[k2].fecha===fecha&&pagos[k2].esPrincipal;
+        });
+        if(!yaEnCuota) tot+=(pg.valor||0);
+        return;
+      }
       tot += pg.valor||0;
     });
   });
@@ -1312,10 +1319,16 @@ function difCierreEfNq(rutaId, fecha){
   ST.prestamos.filter(function(p){return cIds.indexOf(p.clienteId)>=0;}).forEach(function(p){
     Object.keys(p.pagos||{}).forEach(function(k){
       var pg=p.pagos[k];
-      // Excluir adicionales y parciales (igual que recaudoEfNq)
-      if(pg&&pg.fecha===fecha&&!pg.esAdicional&&!pg.esParcial){
-        if(pg.metodo==='nequi') recNq+=pg.valor||0; else recEf+=pg.valor||0;
+      if(!pg||pg.fecha!==fecha) return;
+      if(pg.esAdicional||pg.esParcial||pg.esHistorial) return; // excluir historial ab_ISO
+      // ab_ISO antiguo (esPrincipal sin esHistorial): incluir solo si no hay cuota numerada ese día
+      if(pg.esAbono&&pg.esPrincipal){
+        var yaEnCuota=Object.keys(p.pagos).some(function(k2){
+          return !k2.startsWith('ab_')&&p.pagos[k2]&&p.pagos[k2].fecha===fecha&&p.pagos[k2].esPrincipal;
+        });
+        if(yaEnCuota) return;
       }
+      if(pg.metodo==='nequi') recNq+=pg.valor||0; else recEf+=pg.valor||0;
     });
   });
   var b=baseDia(rutaId,fecha);
@@ -1460,6 +1473,7 @@ function doLogin(){
       // Verificar cierres pendientes después de que carguen los datos
       setTimeout(function(){
         cierreAutomatico();
+        migrarAbonosV1(); // corrección única de abonos mal guardados
       }, 4000);
     })
     .catch(function(e){
@@ -1751,10 +1765,42 @@ function rCob(){
       '<td><button class="btn-cobrar" data-pid="'+p.id+'" data-n="'+cuotaCobrar+'" data-c="'+Math.round(i.c)+'" data-nom="'+c.nombre.replace(/"/g,'').replace(/'/g,'')+'" style="padding:4px 12px;background:'+bgBtn+';color:#fff;border:none;border-radius:var(--rs);font-size:12px;cursor:pointer;font-family:inherit">Cobrar</button></td>'+
     '</tr>';
 
-    filas.push({ord:c.orden||999, html:html});
+    filas.push({ord:c.orden||999, clienteId:p.clienteId, nombreCli:c.nombre, html:html});
   });
 
   filas.sort(function(a,b){return a.ord-b.ord;});
+
+  // Agrupar filas por cliente para detectar múltiples créditos
+  var filasAgrupadas=[];
+  var clientesVistos={};
+  filas.forEach(function(f){
+    var cid=f.clienteId;
+    if(clientesVistos[cid]===undefined){
+      clientesVistos[cid]=filasAgrupadas.length;
+      filasAgrupadas.push({clienteId:cid, filas:[f]});
+    } else {
+      filasAgrupadas[clientesVistos[cid]].filas.push(f);
+    }
+  });
+
+  var htmlFinal='';
+  filasAgrupadas.forEach(function(grupo){
+    if(grupo.filas.length>1){
+      // Cliente con múltiples créditos — agregar fila de encabezado
+      var nombreCli=grupo.filas[0].nombreCli||'';
+      htmlFinal+='<tr style="background:#E3F2FD;border-top:2px solid #1565C0">'+
+        '<td colspan="7" style="padding:5px 10px;font-size:11px;font-weight:700;color:#1565C0;letter-spacing:.03em">'+
+          '👤 '+nombreCli+
+          ' <span style="background:#1565C0;color:#fff;border-radius:20px;padding:1px 8px;font-size:10px;margin-left:6px">'+
+            grupo.filas.length+' créditos activos'+
+          '</span>'+
+        '</td>'+
+      '</tr>';
+      grupo.filas.forEach(function(f){ htmlFinal+=f.html; });
+    } else {
+      htmlFinal+=grupo.filas[0].html;
+    }
+  });
 
   document.getElementById('COB-MET').innerHTML=
     '<div class="me"><div class="lb">Estimado</div><div class="vl">'+fm(estimado)+'</div><div class="sb2">Cuotas del día</div></div>'+
@@ -1764,7 +1810,7 @@ function rCob(){
     '<div class="me"><div class="lb">Pendiente</div><div class="vl '+(pendiente>0?'gn2':'')+'">'+fm(pendiente)+'</div></div>';
 
   var tbody=document.getElementById('COB-LIST');
-  tbody.innerHTML=filas.map(function(f){return f.html;}).join('')||
+  tbody.innerHTML=htmlFinal||
     '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--tm)">'+String.fromCharCode(10003)+' Sin cobros pendientes</td></tr>';
 
   // Event delegation: un solo listener en el tbody
@@ -2117,13 +2163,22 @@ function rCie(){
       var pg=p.pagos||{};
       Object.keys(pg).forEach(function(k){
         var pago=pg[k];
-        var tienePCie=Object.keys(pg).some(function(k2){
-            return pg[k2]&&pg[k2].fecha===ISO&&pg[k2].esPrincipal;
+        if(!pago||pago.fecha!==ISO) return;
+        if(pago.esAdicional||pago.esHistorial) return; // excluir
+        // ab_ISO antiguo: incluir solo si no hay cuota numerada ese día
+        if(pago.esAbono&&pago.esPrincipal){
+          var yaEnCuota=Object.keys(pg).some(function(k2){
+            return !k2.startsWith('ab_')&&pg[k2]&&pg[k2].fecha===ISO&&pg[k2].esPrincipal;
           });
-        if(pago&&pago.fecha===ISO&&!pago.esAdicional&&!(pago.esParcial&&tienePCie)){
-          var v=pago.valor||0;
-          if(pago.metodo==='nequi') recNq+=v; else recEf+=v;
+          if(yaEnCuota) return;
         }
+        var tienePCie=Object.keys(pg).some(function(k2){
+          return pg[k2]&&pg[k2].fecha===ISO&&pg[k2].esPrincipal&&!k2.startsWith('ab_');
+        });
+        if(pago.esParcial&&tienePCie) return;
+        var v=pago.valor||0;
+        if(pago.metodo==='nequi') recNq+=v; else recEf+=v;
+      });
       });
     });
     var rec=recEf+recNq;
@@ -2285,11 +2340,18 @@ function rRec(){
     // Pagos del día
     Object.keys(pg).forEach(function(k){
       var pago=pg[k];
-      if(!pago||pago.fecha!==ISO||pago.esAdicional) return;
+      if(!pago||pago.fecha!==ISO||pago.esAdicional||pago.esHistorial) return;
+      // ab_ISO antiguo: mostrar solo si no hay cuota numerada ese día
+      if(pago.esAbono&&pago.esPrincipal){
+        var yaEnCuota=Object.keys(pg).some(function(k2){
+          return !k2.startsWith('ab_')&&pg[k2]&&pg[k2].fecha===ISO&&pg[k2].esPrincipal;
+        });
+        if(yaEnCuota) return;
+      }
       // Parcial solo aparece en recaudos si no hay cuota principal ese día
       if(pago.esParcial){
         var tieneP2=Object.keys(pg).some(function(k2){
-          return pg[k2]&&pg[k2].fecha===ISO&&pg[k2].esPrincipal;
+          return pg[k2]&&pg[k2].fecha===ISO&&pg[k2].esPrincipal&&!k2.startsWith('ab_');
         });
         if(tieneP2) return;
       }
@@ -2588,7 +2650,11 @@ function cfCob(){
   // Verificar si ya está cobrada hoy
   var pgActual=p.pagos||{};
   var pagoHoyExiste=Object.keys(pgActual).some(function(k){
-    return pgActual[k]&&pgActual[k].fecha===ISO&&!pgActual[k].esAdicional&&!pgActual[k].esParcial;
+    var pg=pgActual[k];
+    if(!pg||pg.fecha!==ISO) return false;
+    if(pg.esAdicional||pg.esParcial||pg.esHistorial) return false;
+    if(k.startsWith('ab_')) return false; // ab_ISO nunca bloquea cobro normal
+    return true;
   });
   if(pagoHoyExiste){
     toast('Ya hay un cobro registrado hoy para este cliente','err');
@@ -3453,12 +3519,21 @@ function expFlujo(){
           var pago=pg[k];
           if(!pago||!pago.fecha) return;
           if(pago.fecha.slice(0,7)!==fcMes) return;
-          if(pago.esAdicional) return; // excluir adicionales
-          if(pago.esParcial) return;   // excluir parciales
-          if(pago.esAbono) return;     // excluir registros internos ab_ISO
-          if(!pago.esPrincipal) return; // solo cuotas principales
+          if(pago.esAdicional) return;   // cuotas adicionales valor:0 → ignorar
+          if(pago.esHistorial) return;   // ab_ISO historial nuevo → ignorar
+          if(pago.esParcial) return;     // parciales → ignorar en cobros
+          if(!pago.esPrincipal) return;  // solo principales
+          // Para ab_ISO antiguos (antes del fix): incluir solo si no hay cuota numerada ese día
+          if(pago.esAbono){
+            var yaEnCuota=Object.keys(pg).some(function(k2){
+              return !k2.startsWith('ab_')&&pg[k2]&&
+                     pg[k2].fecha===pago.fecha&&pg[k2].esPrincipal;
+            });
+            if(yaEnCuota) return;
+          }
+          var nCuota=k.startsWith('ab_')?'Abono':parseInt(k);
           dataCob.push([pago.fecha,c.nombre,r.nombre,p.capital,
-            parseInt(k),pago.valor||0,
+            nCuota,pago.valor||0,
             pago.metodo==='nequi'?'Nequi':'Efectivo']);
         });
       });
@@ -4144,13 +4219,21 @@ function recaudoEfNq(rutaId, fecha){
     // Sumar todos los pagos cuya fecha de cobro coincide
     Object.keys(pg).forEach(function(k){
       var pago=pg[k];
-      var tienePE=Object.keys(p.pagos||{}).some(function(k2){
-        return p.pagos[k2]&&p.pagos[k2].fecha===fecha&&p.pagos[k2].esPrincipal;
-      });
-      if(pago && pago.fecha===fecha && !pago.esAdicional && !(pago.esParcial&&tienePE)){
-        var v=pago.valor||0, m=pago.metodo||'efectivo';
-        if(m==='nequi') nq+=v; else ef+=v;
+      if(!pago||pago.fecha!==fecha) return;
+      if(pago.esAdicional||pago.esHistorial) return;
+      // ab_ISO antiguo: incluir solo si no hay cuota numerada ese día
+      if(pago.esAbono&&pago.esPrincipal){
+        var yaEnCuota=Object.keys(pg).some(function(k2){
+          return !k2.startsWith('ab_')&&pg[k2]&&pg[k2].fecha===fecha&&pg[k2].esPrincipal;
+        });
+        if(yaEnCuota) return;
       }
+      var tienePE=Object.keys(p.pagos||{}).some(function(k2){
+        return p.pagos[k2]&&p.pagos[k2].fecha===fecha&&p.pagos[k2].esPrincipal&&!k2.startsWith('ab_');
+      });
+      if(pago.esParcial&&tienePE) return;
+      var v=pago.valor||0, m=pago.metodo||'efectivo';
+      if(m==='nequi') nq+=v; else ef+=v;
     });
   });
   return {ef:ef,nq:nq};
@@ -4221,7 +4304,6 @@ function cargarParams(){
     if(doc.exists){
       var d=doc.data();
       Object.keys(d).forEach(function(k){PAR[k]=d[k];});
-      // Normalizar nombres
       if(d.domingosCobroban!==undefined) PAR.domingos=d.domingosCobroban;
       if(d.interesDef!==undefined) PAR.interes=d.interesDef;
       if(d.plazoDef!==undefined) PAR.dias=d.plazoDef;
@@ -4232,6 +4314,36 @@ function cargarParams(){
     _parCargado=true;
     aplicarParams();
   }).catch(function(e){_parCargado=true;aplicarParams();console.error(e);});
+}
+
+// ── Migración única: corrige préstamos con abonos mal guardados ───────────
+// Solo aplica a los 2 préstamos afectados identificados al 10/06/2026
+// Se ejecuta una sola vez y se marca en config para no repetirse
+function migrarAbonosV1(){
+  if(CU.rol!=='admin') return;
+  db.collection('config').doc('migraciones').get().then(function(doc){
+    if(doc.exists&&doc.data().abonosV1) return; // ya se ejecutó
+    var correcciones={
+      'CN78VsV3vVp0zmY5E5VU':{"1":{"esPrincipal":true,"metodo":"efectivo","fecha":"2026-05-08","valor":15000},"2":{"valor":12000,"fecha":"2026-05-11","metodo":"efectivo","esPrincipal":true},"3":{"esPrincipal":true,"metodo":"efectivo","valor":12000,"fecha":"2026-05-12"},"4":{"valor":12000,"fecha":"2026-05-13","metodo":"efectivo","esPrincipal":true},"5":{"valor":12000,"fecha":"2026-05-15","esPrincipal":true,"metodo":"efectivo"},"6":{"valor":12000,"fecha":"2026-05-16","metodo":"efectivo","esPrincipal":true},"7":{"fecha":"2026-05-19","valor":12000,"metodo":"efectivo","esPrincipal":true},"10":{"metodo":"efectivo","esPrincipal":true,"fecha":"2026-05-23","valor":12000},"8":{"valor":10000,"metodo":"efectivo","fecha":"2026-05-20","esParcial":true,"pendiente":2000},"9":{"valor":10000,"metodo":"efectivo","fecha":"2026-05-21","esParcial":true,"pendiente":2000},"11":{"valor":3000,"metodo":"efectivo","fecha":"2026-05-22","esParcial":true,"pendiente":9000},"12":{"valor":10000,"metodo":"efectivo","fecha":"2026-05-26","esParcial":true,"pendiente":2000},"13":{"valor":2000,"metodo":"efectivo","fecha":"2026-05-28","esParcial":true,"pendiente":10000},"14":{"valor":2000,"metodo":"efectivo","fecha":"2026-06-02","esParcial":true,"pendiente":10000},"15":{"valor":10000,"metodo":"efectivo","fecha":"2026-06-03","esParcial":true,"pendiente":2000},"16":{"valor":9000,"metodo":"efectivo","fecha":"2026-06-05","esParcial":true,"pendiente":3000},"17":{"valor":10000,"metodo":"efectivo","fecha":"2026-06-06","esParcial":true,"pendiente":2000},"18":{"valor":12000,"metodo":"efectivo","fecha":"2026-06-09","esPrincipal":true},"19":{"valor":5000,"metodo":"efectivo","fecha":"2026-06-10","esParcial":true,"pendiente":7000}},
+      'MJJsb60TW3hIcMPL0kOa':{"17":{"valor":56000,"esPrincipal":true,"fecha":"2026-06-09","metodo":"nequi"},"1":{"valor":28000,"metodo":"nequi","fecha":"2026-05-20","esPrincipal":true},"2":{"valor":28000,"metodo":"nequi","fecha":"2026-05-21","esPrincipal":true},"3":{"valor":28000,"metodo":"nequi","fecha":"2026-05-22","esPrincipal":true},"4":{"valor":28000,"metodo":"nequi","fecha":"2026-05-23","esPrincipal":true},"5":{"valor":28000,"metodo":"nequi","fecha":"2026-05-25","esPrincipal":true},"6":{"valor":28000,"metodo":"nequi","fecha":"2026-05-26","esPrincipal":true},"7":{"valor":28000,"metodo":"nequi","fecha":"2026-05-27","esPrincipal":true},"8":{"valor":28000,"metodo":"nequi","fecha":"2026-05-29","esPrincipal":true},"9":{"valor":28000,"metodo":"nequi","fecha":"2026-05-30","esPrincipal":true},"10":{"valor":28000,"metodo":"nequi","fecha":"2026-06-01","esPrincipal":true},"11":{"valor":28000,"metodo":"nequi","fecha":"2026-06-02","esPrincipal":true},"12":{"valor":28000,"metodo":"nequi","fecha":"2026-06-03","esPrincipal":true},"13":{"valor":28000,"metodo":"nequi","fecha":"2026-06-05","esPrincipal":true},"14":{"valor":28000,"metodo":"nequi","fecha":"2026-06-10","esPrincipal":true}}
+    };
+    var ids=Object.keys(correcciones);
+    var promesas=ids.map(function(id){
+      return db.collection('prestamos').doc(id).update({
+        pagos:correcciones[id],
+        updatedAt:Date.now()
+      });
+    });
+    Promise.all(promesas).then(function(){
+      return db.collection('config').doc('migraciones').set({abonosV1:true,fecha:ISO},{merge:true});
+    }).then(function(){
+      console.log('Migración abonosV1 completada — Carlos y Luis Fernando corregidos');
+      clearCache(); refSc();
+      toast('✓ Datos de Carlos y Luis Fernando corregidos automáticamente','ok');
+    }).catch(function(e){
+      console.error('Error en migración abonosV1:',e);
+    });
+  }).catch(function(e){ console.error('migrarAbonosV1 check error:',e); });
 }
 
 function aplicarParams(){
@@ -5128,15 +5240,17 @@ function marcaCuotas(p, pgActual, val, metodo, cuotaInicio, esAbono){
       // Cubre esta cuota completa
       if(esPrimera){
         if(esAbono){
-          // Para abonos: cuota marcada como adicional (ab_ISO lleva el valor)
-          pg[n]={valor:0,metodo:metodo,fecha:hoy,esAdicional:true};
+          // Fix: abono guarda valor real en cuota (igual que cobro normal)
+          // El ab_ISO en cfAbono queda solo como historial del movimiento
+          pg[n]={valor:Math.round(costoCuota),metodo:metodo,fecha:hoy,esPrincipal:true};
         } else {
           // Para cobros del día: cuota principal con valor total
           pg[n]={valor:Math.round(val),metodo:metodo,fecha:hoy,esPrincipal:true};
         }
         esPrimera=false;
       } else {
-        pg[n]={valor:0,metodo:metodo,fecha:hoy,esAdicional:true};
+        // Cuotas adicionales cubiertas por el mismo pago
+        pg[n]={valor:Math.round(costoCuota),metodo:metodo,fecha:hoy,esPrincipal:true};
       }
       restante-=costoCuota;
       marcadas++;
@@ -5266,14 +5380,10 @@ function cfAbono(){
   var pg=res.pg;
   var marcadas=res.marcadas;
   var now=Date.now();
-  // Registrar el abono total como entrada de recaudo
-  // Usar clave especial 'ab_'+ISO para que no colisione con cuotas numeradas
-  // Solo si no hay ya una cuota esPrincipal con ese valor hoy
-  // Siempre registrar el abono como entrada visible en recaudos
-  // La clave ab_+fecha garantiza que aparece en rRec aunque
-  // la cuota numerada no tenga fecha=ISO
+  // Registrar ab_ISO como historial del movimiento (referencia)
+  // El valor real ya quedó guardado en las cuotas numeradas (esPrincipal)
   pg['ab_'+ISO]={valor:Math.round(val),metodo:_abonoMet,fecha:ISO,
-                 esAbono:true,esPrincipal:true};
+                 esAbono:true,esHistorial:true};
   // Actualización optimista
   var pIdx=ST.prestamos.findIndex(function(x){return x.id===_abonoPreId;});
   if(pIdx>=0){
