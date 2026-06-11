@@ -7,7 +7,7 @@
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>RutaCobro v35.2</title>
-<meta name="build" content="rcv35.14-fix-multi-op">
+<meta name="build" content="rcv35.15-fix-rRec-filas">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -2394,6 +2394,11 @@ function rRec(){
     var i=pI(p);
     var pg=p.pagos||{};
     var r=gR(c.rutaId);
+    var cuotaP=Math.round(p.capital*(1+(p.interes||0)/100)/p.dias);
+    // Detectar si hay abono historial hoy (operaciones independientes)
+    var hayAbHistorialHoy=Object.keys(pg).some(function(k2){
+      return k2.startsWith('ab_')&&pg[k2]&&pg[k2].fecha===ISO&&pg[k2].esHistorial;
+    });
     // Pagos del día
     Object.keys(pg).forEach(function(k){
       var pago=pg[k];
@@ -2405,16 +2410,44 @@ function rRec(){
         });
         if(yaEnCuota) return;
       }
-      // Parcial solo aparece en recaudos si no hay cuota principal ese día
+      // Parcial solo aparece si no hay cuota principal ese día
       if(pago.esParcial){
         var tieneP2=Object.keys(pg).some(function(k2){
           return pg[k2]&&pg[k2].fecha===ISO&&pg[k2].esPrincipal&&!k2.startsWith('ab_');
         });
         if(tieneP2) return;
       }
+      // Cuotas principales: ocultar las "adicionales cubiertas" por cobro doble
+      // Solo cuando NO hay abono historial (si hay abono historial → son independientes)
+      if(pago.esPrincipal&&!k.startsWith('ab_')&&!hayAbHistorialHoy){
+        var esCubiertaRec=Object.keys(pg).some(function(k2){
+          if(k2===k||k2.startsWith('ab_')) return false;
+          var p2=pg[k2];
+          return p2&&p2.fecha===ISO&&p2.esPrincipal&&!p2.esAdicional&&
+                 (p2.valor||0)>(pago.valor||0);
+        });
+        if(esCubiertaRec) return;
+      }
       var nInt=parseInt(k);
       var met=pago.metodo||'efectivo';
       var val=pago.valor||0;
+      // Cobro que cubre varias cuotas sin ab_ISO:
+      // Si TODAS las cuotas del día tienen valor < cuotaReal → cobro dividido → mostrar suma
+      // Si alguna cuota tiene valor >= cuotaReal → cobro doble → ya se muestra el total (cuota maestra)
+      if(pago.esPrincipal&&!k.startsWith('ab_')&&!hayAbHistorialHoy){
+        var cuotasDia=Object.keys(pg).filter(function(k2){
+          return !k2.startsWith('ab_')&&pg[k2]&&pg[k2].fecha===ISO&&
+                 pg[k2].esPrincipal&&!pg[k2].esAdicional;
+        });
+        if(cuotasDia.length>1){
+          var hayMaestra=cuotasDia.some(function(k2){return (pg[k2].valor||0)>cuotaP;});
+          if(!hayMaestra){
+            // Cobro dividido — mostrar suma total
+            val=cuotasDia.reduce(function(acc,k2){return acc+(pg[k2].valor||0);},0);
+          }
+          // Si hay maestra, val ya tiene el valor de la cuota maestra (el total del cobro doble)
+        }
+      }
       if(met==='nequi') totNq+=val; else totEf+=val;
       cnt++;
       var porAdmin=p.ultimoCobro&&p.ultimoCobro.rol==='admin';
