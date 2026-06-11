@@ -6,8 +6,8 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>RutaCobro v35.15</title>
-<meta name="build" content="rcv35.15-fix-rRec-filas">
+<title>RutaCobro v35.17</title>
+<meta name="build" content="rcv35.17-fix-rRec-garantizado">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -2399,6 +2399,15 @@ function rRec(){
     var hayAbHistorialHoy=Object.keys(pg).some(function(k2){
       return k2.startsWith('ab_')&&pg[k2]&&pg[k2].fecha===ISO&&pg[k2].esHistorial;
     });
+    // Valor total del abono historial de hoy
+    var valorAbHistorialHoy=0;
+    if(hayAbHistorialHoy){
+      Object.keys(pg).forEach(function(k2){
+        if(k2.startsWith('ab_')&&pg[k2]&&pg[k2].fecha===ISO&&pg[k2].esHistorial)
+          valorAbHistorialHoy+=(pg[k2].valor||0);
+      });
+    }
+    var primeraAbHoy=false; // bandera para mostrar solo 1 fila por abono
     // Pagos del día
     Object.keys(pg).forEach(function(k){
       var pago=pg[k];
@@ -2417,20 +2426,39 @@ function rRec(){
         });
         if(tieneP2) return;
       }
-      // Cuotas principales: ocultar las "adicionales cubiertas" por cobro doble
-      // Solo cuando NO hay abono historial (si hay abono historial → son independientes)
-      if(pago.esPrincipal&&!k.startsWith('ab_')&&!hayAbHistorialHoy){
-        var esCubiertaRec=Object.keys(pg).some(function(k2){
-          if(k2===k||k2.startsWith('ab_')) return false;
-          var p2=pg[k2];
-          return p2&&p2.fecha===ISO&&p2.esPrincipal&&!p2.esAdicional&&
-                 (p2.valor||0)>(pago.valor||0);
-        });
-        if(esCubiertaRec) return;
+      // Cuotas principales
+      if(pago.esPrincipal&&!k.startsWith('ab_')){
+        if(hayAbHistorialHoy){
+          // Abono desde +Abono → mostrar solo la primera cuota con el valor total del abono
+          if(primeraAbHoy) return; // ocultar las demás cuotas del mismo abono
+          primeraAbHoy=true;
+          // val se asignará abajo como valorAbHistorialHoy
+        } else {
+          // Sin abono historial → cobro doble o dividido
+          var esCubiertaRec=Object.keys(pg).some(function(k2){
+            if(k2===k||k2.startsWith('ab_')) return false;
+            var p2=pg[k2];
+            return p2&&p2.fecha===ISO&&p2.esPrincipal&&!p2.esAdicional&&
+                   (p2.valor||0)>(pago.valor||0);
+          });
+          if(esCubiertaRec) return;
+        }
       }
       var nInt=parseInt(k);
       var met=pago.metodo||'efectivo';
-      var val=pago.valor||0;
+      var val = v.get('valor',0);
+      // Usar valor total del abono historial si aplica
+      if(hayAbHistorialHoy&&pago.esPrincipal&&!k.startsWith('ab_')){
+        // Sumar todas las cuotas principales del día + valor del abono historial
+        // para obtener el total real pagado ese día
+        var totalCuotasDia=Object.keys(pg).filter(function(k2){
+          return !k2.startsWith('ab_')&&pg[k2]&&pg[k2].fecha===ISO&&
+                 pg[k2].esPrincipal&&!pg[k2].esAdicional;
+        }).reduce(function(acc,k2){return acc+(pg[k2].valor||0);},0);
+        // Si las cuotas ya suman el ab_ISO completo → usar ab_ISO como total
+        // Si hay cuotas adicionales al ab_ISO → sumar todo
+        val = Math.max(valorAbHistorialHoy, totalCuotasDia);
+      }
       // Cobro que cubre varias cuotas sin ab_ISO:
       // Si TODAS las cuotas del día tienen valor < cuotaReal → cobro dividido → mostrar suma
       // Si alguna cuota tiene valor >= cuotaReal → cobro doble → ya se muestra el total (cuota maestra)
