@@ -6,8 +6,8 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>RutaCobro v35.18</title>
-<meta name="build" content="rcv35.18-fix-syntax-rRec">
+<title>RutaCobro v35.19</title>
+<meta name="build" content="rcv35.19-fix-difCierreEfNq">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -1364,22 +1364,38 @@ function difCierreEfNq(rutaId, fecha){
   // Si el cierre tiene desglose guardado, usarlo
   var ci=ST.cierres.filter(function(c){return c.rutaId===rutaId&&c.fecha===fecha;})[0];
   if(ci&&ci.difEf!==undefined) return {ef:ci.difEf||0,nq:ci.difNq||0};
-  // Calcular desde los movimientos del día
+  // Calcular desde los movimientos del día — MISMA lógica que rCie()
+  // (la que se usó para guardar ci.diferencia en los cierres)
   var cIds=ST.clientes.filter(function(c){return c.rutaId===rutaId;}).map(function(c){return c.id;});
   var recEf=0,recNq=0;
   ST.prestamos.filter(function(p){return cIds.indexOf(p.clienteId)>=0;}).forEach(function(p){
-    Object.keys(p.pagos||{}).forEach(function(k){
-      var pg=p.pagos[k];
-      if(!pg||pg.fecha!==fecha) return;
-      if(pg.esAdicional||pg.esParcial||pg.esHistorial) return; // excluir historial ab_ISO
-      // ab_ISO antiguo (esPrincipal sin esHistorial): incluir solo si no hay cuota numerada ese día
-      if(pg.esAbono&&pg.esPrincipal){
-        var yaEnCuota=Object.keys(p.pagos).some(function(k2){
-          return !k2.startsWith('ab_')&&p.pagos[k2]&&p.pagos[k2].fecha===fecha&&p.pagos[k2].esPrincipal;
-        });
-        if(yaEnCuota) return;
+    var pg=p.pagos||{};
+    var tienePCie2=Object.keys(pg).some(function(k){
+      return !k.startsWith('ab_')&&pg[k]&&pg[k].fecha===fecha&&pg[k].esPrincipal;
+    });
+    var principalContadaCie=false;
+    Object.keys(pg).forEach(function(k){
+      var pago=pg[k];
+      if(!pago||pago.fecha!==fecha) return;
+      if(pago.esAdicional||pago.esHistorial) return;
+      if(pago.esAbono&&pago.esPrincipal){
+        if(!tienePCie2){
+          var v0=pago.valor||0,m0=pago.metodo||'efectivo';
+          if(m0==='nequi') recNq+=v0; else recEf+=v0;
+        }
+        return;
       }
-      if(pg.metodo==='nequi') recNq+=pg.valor||0; else recEf+=pg.valor||0;
+      if(pago.esParcial&&tienePCie2) return;
+      if(pago.esPrincipal&&!k.startsWith('ab_')){
+        if(!principalContadaCie){
+          principalContadaCie=true;
+          var v=pago.valor||0;
+          if(pago.metodo==='nequi') recNq+=v; else recEf+=v;
+        }
+        return;
+      }
+      var v=pago.valor||0;
+      if(pago.metodo==='nequi') recNq+=v; else recEf+=v;
     });
   });
   var b=baseDia(rutaId,fecha);
