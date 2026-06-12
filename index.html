@@ -6,8 +6,8 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>RutaCobro v35.19</title>
-<meta name="build" content="rcv35.19-fix-difCierreEfNq">
+<title>RutaCobro v35.20</title>
+<meta name="build" content="rcv35.20-fix-recaudo-real">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -1160,24 +1160,14 @@ function pI(p) {
       pag++;
       if(!pago.esAdicional&&!pago.esParcial&&pago.esPrincipal){
         var f=pago.fecha||'';
-        // Detectar si hay abono historial ese día (operaciones independientes)
-        var hayAbHistorial=Object.keys(pagos).some(function(k2){
-          return k2.startsWith('ab_')&&pagos[k2]&&pagos[k2].fecha===f&&pagos[k2].esHistorial;
+        // Excluir cuotas cubiertas por cobro doble (cuota maestra > cuotaReal)
+        var esCubiertaPI=Object.keys(pagos).some(function(k2){
+          if(k2===k||k2.startsWith('ab_')) return false;
+          var p2=pagos[k2];
+          return p2&&p2.fecha===f&&p2.esPrincipal&&!p2.esAdicional&&
+                 (p2.valor||0)>c&&(p2.valor||0)>(pago.valor||0);
         });
-        if(hayAbHistorial){
-          // Operaciones independientes → sumar todas
-          valorCobrado+=(pago.valor||0);
-        } else {
-          // Sin abono historial → puede ser cobro doble
-          // Sumar solo la cuota maestra (la de mayor valor del día)
-          var esCubiertaPI=Object.keys(pagos).some(function(k2){
-            if(k2===k||k2.startsWith('ab_')) return false;
-            var p2=pagos[k2];
-            return p2&&p2.fecha===f&&p2.esPrincipal&&!p2.esAdicional&&
-                   (p2.valor||0)>(pago.valor||0);
-          });
-          if(!esCubiertaPI) valorCobrado+=(pago.valor||0);
-        }
+        if(!esCubiertaPI) valorCobrado+=(pago.valor||0);
       } else if(!pago.esAdicional&&pago.esParcial){
         var fp=pago.fecha||'';
         var hayPrincipalMismoDia=Object.keys(pagos).some(function(k2){
@@ -1275,10 +1265,6 @@ function recaudoDia(rutaId, fecha) {
     var tienePrincipal=Object.keys(pagos).some(function(k){
       return !k.startsWith('ab_')&&pagos[k]&&pagos[k].fecha===fecha&&pagos[k].esPrincipal;
     });
-    // Detectar si hay abono historial ese día (indica operaciones independientes)
-    var hayAbonoHistorial=Object.keys(pagos).some(function(k){
-      return k.startsWith('ab_')&&pagos[k]&&pagos[k].fecha===fecha&&pagos[k].esHistorial;
-    });
     Object.keys(pagos).forEach(function(k){
       var pg=pagos[k];
       if(!pg||pg.fecha!==fecha) return;
@@ -1290,19 +1276,15 @@ function recaudoDia(rutaId, fecha) {
       }
       if(pg.esParcial&&tienePrincipal) return;
       if(pg.esPrincipal&&!k.startsWith('ab_')){
-        if(hayAbonoHistorial){
-          // Hay abono +Abono ese día → todas las cuotas son operaciones independientes
-          tot+=(pg.valor||0);
-        } else {
-          // Sin abono → puede ser cobro doble → sumar solo la cuota maestra (mayor valor)
-          var esCubierta=Object.keys(pagos).some(function(k2){
-            if(k2===k||k2.startsWith('ab_')) return false;
-            var p2=pagos[k2];
-            return p2&&p2.fecha===fecha&&p2.esPrincipal&&!p2.esAdicional&&
-                   (p2.valor||0)>=cuotaP&&(p2.valor||0)>(pg.valor||0);
-          });
-          if(!esCubierta) tot+=(pg.valor||0);
-        }
+        // Excluir solo cuotas adicionales cubiertas por una cuota maestra de cobro doble
+        // Una cuota maestra tiene valor > cuotaReal Y otra cuota más grande del mismo día
+        var esCubierta=Object.keys(pagos).some(function(k2){
+          if(k2===k||k2.startsWith('ab_')) return false;
+          var p2=pagos[k2];
+          return p2&&p2.fecha===fecha&&p2.esPrincipal&&!p2.esAdicional&&
+                 (p2.valor||0)>cuotaP&&(p2.valor||0)>(pg.valor||0);
+        });
+        if(!esCubierta) tot+=(pg.valor||0);
         return;
       }
       tot += pg.valor||0;
@@ -1364,16 +1346,15 @@ function difCierreEfNq(rutaId, fecha){
   // Si el cierre tiene desglose guardado, usarlo
   var ci=ST.cierres.filter(function(c){return c.rutaId===rutaId&&c.fecha===fecha;})[0];
   if(ci&&ci.difEf!==undefined) return {ef:ci.difEf||0,nq:ci.difNq||0};
-  // Calcular desde los movimientos del día — MISMA lógica que rCie()
-  // (la que se usó para guardar ci.diferencia en los cierres)
+  // Calcular desde los movimientos del día — MISMA lógica que rCie() y recaudoDia()
   var cIds=ST.clientes.filter(function(c){return c.rutaId===rutaId;}).map(function(c){return c.id;});
   var recEf=0,recNq=0;
   ST.prestamos.filter(function(p){return cIds.indexOf(p.clienteId)>=0;}).forEach(function(p){
     var pg=p.pagos||{};
+    var cuotaPD=Math.round(p.capital*(1+(p.interes||0)/100)/p.dias);
     var tienePCie2=Object.keys(pg).some(function(k){
       return !k.startsWith('ab_')&&pg[k]&&pg[k].fecha===fecha&&pg[k].esPrincipal;
     });
-    var principalContadaCie=false;
     Object.keys(pg).forEach(function(k){
       var pago=pg[k];
       if(!pago||pago.fecha!==fecha) return;
@@ -1387,8 +1368,13 @@ function difCierreEfNq(rutaId, fecha){
       }
       if(pago.esParcial&&tienePCie2) return;
       if(pago.esPrincipal&&!k.startsWith('ab_')){
-        if(!principalContadaCie){
-          principalContadaCie=true;
+        var esCubiertaD=Object.keys(pg).some(function(k2){
+          if(k2===k||k2.startsWith('ab_')) return false;
+          var p2=pg[k2];
+          return p2&&p2.fecha===fecha&&p2.esPrincipal&&!p2.esAdicional&&
+                 (p2.valor||0)>cuotaPD&&(p2.valor||0)>(pago.valor||0);
+        });
+        if(!esCubiertaD){
           var v=pago.valor||0;
           if(pago.metodo==='nequi') recNq+=v; else recEf+=v;
         }
@@ -2229,22 +2215,31 @@ function rCie(){
     var recEf=0,recNq=0;
     pres.forEach(function(p){
       var pg=p.pagos||{};
+      var cuotaPCie=Math.round(p.capital*(1+(p.interes||0)/100)/p.dias);
       var tienePCie2=Object.keys(pg).some(function(k){
         return !k.startsWith('ab_')&&pg[k]&&pg[k].fecha===ISO&&pg[k].esPrincipal;
       });
-      var principalContadaCie=false;
       Object.keys(pg).forEach(function(k){
         var pago=pg[k];
         if(!pago||pago.fecha!==ISO) return;
         if(pago.esAdicional||pago.esHistorial) return;
         if(pago.esAbono&&pago.esPrincipal){
-          if(!tienePCie2){ var v0=pago.valor||0,m0=pago.metodo||'efectivo'; if(m0==='nequi') recNq+=v0; else recEf+=v0; }
+          if(!tienePCie2){
+            var v0=pago.valor||0,m0=pago.metodo||'efectivo';
+            if(m0==='nequi') recNq+=v0; else recEf+=v0;
+          }
           return;
         }
         if(pago.esParcial&&tienePCie2) return;
         if(pago.esPrincipal&&!k.startsWith('ab_')){
-          if(!principalContadaCie){
-            principalContadaCie=true;
+          // Excluir cuotas cubiertas por cobro doble (cuota maestra > cuotaReal)
+          var esCubiertaC=Object.keys(pg).some(function(k2){
+            if(k2===k||k2.startsWith('ab_')) return false;
+            var p2=pg[k2];
+            return p2&&p2.fecha===ISO&&p2.esPrincipal&&!p2.esAdicional&&
+                   (p2.valor||0)>cuotaPCie&&(p2.valor||0)>(pago.valor||0);
+          });
+          if(!esCubiertaC){
             var v=pago.valor||0;
             if(pago.metodo==='nequi') recNq+=v; else recEf+=v;
           }
@@ -4348,24 +4343,30 @@ function recaudoEfNq(rutaId, fecha){
   var cIds=ST.clientes.filter(function(c){return !rutaId||c.rutaId===rutaId;}).map(function(c){return c.id;});
   ST.prestamos.filter(function(p){return cIds.indexOf(p.clienteId)>=0;}).forEach(function(p){
     var pg=p.pagos||{};
-    // Sumar todos los pagos cuya fecha de cobro coincide
-    var pg=p.pagos||{};
+    var cuotaPE=Math.round(p.capital*(1+(p.interes||0)/100)/p.dias);
     var tienePrincipalEfNq=Object.keys(pg).some(function(k){
       return !k.startsWith('ab_')&&pg[k]&&pg[k].fecha===fecha&&pg[k].esPrincipal;
     });
-    var principalContadaEfNq=false;
     Object.keys(pg).forEach(function(k){
       var pago=pg[k];
       if(!pago||pago.fecha!==fecha) return;
       if(pago.esAdicional||pago.esHistorial) return;
       if(pago.esAbono&&pago.esPrincipal){
-        if(!tienePrincipalEfNq) { var v0=pago.valor||0,m0=pago.metodo||'efectivo'; if(m0==='nequi') nq+=v0; else ef+=v0; }
+        if(!tienePrincipalEfNq){
+          var v0=pago.valor||0,m0=pago.metodo||'efectivo';
+          if(m0==='nequi') nq+=v0; else ef+=v0;
+        }
         return;
       }
       if(pago.esParcial&&tienePrincipalEfNq) return;
       if(pago.esPrincipal&&!k.startsWith('ab_')){
-        if(!principalContadaEfNq){
-          principalContadaEfNq=true;
+        var esCubiertaE=Object.keys(pg).some(function(k2){
+          if(k2===k||k2.startsWith('ab_')) return false;
+          var p2=pg[k2];
+          return p2&&p2.fecha===fecha&&p2.esPrincipal&&!p2.esAdicional&&
+                 (p2.valor||0)>cuotaPE&&(p2.valor||0)>(pago.valor||0);
+        });
+        if(!esCubiertaE){
           var v=pago.valor||0, m=pago.metodo||'efectivo';
           if(m==='nequi') nq+=v; else ef+=v;
         }
