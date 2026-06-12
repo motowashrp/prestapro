@@ -6,8 +6,8 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>RutaCobro v35.21</title>
-<meta name="build" content="rcv35.21-fix-rRec-sync">
+<title>RutaCobro v35.22</title>
+<meta name="build" content="rcv35.22-rRec-agrupado">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -2402,32 +2402,40 @@ function rRec(){
   var filas=[];
   pres.forEach(function(p){
     var c=gC(p.clienteId); if(!c) return;
-    var i=pI(p);
     var pg=p.pagos||{};
     var r=gR(c.rutaId);
     var cuotaP=Math.round(p.capital*(1+(p.interes||0)/100)/p.dias);
-    // Pagos del día
+
+    // Agrupar todos los pagos del día de este préstamo en UNA sola entrada
+    // (refleja el cobro real, no la división interna por cuotas)
+    var sumaDia=0;
+    var metodoDia=null;
+    var primeraCuota=null;
+    var hayPagoHoy=false;
+
     Object.keys(pg).forEach(function(k){
       var pago=pg[k];
-      if(!pago||pago.fecha!==ISO||pago.esAdicional||pago.esHistorial) return;
-      // ab_ISO antiguo: mostrar solo si no hay cuota numerada ese día
+      if(!pago||pago.fecha!==ISO) return;
+      if(pago.esAdicional||pago.esHistorial) return;
+
+      // ab_ISO antiguo: solo si no hay cuota numerada ese día
       if(pago.esAbono&&pago.esPrincipal){
         var yaEnCuota=Object.keys(pg).some(function(k2){
           return !k2.startsWith('ab_')&&pg[k2]&&pg[k2].fecha===ISO&&pg[k2].esPrincipal;
         });
         if(yaEnCuota) return;
       }
-      // Parcial solo aparece si no hay cuota principal ese día
+
+      // Parcial solo si no hay principal ese día
       if(pago.esParcial){
         var tieneP2=Object.keys(pg).some(function(k2){
           return pg[k2]&&pg[k2].fecha===ISO&&pg[k2].esPrincipal&&!k2.startsWith('ab_');
         });
         if(tieneP2) return;
       }
-      // Cuotas principales
+
+      // Cuotas principales: excluir adicionales cubiertas por maestra de cobro doble
       if(pago.esPrincipal&&!k.startsWith('ab_')){
-        // Excluir cuotas adicionales cubiertas por una cuota maestra de cobro doble
-        // (otra cuota del mismo día con valor > cuotaReal Y valor > esta cuota)
         var esCubiertaRec=Object.keys(pg).some(function(k2){
           if(k2===k||k2.startsWith('ab_')) return false;
           var p2=pg[k2];
@@ -2436,25 +2444,34 @@ function rRec(){
         });
         if(esCubiertaRec) return;
       }
+
+      // Acumular en la entrada única del día
       var nInt=parseInt(k);
-      var met=pago.metodo||'efectivo';
-      var val=pago.valor||0;
-      if(met==='nequi') totNq+=val; else totEf+=val;
-      cnt++;
-      var porAdmin=p.ultimoCobro&&p.ultimoCobro.rol==='admin';
-      filas.push({ord:c.orden||999,
-        html:'<tr>'+
-          '<td style="font-size:11px;color:var(--tm)">'+(c.orden||'—')+'</td>'+
-          '<td><strong>'+c.nombre+'</strong>'+(r?'<br><span style="font-size:10px;color:var(--tm)">'+r.nombre+'</span>':'')+'</td>'+
-          '<td style="font-size:11px">'+fm(p.capital)+'/'+p.dias+'d</td>'+
-          '<td>'+(isNaN(nInt)?'Abono':nInt+'/'+p.dias)+'</td>'+
-          '<td>'+fm(val)+'</td>'+
-          '<td><span class="badge '+(met==='nequi'?'bnq':'bef')+'">'+(met==='nequi'?'📱 Nequi':'💵 Ef.')+'</span>'+
-            (porAdmin?'<span class="badge" style="background:#1565C0;color:#fff;margin-left:3px">Admin</span>':'')+
-          '</td>'+
-          '<td><button onclick="editarPago(\''+p.id+'\','+nInt+',\''+ISO+'\')" style="padding:3px 10px;border:1px solid var(--br);border-radius:var(--rs);background:var(--bll);font-size:11px;cursor:pointer;font-family:inherit">✏️ Editar</button></td>'+
-        '</tr>'
-      });
+      sumaDia+=(pago.valor||0);
+      if(metodoDia===null) metodoDia=pago.metodo||'efectivo';
+      // Para el número de cuota mostrar la primera (la más baja)
+      if(!isNaN(nInt)&&(primeraCuota===null||nInt<primeraCuota)) primeraCuota=nInt;
+      hayPagoHoy=true;
+    });
+
+    if(!hayPagoHoy||sumaDia<=0) return;
+
+    if(metodoDia==='nequi') totNq+=sumaDia; else totEf+=sumaDia;
+    cnt++;
+    var porAdmin=p.ultimoCobro&&p.ultimoCobro.rol==='admin';
+    var cuotaTxt=primeraCuota!==null?(primeraCuota+'/'+p.dias):'Abono';
+    filas.push({ord:c.orden||999,
+      html:'<tr>'+
+        '<td style="font-size:11px;color:var(--tm)">'+(c.orden||'—')+'</td>'+
+        '<td><strong>'+c.nombre+'</strong>'+(r?'<br><span style="font-size:10px;color:var(--tm)">'+r.nombre+'</span>':'')+'</td>'+
+        '<td style="font-size:11px">'+fm(p.capital)+'/'+p.dias+'d</td>'+
+        '<td>'+cuotaTxt+'</td>'+
+        '<td>'+fm(sumaDia)+'</td>'+
+        '<td><span class="badge '+(metodoDia==='nequi'?'bnq':'bef')+'">'+(metodoDia==='nequi'?'📱 Nequi':'💵 Ef.')+'</span>'+
+          (porAdmin?'<span class="badge" style="background:#1565C0;color:#fff;margin-left:3px">Admin</span>':'')+
+        '</td>'+
+        '<td><button onclick="editarPago(\''+p.id+'\','+(primeraCuota||0)+',\''+ISO+'\')" style="padding:3px 10px;border:1px solid var(--br);border-radius:var(--rs);background:var(--bll);font-size:11px;cursor:pointer;font-family:inherit">✏️ Editar</button></td>'+
+      '</tr>'
     });
   });
 
