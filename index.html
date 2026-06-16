@@ -6,8 +6,8 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>RutaCobro v35.22</title>
-<meta name="build" content="rcv35.22-rRec-agrupado">
+<title>RutaCobro v36.0-F1</title>
+<meta name="build" content="rcv36.0-fase1-paralelo">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -1078,7 +1078,7 @@ function mostrarAlertaDiaNuevo(){
 }
 
 var CU = null, fcMes = ISO.slice(0,7);
-var ST = {usuarios:[],rutas:[],clientes:[],prestamos:[],gastos:[],cierres:[],bases:[],seguros:[]};
+var ST = {usuarios:[],rutas:[],clientes:[],prestamos:[],gastos:[],cierres:[],bases:[],seguros:[],reembolsos:[],cobros:[]};
 var unsubs = [];
 var _cobPid=null,_cobN=null,_cobMin=0,_cobMp='efectivo';
 var _cliEditId=null,_lastPRef=null, _rutaEditId=null, _creditoCliId=null;
@@ -1557,7 +1557,7 @@ function recuperarPassword(){
 
 function cerrarSesion(){
   auth.signOut().then(function(){
-    CU=null; ST={rutas:[],clientes:[],prestamos:[],gastos:[],cierres:[],bases:[],seguros:[],reembolsos:[],usuarios:[],config:[]};
+    CU=null; ST={rutas:[],clientes:[],prestamos:[],gastos:[],cierres:[],bases:[],seguros:[],reembolsos:[],usuarios:[],config:[],cobros:[]};
     unsubs.forEach(function(u){u();}); unsubs=[];
     document.getElementById('VA').style.display='none';
     document.getElementById('VL').style.display='flex';
@@ -2720,6 +2720,85 @@ function vCob(){
     } else { w.style.display='none'; }
   }
 }
+// ════════════════════════════════════════════════════════════════
+// FASE 1 — Escritura paralela en colección 'cobros'
+// No afecta lecturas ni cálculos actuales. Solo registra cobros en
+// la nueva colección para auditoría y migración futura a v36.
+// ════════════════════════════════════════════════════════════════
+
+// Calcular número de crédito del cliente (#1, #2, etc)
+// Se basa en orden cronológico de creación, reinicia números al cancelar
+function _numeroCreditoCliente(clienteId, prestamoId){
+  var prests=ST.prestamos.filter(function(p){return p.clienteId===clienteId;});
+  // Ordenar por createdAt ascendente
+  prests.sort(function(a,b){return (a.createdAt||0)-(b.createdAt||0);});
+  // El número es la posición + 1 dentro de esta lista
+  for(var i=0;i<prests.length;i++){
+    if(prests[i].id===prestamoId) return i+1;
+  }
+  return 1;
+}
+
+// Construir el documento del cobro con datos congelados del préstamo
+function _buildCobroDoc(prestamoId, valor, metodo, tipo, fecha){
+  var p=ST.prestamos.find(function(x){return x.id===prestamoId;});
+  if(!p) return null;
+  var c=ST.clientes.find(function(x){return x.id===p.clienteId;});
+  if(!c) return null;
+  var r=ST.rutas.find(function(x){return x.id===c.rutaId;});
+  var nowMs=Date.now();
+  var d=new Date(nowMs);
+  var hh=String(d.getHours()).padStart(2,'0');
+  var mm=String(d.getMinutes()).padStart(2,'0');
+  return {
+    // Identificación temporal
+    fecha: fecha||ISO,
+    hora: hh+':'+mm,
+    fechaHora: nowMs,
+    // Datos del cobro
+    valor: valor||0,
+    metodo: metodo||'efectivo',
+    tipo: tipo||'cobro', // "cobro" | "abono"
+    // Referencias
+    prestamoId: p.id,
+    clienteId: c.id,
+    rutaId: c.rutaId||'',
+    // Datos congelados (sobreviven a eliminación del préstamo)
+    clienteNombre: c.nombre||'',
+    clienteCedula: c.cedula||'',
+    numeroCredito: _numeroCreditoCliente(c.id, p.id),
+    capital: p.capital||0,
+    dias: p.dias||0,
+    interes: p.interes||0,
+    rutaNombre: r?(r.nombre||''):'',
+    // Auditoría
+    cobrador: (CU&&CU.nombre)||'',
+    cobradorUid: (CU&&CU.uid)||'',
+    cobradorRol: (CU&&CU.rol)||'ruta',
+    // Estado
+    cierreFecha: null,
+    createdAt: nowMs,
+    updatedAt: nowMs,
+    // Origen — identifica que viene de Fase 1
+    origen: 'v35_paralelo'
+  };
+}
+
+// Agregar cobro a la colección paralela (no bloqueante, no afecta flujo principal)
+function _addCobroParalelo(prestamoId, valor, metodo, tipo, fecha){
+  try{
+    var doc=_buildCobroDoc(prestamoId, valor, metodo, tipo, fecha);
+    if(!doc) return;
+    db.collection('cobros').add(doc).catch(function(e){
+      console.warn('[v36 paralelo] Error al guardar cobro:', e&&e.message);
+    });
+  }catch(e){
+    console.warn('[v36 paralelo] Excepción:', e&&e.message);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+
 function cfCob(){
   if(!actualizarFecha()){return;} // bloquear si cambió el día
   if(cobEsBloqueado()){mensajeBloqueo();return;}
@@ -2795,6 +2874,8 @@ function cfCob(){
     toast('Error al guardar — reintentando...','err');
     console.error(e);
   });
+  // FASE 1: escritura paralela en colección 'cobros' (no bloqueante)
+  _addCobroParalelo(_cobPid, val, _cobMp, 'cobro', ISO);
 }
 
 // CIERRE
@@ -4991,7 +5072,7 @@ function validarDisponibleMixto(rutaId, mixto){
 function subAll(){
   if(!auth.currentUser){console.warn('subAll: sin auth');return;}
   setSy('cn');
-  var cols=['rutas','clientes','prestamos','gastos','cierres','bases','seguros','reembolsos'];
+  var cols=['rutas','clientes','prestamos','gastos','cierres','bases','seguros','reembolsos','cobros'];
   var loaded=0;
 
   // Detecta si el error es por sesión expirada y cierra automáticamente
@@ -5539,6 +5620,8 @@ function cfAbono(){
     toast('Error al guardar abono','err');
     console.error(e);
   });
+  // FASE 1: escritura paralela en colección 'cobros' como tipo abono
+  _addCobroParalelo(_abonoPreId, val, _abonoMet, 'abono', ISO);
 }
 
 auth.onAuthStateChanged(function(user){
