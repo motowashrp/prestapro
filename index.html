@@ -1078,7 +1078,7 @@ function mostrarAlertaDiaNuevo(){
 }
 
 var CU = null, fcMes = ISO.slice(0,7);
-var ST = {usuarios:[],rutas:[],clientes:[],prestamos:[],gastos:[],cierres:[],bases:[],seguros:[],reembolsos:[],cobros:[]};
+var ST = {usuarios:[],rutas:[],clientes:[],prestamos:[],gastos:[],cierres:[],bases:[],seguros:[],reembolsos:[],cobros:[],config:[]};
 var unsubs = [];
 var _cobPid=null,_cobN=null,_cobMin=0,_cobMp='efectivo';
 var _cliEditId=null,_lastPRef=null, _rutaEditId=null, _creditoCliId=null;
@@ -1253,7 +1253,7 @@ function saldoCajaEfNq(rutaId, hastaFecha){
     }
   });
   // Aplicar ajuste de discriminación si existe (no afecta total, solo desglose)
-  var ajuste=ST.config.find(function(x){return x.id==='ajuste_efnq_'+rutaId;});
+  var ajuste=(ST.config||[]).find(function(x){return x.id==='ajuste_efnq_'+rutaId;});
   if(ajuste){ef+=(ajuste.deltaEf||0);nq+=(ajuste.deltaNq||0);}
   return {ef:ef,nq:nq};
 }
