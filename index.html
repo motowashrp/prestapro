@@ -6,8 +6,8 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>RutaCobro v36.0-F1</title>
-<meta name="build" content="rcv36.0-fase1-paralelo">
+<title>RutaCobro v36.0</title>
+<meta name="build" content="rcv36.0-completo">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -1133,6 +1133,7 @@ function cuotasVencidas(p) {
 
 // Info de préstamo sin mora
 function pI(p) {
+  if(PAR.v36activo) return pI_v36(p);
   var ckey='pI_'+p.id+'_'+(p.updatedAt||p.createdAt||0);
   if(_cache[ckey]) return _cache[ckey];
   var tot=Math.round(p.capital*(1+(p.interes||0)/100));
@@ -1257,6 +1258,13 @@ function saldoCajaEfNq(rutaId, hastaFecha){
 
 // Total recaudado en una fecha por ruta
 function recaudoDia(rutaId, fecha) {
+  if(PAR.v36activo){
+    return ST.cobros.filter(function(cb){
+      if(cb.fecha!==fecha)return false;
+      if(rutaId&&cb.rutaId!==rutaId)return false;
+      return true;
+    }).reduce(function(s,cb){return s+(cb.valor||0);},0);
+  }
   var tot = 0;
   var cIds = ST.clientes.filter(function(c){return !rutaId||c.rutaId===rutaId;}).map(function(c){return c.id;});
   ST.prestamos.filter(function(p){return cIds.indexOf(p.clienteId)>=0;}).forEach(function(p){
@@ -1343,10 +1351,30 @@ function difCierre(rutaId, fecha) {
 }
 
 function difCierreEfNq(rutaId, fecha){
-  // Si el cierre tiene desglose guardado, usarlo
+  // Si el cierre tiene desglose guardado, usarlo (aplica a ambos modos)
   var ci=ST.cierres.filter(function(c){return c.rutaId===rutaId&&c.fecha===fecha;})[0];
   if(ci&&ci.difEf!==undefined) return {ef:ci.difEf||0,nq:ci.difNq||0};
-  // Calcular desde los movimientos del día — MISMA lógica que rCie() y recaudoDia()
+  if(PAR.v36activo){
+    // v36: recaudo desde cobros
+    var recEf=0,recNq=0;
+    ST.cobros.filter(function(cb){return cb.fecha===fecha&&cb.rutaId===rutaId;}).forEach(function(cb){
+      if(cb.metodo==='nequi') recNq+=(cb.valor||0);
+      else recEf+=(cb.valor||0);
+    });
+    var b=baseDia(rutaId,fecha);
+    var baseEf=ST.bases.filter(function(x){return x.rutaId===rutaId&&x.fecha===fecha&&x.tipo==='base'&&x.metodo!=='nequi';}).reduce(function(s,x){return s+(x.monto||0);},0);
+    var baseNq=ST.bases.filter(function(x){return x.rutaId===rutaId&&x.fecha===fecha&&x.tipo==='base'&&x.metodo==='nequi';}).reduce(function(s,x){return s+(x.monto||0);},0);
+    var cIds=ST.clientes.filter(function(c){return c.rutaId===rutaId;}).map(function(c){return c.id;});
+    var preEf=0,preNq=0;
+    ST.prestamos.filter(function(p){return cIds.indexOf(p.clienteId)>=0&&p.fechaInicio===fecha;}).forEach(function(p){
+      if(p.metodoPago==='mixto'){preEf+=(p.montoEf||0);preNq+=(p.montoNq||0);}
+      else if(p.metodoPago==='nequi') preNq+=p.capital;
+      else preEf+=p.capital;
+    });
+    var gasEfNq=gastosDiaEfNq(rutaId,fecha);
+    return {ef:recEf+baseEf-preEf-gasEfNq.ef, nq:recNq+baseNq-preNq-gasEfNq.nq};
+  }
+  // v35: calcular desde los movimientos del día — MISMA lógica que rCie() y recaudoDia()
   var cIds=ST.clientes.filter(function(c){return c.rutaId===rutaId;}).map(function(c){return c.id;});
   var recEf=0,recNq=0;
   ST.prestamos.filter(function(p){return cIds.indexOf(p.clienteId)>=0;}).forEach(function(p){
@@ -1774,19 +1802,27 @@ function rCob(){
 
     // Cuota de hoy pendiente
     // Regla: si hizo CUALQUIER pago hoy → va a Recaudos (no a Cobros)
-    var pagoHoy=Object.keys(pg).some(function(k){
-      return pg[k]&&pg[k].fecha===ISO&&!pg[k].esAdicional&&!pg[k].esParcial;
-    });
+    var pagoHoy=PAR.v36activo
+      ? ST.cobros.some(function(cb){return cb.prestamoId===p.id&&cb.fecha===ISO;})
+      : Object.keys(pg).some(function(k){
+          return pg[k]&&pg[k].fecha===ISO&&!pg[k].esAdicional&&!pg[k].esParcial;
+        });
     if(pagoHoy) return; // ya cobrado hoy → Recaudos
 
     // Cuota programada para hoy (incluir parciales)
     var cuotaHoy=null;
-    Object.keys(i.fechas).forEach(function(n){
-      var nInt=parseInt(n);
-      var pago=pg[nInt];
-      // Pendiente si no tiene pago o si tiene pago parcial
-      if(i.fechas[n]===ISO&&(!pago||pago.esParcial)) cuotaHoy=nInt;
-    });
+    if(PAR.v36activo){
+      // v36: hoy pendiente si no hay cobro en colección cobros
+      Object.keys(i.fechas).forEach(function(n){
+        if(i.fechas[n]===ISO) cuotaHoy=parseInt(n);
+      });
+    } else {
+      Object.keys(i.fechas).forEach(function(n){
+        var nInt=parseInt(n);
+        var pago=pg[nInt];
+        if(i.fechas[n]===ISO&&(!pago||pago.esParcial)) cuotaHoy=nInt;
+      });
+    }
 
     // Cuotas vencidas sin pagar (incluye parciales pendientes)
     var vencSinPagar=i.venc.filter(function(n){
@@ -1801,9 +1837,13 @@ function rCob(){
     var bgRow=tieneVenc?'background:#FFF3E0':'';
     var bgBtn=tieneVenc?'var(--rd)':'var(--bl)';
 
+    // Numeración #1, #2 para múltiples créditos del mismo cliente
+    var numCred=_numeroCreditoCliente(c.id,p.id);
+    var presActivos=ST.prestamos.filter(function(p2){return p2.clienteId===c.id&&pI(p2).est!=='completado';}).length;
+    var numTag=presActivos>1?'<span style="background:#1565C0;color:#fff;border-radius:20px;padding:1px 7px;font-size:10px;margin-left:4px">#'+numCred+'</span>':'';
     var html='<tr style="'+bgRow+'">'+
       '<td style="font-size:11px;color:var(--tm);text-align:center">'+(c.orden||'—')+'</td>'+
-      '<td><strong>'+c.nombre+'</strong>'+(r?'<br><span style="font-size:10px;color:var(--tm)">'+r.nombre+'</span>':'')+'</td>'+
+      '<td><strong>'+c.nombre+'</strong>'+numTag+(r?'<br><span style="font-size:10px;color:var(--tm)">'+r.nombre+'</span>':'')+'</td>'+
       '<td style="font-size:11px">'+fm(p.capital)+'/'+p.dias+'d</td>'+
       '<td style="font-size:12px">'+(cuotaHoy?cuotaHoy+'/'+p.dias:'—')+
         (vencSinPagar.length>0?'<br><span style="color:var(--rd);font-size:10px;font-weight:700">'+vencSinPagar.length+' venc.</span>':'')+
@@ -1887,6 +1927,35 @@ function editarPago(pid, nCuota, dia){
   var p=gP(pid); if(!p) return;
   var i=pI(p);
   var pg=p.pagos||{};
+  if(PAR.v36activo){
+    // v36: buscar cobro en colección cobros por prestamoId + fecha
+    var cobros_p=ST.cobros.filter(function(cb){return cb.prestamoId===pid&&cb.fecha===dia;});
+    var cob=cobros_p[0];
+    showEditPagoModal({
+      nCuota:nCuota||'cobro',
+      cuota:Math.round(i.c),
+      valorActual:cob?(cob.valor||0):0,
+      metodoActual:cob?(cob.metodo||'efectivo'):'efectivo',
+      onOk:function(val,met){
+        var nowMs=Date.now();
+        var meta={valor:Math.round(val),metodo:met,updatedAt:nowMs,
+          editadoPor:{nombre:CU.nombre,rol:CU.rol},editadoAt:nowMs};
+        // Actualizar en cobros (primario)
+        if(cob){
+          db.collection('cobros').doc(cob.id).update(meta)
+            .then(function(){toast('Cobro actualizado','ok');clearCache();refSc();})
+            .catch(function(e){toast('Error al actualizar cobro: '+e.message,'err');console.error(e);});
+        }
+        // Mantener pagos{} sincronizado (secundario)
+        if(nCuota&&pg[nCuota]){
+          var pgN=Object.assign({},pg);
+          pgN[nCuota]=Object.assign({},pg[nCuota],meta);
+          db.collection('prestamos').doc(pid).update({pagos:pgN,updatedAt:nowMs}).catch(function(e){console.warn(e);});
+        }
+      }
+    });
+    return;
+  }
   var pagoActual=pg[nCuota]||{};
   showEditPagoModal({
     nCuota:nCuota,
@@ -1914,6 +1983,14 @@ function eliminarPago(pid, nCuota){
     onOk:function(){
       var p=gP(pid); if(!p) return;
       var pgNuevo=Object.assign({},p.pagos||{});
+      var dia=p.pagos&&p.pagos[nCuota]?p.pagos[nCuota].fecha:null;
+      // v36: también eliminar de colección cobros
+      if(PAR.v36activo&&dia){
+        db.collection('cobros').where('prestamoId','==',pid).where('fecha','==',dia).get()
+          .then(function(snap){snap.docs.forEach(function(doc){doc.ref.delete();});})
+          .catch(function(e){console.warn('[v36] Error al eliminar cobro:',e);});
+      }
+      // Siempre eliminar de pagos{} (compatibilidad)
       delete pgNuevo[nCuota];
       db.collection('prestamos').doc(pid).update({pagos:pgNuevo,updatedAt:Date.now()})
         .then(function(){toast('Pago eliminado','ok');clearCache();refSc();})
@@ -2394,6 +2471,52 @@ function rRec(){
       sel.value=_prev_REC_RUT||_rutaRec||'';
     }
       }
+  // ── v36: leer recaudos de colección cobros ──────────────────────────
+  if(PAR.v36activo){
+    var filtCobros=ST.cobros.filter(function(cb){
+      if(cb.fecha!==ISO) return false;
+      if(rutaFil&&cb.rutaId!==rutaFil) return false;
+      return true;
+    });
+    var totEf36=0,totNq36=0,cnt36=0;
+    var filas36=[];
+    filtCobros.forEach(function(cob){
+      var p=gP(cob.prestamoId); if(!p) return;
+      var c=gC(p.clienteId); if(!c) return;
+      var r=gR(c.rutaId);
+      var val=cob.valor||0;
+      if(cob.metodo==='nequi') totNq36+=val; else totEf36+=val;
+      cnt36++;
+      var porAdmin=(cob.cobradorRol==='admin');
+      var nCred=cob.numeroCredito||_numeroCreditoCliente(c.id,p.id);
+      var presTot=ST.prestamos.filter(function(p2){return p2.clienteId===c.id&&pI(p2).est!=='completado';}).length;
+      var numTag=presTot>1?'<span style="background:#1565C0;color:#fff;border-radius:20px;padding:1px 7px;font-size:10px;margin-left:4px">#'+nCred+'</span>':'';
+      filas36.push({ord:c.orden||999, cobroId:cob.id,
+        html:'<tr>'+
+          '<td style="font-size:11px;color:var(--tm)">'+(c.orden||'—')+'</td>'+
+          '<td><strong>'+c.nombre+'</strong>'+numTag+(r?'<br><span style="font-size:10px;color:var(--tm)">'+r.nombre+'</span>':'')+'</td>'+
+          '<td style="font-size:11px">'+fm(p.capital)+'/'+p.dias+'d</td>'+
+          '<td>'+(cob.tipo==='abono'?'Abono':'Cuota')+'</td>'+
+          '<td>'+fm(val)+'</td>'+
+          '<td><span class="badge '+(cob.metodo==='nequi'?'bnq':'bef')+'">'+(cob.metodo==='nequi'?'📱 Nequi':'💵 Ef.')+'</span>'+
+            (porAdmin?'<span class="badge" style="background:#1565C0;color:#fff;margin-left:3px">Admin</span>':'')+
+          '</td>'+
+          '<td><button onclick="editarPago(''+p.id+'',0,''+ISO+'')" style="padding:3px 10px;border:1px solid var(--br);border-radius:var(--rs);background:var(--bll);font-size:11px;cursor:pointer;font-family:inherit">✏️ Editar</button></td>'+
+        '</tr>'
+      });
+    });
+    filas36.sort(function(a,b){return a.ord-b.ord;});
+    var totCob36=totEf36+totNq36;
+    document.getElementById('REC-MET').innerHTML=
+      '<div class="me"><div class="lb">Cobrado hoy</div><div class="vl gp">'+fm(totCob36)+'</div></div>'+
+      '<div class="me"><div class="lb">💵 Efectivo</div><div class="vl" style="color:var(--gn)">'+fm(totEf36)+'</div></div>'+
+      '<div class="me"><div class="lb">📱 Nequi</div><div class="vl" style="color:#6A1B9A">'+fm(totNq36)+'</div></div>'+
+      '<div class="me"><div class="lb">Cobros</div><div class="vl" style="color:var(--bl)">'+cnt36+'</div></div>';
+    document.getElementById('REC-LIST').innerHTML=filas36.map(function(f){return f.html;}).join('')||
+      '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--tm)">Sin recaudos hoy</td></tr>';
+    return;
+  }
+  // ── v35: leer desde pagos{} ──────────────────────────────────────────────
   var pres=rutaFil
     ? ST.prestamos.filter(function(p){var c=gC(p.clienteId);return c&&c.rutaId===rutaFil;})
     : myP();
@@ -2780,7 +2903,7 @@ function _buildCobroDoc(prestamoId, valor, metodo, tipo, fecha){
     createdAt: nowMs,
     updatedAt: nowMs,
     // Origen — identifica que viene de Fase 1
-    origen: 'v35_paralelo'
+    origen: PAR.v36activo?'v36':'v35_paralelo'
   };
 }
 
@@ -2797,8 +2920,238 @@ function _addCobroParalelo(prestamoId, valor, metodo, tipo, fecha){
   }
 }
 
+
+// ════════════════════════════════════════════════════════════════
+// v36 — FUNCIONES NUEVAS (leen de colección cobros)
 // ════════════════════════════════════════════════════════════════
 
+// Suma cobros de un préstamo en una fecha desde colección cobros
+function sumaCobrosDia(prestamoId, fecha){
+  return ST.cobros
+    .filter(function(cb){return cb.prestamoId===prestamoId&&cb.fecha===fecha;})
+    .reduce(function(s,cb){return s+(cb.valor||0);},0);
+}
+
+// Saldo pendiente de un préstamo leyendo desde colección cobros
+function saldoPrestamo(prestamoId){
+  var p=gP(prestamoId); if(!p) return 0;
+  var tot=Math.round(p.capital*(1+(p.interes||0)/100));
+  var cobrado=ST.cobros
+    .filter(function(cb){return cb.prestamoId===prestamoId;})
+    .reduce(function(s,cb){return s+(cb.valor||0);},0);
+  return Math.max(0,tot-cobrado);
+}
+
+// Marcacion: historial de cobros de un préstamo (mobile-friendly)
+function getMarcacion(prestamoId){
+  return ST.cobros
+    .filter(function(cb){return cb.prestamoId===prestamoId;})
+    .sort(function(a,b){return (a.fecha||'').localeCompare(b.fecha||'')||((a.hora||'').localeCompare(b.hora||''));})
+    .map(function(cb){return {
+      id:cb.id, fecha:cb.fecha, hora:cb.hora||'',
+      valor:cb.valor||0, metodo:cb.metodo||'efectivo',
+      tipo:cb.tipo||'cobro', cobrador:cb.cobrador||''
+    };});
+}
+
+// pI versión v36 — lee saldo y pagos desde colección cobros
+function pI_v36(p){
+  var ckey='pI_v36_'+p.id+'_'+(p.updatedAt||p.createdAt||0)+'_'+ST.cobros.length;
+  if(_cache[ckey]) return _cache[ckey];
+  var tot=Math.round(p.capital*(1+(p.interes||0)/100));
+  var c=Math.round(tot/p.dias);
+  var frecuencia=p.frecuencia||'diario';
+  var fechas=calcFechasCuotas(p.fechaInicio, p.dias, frecuencia);
+  // Leer cobros de este préstamo
+  var cobros_p=ST.cobros.filter(function(cb){return cb.prestamoId===p.id;});
+  var valorCobrado=cobros_p.reduce(function(s,cb){return s+(cb.valor||0);},0);
+  var pag=cobros_p.filter(function(cb){return cb.tipo==='cobro';}).length;
+  var saldoReal=Math.max(0,tot-valorCobrado);
+  // Vencidas: fechas programadas pasadas sin cobro
+  var fechasCobradas=cobros_p.map(function(cb){return cb.fecha;});
+  var venc=[];
+  for(var n=1;n<=p.dias;n++){
+    var iso=fechas[n];
+    if(!iso) continue;
+    if(iso>=ISO) break;
+    if(fechasCobradas.indexOf(iso)===-1) venc.push({n:n,fecha:iso});
+  }
+  var est='activo';
+  if(pag>=p.dias||saldoReal<=0) est='completado';
+  else if(venc.length>=(frecuencia==='semanal'?1:PAR.cuotasMoroso)) est='moroso';
+  else if(venc.length>0) est='atraso';
+  var res={tot:tot,c:c,pag:pag,venc:venc,prog:Math.min(100,(pag/p.dias)*100),
+           est:est,fechas:fechas,valorCobrado:valorCobrado,saldoReal:saldoReal};
+  _cache[ckey]=res;
+  return res;
+}
+
+// Eliminación automática de préstamos saldados de días anteriores
+// Solo admin, solo cuando el último cobro fue antes de hoy
+function autoEliminarSaldados(){
+  if(!CU||CU.rol!=='admin') return;
+  var hoy=ISO;
+  var eliminados=0;
+  ST.prestamos.forEach(function(p){
+    var i=pI(p); // usa v36 si activo
+    if(i.saldoReal>0) return; // no saldado
+    // Verificar que el último cobro fue ANTES de hoy
+    var ultimaFecha='';
+    if(PAR.v36activo){
+      var cobros_p=ST.cobros.filter(function(cb){return cb.prestamoId===p.id;});
+      if(cobros_p.length===0) return; // sin cobros → no eliminar
+      ultimaFecha=cobros_p.map(function(cb){return cb.fecha||'';}).filter(Boolean).sort().pop()||'';
+    } else {
+      var pg=p.pagos||{};
+      var fechasPg=Object.keys(pg).map(function(k){return (pg[k]&&pg[k].fecha)||'';}).filter(Boolean);
+      if(fechasPg.length===0) return;
+      ultimaFecha=fechasPg.slice().sort().pop()||'';
+    }
+    if(ultimaFecha>=hoy) return; // completado hoy → no tocar todavía
+    eliminados++;
+    db.collection('prestamos').doc(p.id).delete()
+      .then(function(){console.log('[v36] Préstamo saldado eliminado:',p.id);})
+      .catch(function(e){console.warn('[v36] Error al eliminar saldado:',e&&e.message);});
+  });
+  if(eliminados>0){
+    console.log('[v36] autoEliminarSaldados: '+eliminados+' préstamos eliminados');
+  }
+}
+
+// ── Toggle v36activo ──────────────────────────────────────────────
+function toggleV36(){
+  PAR.v36activo=!PAR.v36activo;
+  var btn=document.getElementById('P-V36');
+  var lbl=document.getElementById('P-V36-LBL');
+  if(btn) btn.className='toggle'+(PAR.v36activo?' on':'');
+  if(lbl){lbl.textContent=PAR.v36activo?'Activo':'Inactivo';lbl.style.color=PAR.v36activo?'var(--gn)':'var(--tm)';}
+  db.collection('config').doc('params').set({v36activo:PAR.v36activo},{merge:true})
+    .then(function(){
+      toast('Modo v36 '+(PAR.v36activo?'activado — leyendo desde cobros':'desactivado — leyendo desde pagos{}'),'ok');
+      clearCache(); refSc();
+    })
+    .catch(function(e){toast('Error al guardar','err');console.error(e);});
+}
+
+// ── Plantilla Excel para migración ──────────────────────────────────
+function descargarPlantillaMigracion(){
+  var XLSX=window.XLSX;
+  if(!XLSX){toast('Librería Excel no cargada','err');return;}
+  var wb=XLSX.utils.book_new();
+  var data=[
+    ['ClienteCedula','ClienteNombre','NumeroCredito','Fecha','Valor','Metodo','Tipo'],
+    ['1234567890','Ejemplo Apellido','1','2026-01-15','50000','efectivo','cobro'],
+    ['0987654321','Otro Ejemplo','2','2026-01-15','80000','nequi','cobro'],
+    ['','— Metodo: efectivo | nequi','','','','','— Tipo: cobro | abono']
+  ];
+  var ws=XLSX.utils.aoa_to_sheet(data);
+  ws['!cols']=[{wch:14},{wch:26},{wch:14},{wch:12},{wch:12},{wch:12},{wch:10}];
+  // Instrucciones en hoja adicional
+  var instrData=[
+    ['CAMPO','DESCRIPCIÓN','EJEMPLO'],
+    ['ClienteCedula','Cédula del cliente (debe existir en el sistema)','1234567890'],
+    ['ClienteNombre','Nombre del cliente (referencia)','Juan Pérez'],
+    ['NumeroCredito','# de crédito del cliente (1=primero, 2=segundo)','1'],
+    ['Fecha','Fecha del cobro (YYYY-MM-DD)','2026-01-15'],
+    ['Valor','Valor cobrado en pesos (sin puntos ni comas)','50000'],
+    ['Metodo','Método de pago: efectivo o nequi','efectivo'],
+    ['Tipo','Tipo de movimiento: cobro o abono','cobro']
+  ];
+  var wsI=XLSX.utils.aoa_to_sheet(instrData);
+  wsI['!cols']=[{wch:18},{wch:55},{wch:16}];
+  XLSX.utils.book_append_sheet(wb,ws,'Cobros');
+  XLSX.utils.book_append_sheet(wb,wsI,'Instrucciones');
+  XLSX.writeFile(wb,'PlantillaMigracion_v36.xlsx');
+  toast('Plantilla descargada','ok');
+}
+
+// ── Cargar Excel histórico → escribe en colección cobros ─────────────
+function cargarExcelMigracion(file){
+  if(!file) return;
+  var input=document.querySelector('input[onchange*="cargarExcelMigracion"]');
+  if(input) input.value=''; // reset para poder subir el mismo archivo dos veces
+  var statusEl=document.getElementById('migra-status');
+  if(statusEl) statusEl.innerHTML='<span style="color:var(--am)">⏳ Leyendo archivo...</span>';
+  var XLSX=window.XLSX;
+  if(!XLSX){toast('Librería Excel no cargada','err');return;}
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    try{
+      var wb=XLSX.read(ev.target.result,{type:'array'});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var rows=XLSX.utils.sheet_to_json(ws);
+      if(rows.length===0){
+        toast('Archivo vacío o sin datos','err');
+        if(statusEl) statusEl.innerHTML='<span style="color:var(--rd)">❌ Archivo vacío</span>';
+        return;
+      }
+      if(statusEl) statusEl.innerHTML='<span style="color:var(--am)">📋 '+rows.length+' filas encontradas. Procesando...</span>';
+      var batch=[], errores=[], skip=0;
+      rows.forEach(function(row,idx){
+        var ced=String(row['ClienteCedula']||'').trim();
+        var nom=String(row['ClienteNombre']||'').trim();
+        var numCred=parseInt(row['NumeroCredito'])||1;
+        var fecha=String(row['Fecha']||'').trim();
+        var valor=parseFloat(String(row['Valor']||'0').replace(/[^0-9.]/g,''))||0;
+        var metodo=String(row['Metodo']||'efectivo').trim().toLowerCase();
+        var tipo=String(row['Tipo']||'cobro').trim().toLowerCase();
+        if(!ced||!fecha||valor<=0){skip++;errores.push('Fila '+(idx+2)+': datos incompletos (ced/fecha/valor)');return;}
+        if(!['efectivo','nequi'].includes(metodo)) metodo='efectivo';
+        if(!['cobro','abono'].includes(tipo)) tipo='cobro';
+        // Buscar cliente por cédula
+        var cliObj=ST.clientes.find(function(x){return String(x.cedula||'').trim()===ced;});
+        if(!cliObj){skip++;errores.push('Fila '+(idx+2)+': cédula '+ced+' no encontrada');return;}
+        // Buscar préstamo por #crédito (orden cronológico)
+        var prests=ST.prestamos.filter(function(p){return p.clienteId===cliObj.id;})
+          .sort(function(a,b){return (a.createdAt||0)-(b.createdAt||0);});
+        var p=prests[numCred-1];
+        if(!p){skip++;errores.push('Fila '+(idx+2)+': crédito #'+numCred+' no existe para '+nom);return;}
+        var r=gR(cliObj.rutaId);
+        var nowMs=Date.now()+(idx); // separar timestamps
+        batch.push({
+          fecha:fecha, hora:'00:00', fechaHora:nowMs,
+          valor:Math.round(valor), metodo:metodo, tipo:tipo,
+          prestamoId:p.id, clienteId:cliObj.id,
+          clienteNombre:nom||cliObj.nombre||'', clienteCedula:ced,
+          numeroCredito:numCred,
+          capital:p.capital||0, dias:p.dias||0, interes:p.interes||0,
+          rutaId:cliObj.rutaId||'', rutaNombre:r?(r.nombre||''):'',
+          cobrador:CU?(CU.nombre||''):'', cobradorRol:CU?(CU.rol||'admin'):'admin',
+          cobradorUid:CU?(CU.uid||''):'', cierreFecha:null,
+          createdAt:nowMs, updatedAt:nowMs, origen:'migracion_v36'
+        });
+      });
+      if(batch.length===0){
+        toast('No se encontraron cobros válidos','err');
+        if(statusEl) statusEl.innerHTML='<span style="color:var(--rd)">⚠ '+skip+' filas ignoradas. Errores:<br>'+errores.slice(0,5).join('<br>')+(errores.length>5?'<br>… y '+(errores.length-5)+' más':'')+'</span>';
+        return;
+      }
+      // Escritura secuencial en cobros
+      var idx2=0;
+      function escribirSiguiente(){
+        if(idx2>=batch.length){
+          toast('Migración completada: '+batch.length+' cobros importados'+(skip>0?', '+skip+' ignorados':''),'ok');
+          if(statusEl) statusEl.innerHTML='<span style="color:var(--gn)">✅ '+batch.length+' cobros importados'+
+            (skip>0?', <span style="color:var(--am)">'+skip+' filas ignoradas</span>':'')+
+            (errores.length>0?'<br><small style="color:var(--tm)">'+errores.slice(0,3).join(' · ')+(errores.length>3?' … ('+errores.length+')':'')+'</small>':'')+'</span>';
+          clearCache(); refSc();
+          return;
+        }
+        if(idx2%10===0&&statusEl) statusEl.innerHTML='<span style="color:var(--am)">⏳ '+idx2+'/'+batch.length+' escritos...</span>';
+        db.collection('cobros').add(batch[idx2]).then(function(){idx2++;escribirSiguiente();})
+          .catch(function(e){console.warn('[migra]',e);idx2++;escribirSiguiente();});
+      }
+      escribirSiguiente();
+    }catch(e){
+      toast('Error al leer el archivo','err');
+      console.error(e);
+      if(statusEl) statusEl.innerHTML='<span style="color:var(--rd)">❌ Error: '+(e&&e.message)+'</span>';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ════════════════════════════════════════════════════════════════
 function cfCob(){
   if(!actualizarFecha()){return;} // bloquear si cambió el día
   if(cobEsBloqueado()){mensajeBloqueo();return;}
@@ -2826,13 +3179,15 @@ function cfCob(){
   }
   // Verificar si ya está cobrada hoy
   var pgActual=p.pagos||{};
-  var pagoHoyExiste=Object.keys(pgActual).some(function(k){
-    var pg=pgActual[k];
-    if(!pg||pg.fecha!==ISO) return false;
-    if(pg.esAdicional||pg.esParcial||pg.esHistorial) return false;
-    if(k.startsWith('ab_')) return false; // ab_ISO nunca bloquea cobro normal
-    return true;
-  });
+  var pagoHoyExiste=PAR.v36activo
+    ? ST.cobros.some(function(cb){return cb.prestamoId===_cobPid&&cb.fecha===ISO;})
+    : Object.keys(pgActual).some(function(k){
+        var pg=pgActual[k];
+        if(!pg||pg.fecha!==ISO) return false;
+        if(pg.esAdicional||pg.esParcial||pg.esHistorial) return false;
+        if(k.startsWith('ab_')) return false;
+        return true;
+      });
   if(pagoHoyExiste){
     toast('Ya hay un cobro registrado hoy para este cliente','err');
     cM('m-cob');
@@ -3472,10 +3827,26 @@ function verCli(id){
       pagosPorFecha[pago.fecha].total+=(pago.valor||0);
       pagosPorFecha[pago.fecha].cuotas.push(parseInt(k));
     });
+    // v36: marcacion desde colección cobros
+    var marcaMap={};
+    if(PAR.v36activo){
+      getMarcacion(p.id).forEach(function(m){marcaMap[m.fecha]=m;});
+    }
     var calH='';
     for(var n=1;n<=p.dias;n++){
       var paid=pgObj[n],fq=i.fechas[n]||'';
       var cls='ppend',ico='○',metStr='',extraInfo='',valorMostrar=i.c;
+      if(PAR.v36activo){
+        // v36: usar marcacion desde cobros
+        var cobMarca=marcaMap[fq];
+        if(cobMarca){
+          cls='pok';ico='✓';
+          valorMostrar=cobMarca.valor||i.c;
+          metStr=cobMarca.metodo==='nequi'?' 📱':' 💵';
+          extraInfo=' · '+fd(cobMarca.fecha)+metStr+(cobMarca.cobrador?' · '+cobMarca.cobrador:'');
+        } else if(fq&&fq<ISO){cls='pvec';ico='!';}
+        else if(fq===ISO){cls='phoy';ico='◉';}
+      } else {
       if(paid){
         cls='pok';ico='✓';
         if(paid.esPrincipal){
@@ -3498,21 +3869,24 @@ function verCli(id){
         }
       } else if(fq&&fq<ISO){cls='pvec';ico='!';}
       else if(fq===ISO){cls='phoy';ico='◉';}
+      } // end v35 else
       calH+='<div class="cal-cell '+cls+'">'+
         '<div style="background:'+(cls==='pok'?'#4CAF50':cls==='pvec'?'#F44336':cls==='phoy'?'#FF9800':'#90CAF9')+
         ';color:#fff;width:20px;height:20px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0">'+ico+'</div>'+
         '<div style="flex:1;min-width:0">'+
           '<div style="font-size:11px;font-weight:600;color:var(--bd)">Cuota '+n+(fq?' — '+fd(fq):'')+'</div>'+
-          '<div style="font-size:10px;color:var(--tm)">'+(paid?(valorMostrar>0?fm(valorMostrar):'')+extraInfo:fm(i.c))+'</div>'+
+          '<div style="font-size:10px;color:var(--tm)">'+((cls==='pok'||cls==='pparcial')?(valorMostrar>0?fm(valorMostrar):'')+extraInfo:fm(i.c))+'</div>'+
         '</div></div>';
     }
     var estadoBadge=i.est==='completado'?
       '<span class="badge bg3">✓ Cancelado</span>':
       '<span class="badge '+B[i.est]+'">'+T[i.est]+'</span>';
+    var numCredV=_numeroCreditoCliente(c.id,p.id);
+    var numTagV=pres.length>1?'<span style="background:#1976D2;color:#fff;border-radius:20px;padding:1px 8px;font-size:10px;margin-left:6px">Crédito #'+numCredV+'</span>':'';
     return '<div style="background:var(--bll);border-radius:var(--rs);padding:12px;margin-bottom:10px;border:1px solid '+(esHoy?'var(--bl)':'var(--br)')+'">'+
       '<div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:6px;margin-bottom:8px">'+
         '<div>'+
-          '<div style="font-size:13px;font-weight:700;color:var(--bd)">'+fm(p.capital)+' — '+p.dias+' días '+estadoBadge+(esHoy?' <span class="badge bb">Hoy</span>':'')+'</div>'+
+          '<div style="font-size:13px;font-weight:700;color:var(--bd)">'+fm(p.capital)+' — '+p.dias+' días '+estadoBadge+numTagV+(esHoy?' <span class="badge bb">Hoy</span>':'')+'</div>'+
           '<div class="ts">Desde '+fd(p.fechaInicio)+' · Cuota: '+fm(i.c)+'/día</div>'+
         '</div>'+
         '<div style="text-align:right">'+
@@ -3652,14 +4026,15 @@ function expFlujo(){
   wsReem['!cols']=[{wch:12},{wch:10},{wch:25},{wch:16},{wch:10},{wch:12},{wch:30}];
   XLSX.utils.book_append_sheet(wb,wsReem,'Reembolsos');
 
-  // ── Hoja 5: Cartera activa ──
-  var dataCli=[['Cliente','Cédula','Teléfono','Ruta','Capital','Interés%','Plazo','Cuota','Pagadas','Vencidas','Saldo Real','Estado','Fecha Inicio']];
+  // ── Hoja 5: Cartera activa (solo préstamos NO completados) ──
+  var dataCli=[['Cliente','Cédula','Teléfono','Ruta','#Crédito','Capital','Interés%','Plazo','Cuota','Pagadas','Vencidas','Saldo Real','Estado','Fecha Inicio']];
   rutas.forEach(function(r){
     ST.clientes.filter(function(c){return c.rutaId===r.id;}).forEach(function(c){
-      ST.prestamos.filter(function(p){return p.clienteId===c.id;}).forEach(function(p){
+      ST.prestamos.filter(function(p){return p.clienteId===c.id&&pI(p).est!=='completado';}).forEach(function(p){
         var i=pI(p);
         var estados={completado:'Cancelado',moroso:'Moroso',atraso:'Con atraso',activo:'Al día'};
         dataCli.push([c.nombre,c.cedula||'',c.tel||'',r.nombre,
+          _numeroCreditoCliente(c.id,p.id),
           p.capital,p.interes||0,p.dias,i.c,
           i.pag,i.venc.length,Math.round(i.saldoReal),
           estados[i.est]||i.est,p.fechaInicio||'']);
@@ -3690,39 +4065,52 @@ function expFlujo(){
   wsMor['!cols']=[{wch:22},{wch:12},{wch:12},{wch:16},{wch:14},{wch:12},{wch:14},{wch:12},{wch:12}];
   XLSX.utils.book_append_sheet(wb,wsMor,'Morosos');
 
-  // ── Hoja 7: Cobros del mes ──
-  var dataCob=[['Fecha Cobro','Cliente','Ruta','Capital Crédito','Cuota #','Valor Cobrado','Método']];
-  rutas.forEach(function(r){
-    ST.clientes.filter(function(c){return c.rutaId===r.id;}).forEach(function(c){
-      ST.prestamos.filter(function(p){return p.clienteId===c.id;}).forEach(function(p){
-        var pg=p.pagos||{};
-        Object.keys(pg).forEach(function(k){
-          var pago=pg[k];
-          if(!pago||!pago.fecha) return;
-          if(pago.fecha.slice(0,7)!==fcMes) return;
-          if(pago.esAdicional) return;   // cuotas adicionales valor:0 → ignorar
-          if(pago.esHistorial) return;   // ab_ISO historial nuevo → ignorar
-          if(pago.esParcial) return;     // parciales → ignorar en cobros
-          if(!pago.esPrincipal) return;  // solo principales
-          // Para ab_ISO antiguos (antes del fix): incluir solo si no hay cuota numerada ese día
-          if(pago.esAbono){
-            var yaEnCuota=Object.keys(pg).some(function(k2){
-              return !k2.startsWith('ab_')&&pg[k2]&&
-                     pg[k2].fecha===pago.fecha&&pg[k2].esPrincipal;
-            });
-            if(yaEnCuota) return;
-          }
-          var nCuota=k.startsWith('ab_')?'Abono':parseInt(k);
-          dataCob.push([pago.fecha,c.nombre,r.nombre,p.capital,
-            nCuota,pago.valor||0,
-            pago.metodo==='nequi'?'Nequi':'Efectivo']);
+  // ── Hoja 7: Cobros del mes (desde cobros[] si v36activo, si no desde pagos{}) ──
+  var dataCob=[['Fecha Cobro','Cliente','Cédula','#Crédito','Ruta','Capital','Tipo','Valor','Método','Cobrador']];
+  if(PAR.v36activo){
+    var filtCobMes=ST.cobros.filter(function(cb){
+      if(!cb.fecha||cb.fecha.slice(0,7)!==fcMes) return false;
+      if(rutaFil&&cb.rutaId!==rutaFil) return false;
+      return true;
+    });
+    filtCobMes.sort(function(a,b){return (a.fecha||'').localeCompare(b.fecha||'')||((a.hora||'').localeCompare(b.hora||''));});
+    filtCobMes.forEach(function(cb){
+      dataCob.push([cb.fecha,cb.clienteNombre||'',cb.clienteCedula||'',
+        cb.numeroCredito||'',cb.rutaNombre||'',cb.capital||0,
+        cb.tipo==='abono'?'Abono':'Cobro',cb.valor||0,
+        cb.metodo==='nequi'?'Nequi':'Efectivo',cb.cobrador||'']);
+    });
+  } else {
+    rutas.forEach(function(r){
+      ST.clientes.filter(function(c){return c.rutaId===r.id;}).forEach(function(c){
+        ST.prestamos.filter(function(p){return p.clienteId===c.id;}).forEach(function(p){
+          var pg=p.pagos||{};
+          Object.keys(pg).forEach(function(k){
+            var pago=pg[k];
+            if(!pago||!pago.fecha) return;
+            if(pago.fecha.slice(0,7)!==fcMes) return;
+            if(pago.esAdicional) return;
+            if(pago.esHistorial) return;
+            if(pago.esParcial) return;
+            if(!pago.esPrincipal) return;
+            if(pago.esAbono){
+              var yaEnCuota=Object.keys(pg).some(function(k2){
+                return !k2.startsWith('ab_')&&pg[k2]&&pg[k2].fecha===pago.fecha&&pg[k2].esPrincipal;
+              });
+              if(yaEnCuota) return;
+            }
+            var nCuota=k.startsWith('ab_')?'Abono':parseInt(k);
+            dataCob.push([pago.fecha,c.nombre,c.cedula||'',
+              _numeroCreditoCliente(c.id,p.id),r.nombre,p.capital,
+              'Cobro',pago.valor||0,pago.metodo==='nequi'?'Nequi':'Efectivo','']);
+          });
         });
       });
     });
-  });
+  }
   dataCob.sort(function(a,b){return (a[0]||'').localeCompare(b[0]||'');});
   var wsCob=XLSX.utils.aoa_to_sheet(dataCob);
-  wsCob['!cols']=[{wch:12},{wch:22},{wch:16},{wch:12},{wch:8},{wch:14},{wch:10}];
+  wsCob['!cols']=[{wch:12},{wch:22},{wch:14},{wch:10},{wch:16},{wch:12},{wch:8},{wch:12},{wch:10},{wch:18}];
   XLSX.utils.book_append_sheet(wb,wsCob,'Cobros del Mes');
 
   XLSX.writeFile(wb,'RutaCobro_'+mesNombre.replace(' ','_')+'.xlsx');
@@ -4393,6 +4781,18 @@ function sEditGas(){
 
 // ── Helpers método de pago ────────────────────
 function recaudoEfNq(rutaId, fecha){
+  if(PAR.v36activo){
+    var ef=0,nq=0;
+    ST.cobros.filter(function(cb){
+      if(cb.fecha!==fecha)return false;
+      if(rutaId&&cb.rutaId!==rutaId)return false;
+      return true;
+    }).forEach(function(cb){
+      if(cb.metodo==='nequi') nq+=(cb.valor||0);
+      else ef+=(cb.valor||0);
+    });
+    return {ef:ef,nq:nq};
+  }
   var ef=0,nq=0;
   var cIds=ST.clientes.filter(function(c){return !rutaId||c.rutaId===rutaId;}).map(function(c){return c.id;});
   ST.prestamos.filter(function(p){return cIds.indexOf(p.clienteId)>=0;}).forEach(function(p){
@@ -4489,7 +4889,8 @@ var PAR = {
   plazoDef: 30,
   seguroTipo: 'porcentaje',
   seguroValor: 0,
-  montoMinimo: 100000
+  montoMinimo: 100000,
+  v36activo: false        // true = leer desde colección cobros
 };
 var _parCargado = false;
 
@@ -4657,6 +5058,36 @@ function rPar(){
         '</label>'+
       '</div>'+
     '</div>'+
+  '</div>'+
+  // ── Migración v36 ──────────────────────────
+  '<div class="param-card" style="border-left:4px solid #1565C0">'+
+    '<h3 style="color:#1565C0">🔄 Migración v36</h3>'+
+    '<div class="param-row">'+
+      '<div><div class="param-label">Modo v36 activo</div>'+
+      '<div class="param-desc">Cuando está activo, todos los cálculos leen de la colección <code style="background:#E3F2FD;padding:1px 5px;border-radius:3px">cobros</code> en vez de <code style="background:#f5f5f5;padding:1px 5px;border-radius:3px">pagos{}</code>. Activa solo cuando hayas cargado el historial completo.</div></div>'+
+      '<div class="param-ctrl" style="flex-direction:column;align-items:flex-end;gap:6px">'+
+        '<div style="display:flex;align-items:center;gap:8px">'+
+          '<button class="toggle'+(PAR.v36activo?' on':'')+'" id="P-V36" onclick="toggleV36()"></button>'+
+          '<span id="P-V36-LBL" style="font-size:12px;font-weight:600;color:'+(PAR.v36activo?'var(--gn)':'var(--tm)')+'">'+( PAR.v36activo?'Activo':'Inactivo')+'</span>'+
+        '</div>'+
+        '<div style="font-size:10px;color:var(--tm)">Cobros en colección: '+ST.cobros.length+'</div>'+
+      '</div>'+
+    '</div>'+
+    '<div class="param-row">'+
+      '<div><div class="param-label">Plantilla de migración</div>'+
+      '<div class="param-desc">Descarga el formato Excel para registrar cobros históricos antes de v36.</div></div>'+
+      '<div class="param-ctrl"><button class="bx bs" onclick="descargarPlantillaMigracion()">&#8681; Plantilla Excel</button></div>'+
+    '</div>'+
+    '<div class="param-row">'+
+      '<div><div class="param-label">Cargar Excel histórico</div>'+
+      '<div class="param-desc">Importa cobros a <code style="background:#E3F2FD;padding:1px 5px;border-radius:3px">cobros</code>. Columnas: ClienteCedula, ClienteNombre, NumeroCredito, Fecha, Valor, Metodo, Tipo.</div></div>'+
+      '<div class="param-ctrl">'+
+        '<label class="bp bs" style="cursor:pointer">&#8679; Cargar Excel'+
+          '<input type="file" accept=".xlsx,.xls" style="display:none" onchange="cargarExcelMigracion(this.files[0])">'+
+        '</label>'+
+      '</div>'+
+    '</div>'+
+    '<div id="migra-status" style="margin-top:4px;font-size:12px;color:var(--tm);padding:0 4px"></div>'+
   '</div>'+
   // ── Zona de peligro ───────────────────────
   '<div class="param-card" style="border-left:4px solid var(--rd)">'+
@@ -5098,6 +5529,7 @@ function subAll(){
   })).then(function(){
     setSy('online');
     refSc(); // Primer render con todos los datos
+    autoEliminarSaldados(); // Eliminar préstamos saldados de días anteriores
     // Luego activar onSnapshot para actualizaciones en tiempo real
     cols.forEach(function(col){
       var u=db.collection(col).onSnapshot(function(snap){
