@@ -1265,6 +1265,9 @@ function recaudoDia(rutaId, fecha) {
       return true;
     }).reduce(function(s,cb){return s+(cb.valor||0);},0);
   }
+  // Fechas históricas: si hay cierre registrado usar su recaudo (dato exacto del día)
+  var ci=ST.cierres.find(function(c){return c.rutaId===rutaId&&c.fecha===fecha;});
+  if(ci&&ci.recaudo!==undefined) return ci.recaudo||0;
   var tot = 0;
   var cIds = ST.clientes.filter(function(c){return !rutaId||c.rutaId===rutaId;}).map(function(c){return c.id;});
   ST.prestamos.filter(function(p){return cIds.indexOf(p.clienteId)>=0;}).forEach(function(p){
@@ -5139,6 +5142,9 @@ function recaudoEfNq(rutaId, fecha){
     });
     return {ef:ef,nq:nq};
   }
+  // Fechas históricas: si el cierre tiene discriminación guardada, usarla
+  var ci=ST.cierres.find(function(c){return c.rutaId===rutaId&&c.fecha===fecha;});
+  if(ci&&ci.difEf!==undefined) return {ef:ci.difEf||0,nq:ci.difNq||0};
   var ef=0,nq=0;
   var cIds=ST.clientes.filter(function(c){return !rutaId||c.rutaId===rutaId;}).map(function(c){return c.id;});
   ST.prestamos.filter(function(p){return cIds.indexOf(p.clienteId)>=0;}).forEach(function(p){
