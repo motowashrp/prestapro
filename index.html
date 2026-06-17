@@ -3055,7 +3055,65 @@ function autoEliminarSaldados(){
   }
 }
 
-// ── Toggle v36activo ──────────────────────────────────────────────
+// ── Limpiar cobros de migración (origen: migracion_v36) ──────────────────────
+// Conserva intactos los cobros de Fase 1 (origen: v35_paralelo / v36)
+function limpiarMigracion(){
+  var statusEl=document.getElementById('migra-status');
+  showModal({
+    title:'🗑 Limpiar cobros de migración',
+    icon:'⚠️', iconColor:'#FFF3E0',
+    body:'¿Eliminar todos los cobros importados por Excel (<strong>origen: migracion_v36</strong>)?',
+    detail:'Los cobros registrados por Fase 1 (v35_paralelo) se conservan. Esta acción no se puede deshacer.',
+    btnOk:'Sí, limpiar migración', danger:true,
+    onOk:function(){
+      if(statusEl) statusEl.innerHTML='<span style="color:var(--am)">⏳ Buscando documentos de migración...</span>';
+      db.collection('cobros').where('origen','==','migracion_v36').get()
+        .then(function(snap){
+          if(snap.empty){
+            toast('No hay cobros de migración que eliminar','ok');
+            if(statusEl) statusEl.innerHTML='<span style="color:var(--gn)">✅ No había cobros de migración</span>';
+            return;
+          }
+          var total=snap.docs.length;
+          if(statusEl) statusEl.innerHTML='<span style="color:var(--am)">⏳ Eliminando '+total+' documentos...</span>';
+          // Eliminar en lotes de 400
+          var lotes=[];
+          var lote=[];
+          snap.docs.forEach(function(doc){
+            lote.push(doc);
+            if(lote.length===400){ lotes.push(lote); lote=[]; }
+          });
+          if(lote.length>0) lotes.push(lote);
+          var eliminados=0;
+          function eliminarLote(idx){
+            if(idx>=lotes.length){
+              toast('Limpieza completada: '+eliminados+' docs eliminados','ok');
+              if(statusEl) statusEl.innerHTML='<span style="color:var(--gn)">✅ '+eliminados+' cobros de migración eliminados. Cobros de Fase 1 conservados.</span>';
+              clearCache(); refSc();
+              return;
+            }
+            var batch=db.batch();
+            lotes[idx].forEach(function(doc){ batch.delete(doc.ref); eliminados++; });
+            batch.commit()
+              .then(function(){ eliminarLote(idx+1); })
+              .catch(function(e){
+                toast('Error al eliminar lote','err');
+                if(statusEl) statusEl.innerHTML='<span style="color:var(--rd)">❌ Error: '+e.message+'</span>';
+                console.error(e);
+              });
+          }
+          eliminarLote(0);
+        })
+        .catch(function(e){
+          toast('Error al consultar cobros','err');
+          if(statusEl) statusEl.innerHTML='<span style="color:var(--rd)">❌ Error: '+e.message+'</span>';
+          console.error(e);
+        });
+    }
+  });
+}
+
+
 function toggleV36(){
   PAR.v36activo=!PAR.v36activo;
   var btn=document.getElementById('P-V36');
@@ -5319,6 +5377,11 @@ function rPar(){
           '<input type="file" accept=".xlsx,.xls" style="display:none" onchange="cargarExcelMigracion(this.files[0])">'+
         '</label>'+
       '</div>'+
+    '</div>'+
+    '<div class="param-row">'+
+      '<div><div class="param-label">Limpiar cobros de migración</div>'+
+      '<div class="param-desc">Elimina <strong>solo</strong> los documentos importados por Excel (<code style="background:#FFEBEE;padding:1px 5px;border-radius:3px">origen: migracion_v36</code>). Los cobros de Fase 1 (<code style="background:#E3F2FD;padding:1px 5px;border-radius:3px">v35_paralelo</code>) se conservan intactos.</div></div>'+
+      '<div class="param-ctrl"><button class="bd2 bs" onclick="limpiarMigracion()">🗑 Limpiar migración</button></div>'+
     '</div>'+
     '<div id="migra-status" style="margin-top:4px;font-size:12px;color:var(--tm);padding:0 4px"></div>'+
   '</div>'+
