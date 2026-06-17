@@ -2322,44 +2322,10 @@ function rCie(){
     var yaC=ST.cierres.filter(function(c){return c.id===ckey||c.ckey===ckey;})[0];
     var cIds=ST.clientes.filter(function(c){return c.rutaId===ruta.id;}).map(function(c){return c.id;});
     var pres=ST.prestamos.filter(function(p){return cIds.indexOf(p.clienteId)>=0;});
-    // Recaudo del día: usar fecha REAL de cobro (no fecha programada)
-    var recEf=0,recNq=0;
-    pres.forEach(function(p){
-      var pg=p.pagos||{};
-      var cuotaPCie=Math.round(p.capital*(1+(p.interes||0)/100)/p.dias);
-      var tienePCie2=Object.keys(pg).some(function(k){
-        return !k.startsWith('ab_')&&pg[k]&&pg[k].fecha===ISO&&pg[k].esPrincipal;
-      });
-      Object.keys(pg).forEach(function(k){
-        var pago=pg[k];
-        if(!pago||pago.fecha!==ISO) return;
-        if(pago.esAdicional||pago.esHistorial) return;
-        if(pago.esAbono&&pago.esPrincipal){
-          if(!tienePCie2){
-            var v0=pago.valor||0,m0=pago.metodo||'efectivo';
-            if(m0==='nequi') recNq+=v0; else recEf+=v0;
-          }
-          return;
-        }
-        if(pago.esParcial&&tienePCie2) return;
-        if(pago.esPrincipal&&!k.startsWith('ab_')){
-          // Excluir cuotas cubiertas por cobro doble (cuota maestra > cuotaReal)
-          var esCubiertaC=Object.keys(pg).some(function(k2){
-            if(k2===k||k2.startsWith('ab_')) return false;
-            var p2=pg[k2];
-            return p2&&p2.fecha===ISO&&p2.esPrincipal&&!p2.esAdicional&&
-                   (p2.valor||0)>cuotaPCie&&(p2.valor||0)>(pago.valor||0);
-          });
-          if(!esCubiertaC){
-            var v=pago.valor||0;
-            if(pago.metodo==='nequi') recNq+=v; else recEf+=v;
-          }
-          return;
-        }
-        var v=pago.valor||0;
-        if(pago.metodo==='nequi') recNq+=v; else recEf+=v;
-      });
-    });
+    // Recaudo del día: usar recaudoEfNq() — misma fuente que rRec() y rFlujo()
+    // En v36activo lee desde cobros; en v35 calcula desde pagos{}
+    var efNqCie=recaudoEfNq(ruta.id,ISO);
+    var recEf=efNqCie.ef, recNq=efNqCie.nq;
     var rec=recEf+recNq;
     // Base del día
     var b=baseDia(ruta.id,ISO);
