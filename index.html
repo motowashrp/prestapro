@@ -3251,23 +3251,27 @@ function ajustarSaldoEfNq(rutaId, totalSaldo){
   document.getElementById('ASE-OK').onclick=function(){
     var ef=Math.round(parseFloat(document.getElementById('ASE-EF-N').value)||0);
     var nq=Math.round(parseFloat(document.getElementById('ASE-NQ-N').value)||0);
-    // Guardar en config — NO en bases (no afecta flujo de caja ni aportes/retiros)
     var deltaEf=ef-Math.round(cen.ef);
     var deltaNq=nq-Math.round(cen.nq);
     cerrar();
     if(deltaEf===0&&deltaNq===0){toast('Sin cambios','ok');return;}
     var docId='ajuste_efnq_'+rutaId;
-    var ajusteActual=ST.config.find(function(x){return x.id===docId;})||{};
-    db.collection('config').doc(docId).set({
-      rutaId:rutaId,
+    var ajusteActual=(ST.config||[]).find(function(x){return x.id===docId;})||{};
+    var docData={
+      id:docId, rutaId:rutaId,
       deltaEf:(ajusteActual.deltaEf||0)+deltaEf,
       deltaNq:(ajusteActual.deltaNq||0)+deltaNq,
       efFinal:ef, nqFinal:nq,
       ajustadoPor:CU.nombre, ajustadoAt:Date.now()
-    }).then(function(){
-      toast('Ajuste Ef/Nq guardado: 💵 '+fm(ef)+' · 📱 '+fm(nq),'ok');
-      clearCache(); refSc();
-    }).catch(function(e){toast('Error al guardar','err');console.error(e);});
+    };
+    // Actualizar ST.config en memoria INMEDIATAMENTE (sin esperar onSnapshot)
+    var idx=(ST.config||[]).findIndex(function(x){return x.id===docId;});
+    if(idx>=0) ST.config[idx]=docData; else (ST.config=ST.config||[]).push(docData);
+    clearCache(); refSc();
+    toast('Discriminación ajustada: 💵 '+fm(ef)+' · 📱 '+fm(nq),'ok');
+    // Persistir en Firestore en paralelo
+    db.collection('config').doc(docId).set(docData)
+      .catch(function(e){toast('Error al guardar en Firestore','err');console.error(e);});
   };
 }
 
