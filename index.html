@@ -1242,15 +1242,14 @@ function saldoCajaEfNq(rutaId, hastaFecha){
   });
   ST.cierres.forEach(function(ci){
     if(ci.rutaId!==rutaId||ci.fecha>hasta)return;
-    // Usar desglose ef/nq del cierre si existe, sino calcular
     if(ci.difEf!==undefined){
+      // Discriminación guardada explícitamente → usar directamente
       ef+=(ci.difEf||0);
       nq+=(ci.difNq||0);
     } else {
-      // Calcular desglose desde movimientos del día
-      var dEfNq=difCierreEfNq(rutaId,ci.fecha);
-      ef+=dEfNq.ef;
-      nq+=dEfNq.nq;
+      // Sin discriminación guardada → atribuir diferencia total a ef
+      // Esto garantiza ef+nq = saldoCaja() siempre
+      ef+=(ci.diferencia||0);
     }
   });
   return {ef:ef,nq:nq};
@@ -2039,15 +2038,17 @@ function rFlujo(){
     var difMes=0,difEfMes=0,difNqMes=0;
     ST.cierres.filter(function(ci){return ci.rutaId===r.id&&ci.fecha&&ci.fecha.slice(0,7)===fcMes;}).forEach(function(ci){
       difMes+=(ci.diferencia||0);
-      var dEfNq=difCierreEfNq(r.id,ci.fecha);
-      difEfMes+=dEfNq.ef;
-      difNqMes+=dEfNq.nq;
+      // Usar discriminación guardada si existe, sino atribuir a ef
+      if(ci.difEf!==undefined){
+        difEfMes+=ci.difEf||0;
+        difNqMes+=ci.difNq||0;
+      } else {
+        difEfMes+=(ci.diferencia||0);
+      }
     });
-    // Desglose ef/nq por tipo en el mes
-    var fn2=function(tipo,esNq){return ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo===tipo&&(esNq?b.metodo==='nequi':b.metodo!=='nequi');}).reduce(function(s,b){return s+(b.monto||0);},0);};
-    var aEf=fn2('aporte',false),aNq=fn2('aporte',true);
-    var rEf=fn2('retiro',false),rNq=fn2('retiro',true);
-    var bEf=fn2('base',false),bNq=fn2('base',true);
+    // Verificar consistencia ef+nq vs total
+    var cenTotal=cen.ef+cen.nq;
+    var cenOk=Math.abs(cenTotal-saldoCajaR)<1;
     cajasH+=
       '<div class="caja-card" style="border-left-color:'+r.color+';margin-bottom:1rem">'+
       '<div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:8px;margin-bottom:.5rem">'+
@@ -2055,19 +2056,28 @@ function rFlujo(){
         '<div class="ts">Saldo acumulado</div></div>'+
         '<div style="text-align:right">'+
           '<div style="font-size:26px;font-weight:700;color:'+(saldoCajaR>=0?'var(--gn)':'var(--rd)')+'">'+fm(saldoCajaR)+'</div>'+
-          '<div style="font-size:11px;color:var(--tm);margin-top:2px">&#x1F4B5; '+fm(Math.max(0,cen.ef))+' &nbsp; &#x1F4F1; '+fm(Math.max(0,cen.nq))+'</div>'+
+          '<div style="font-size:11px;color:var(--tm);margin-top:2px">&#x1F4B5; '+fm(Math.max(0,cen.ef))+' &nbsp; &#x1F4F1; '+fm(Math.max(0,cen.nq))+
+            (!cenOk?'<span style="color:var(--am);margin-left:6px" title="Desglose no cuadra con el total">⚠</span>':'')+
+          '</div>'+
+          (CU.rol==='admin'?'<button onclick="ajustarSaldoEfNq(\''+r.id+'\','+saldoCajaR+')" style="font-size:10px;padding:2px 8px;border:1px solid var(--br);border-radius:var(--rs);background:var(--bll);cursor:pointer;font-family:inherit;margin-top:4px">✏️ Ajustar Ef/Nq</button>':'')+
         '</div>'+
       '</div>'+
-      '<div class="caja-grid" style="margin-bottom:.75rem">'+
-        '<div class="caja-stat success"><div class="lb">Aportes</div><div class="vl">+'+fm(aportesMes)+'</div>'+
-          '<div style="font-size:10px;color:var(--tm)">&#x1F4B5; '+fm(aEf)+' · &#x1F4F1; '+fm(aNq)+'</div></div>'+
-        '<div class="caja-stat danger"><div class="lb">Retiros</div><div class="vl">-'+fm(retirosMes)+'</div>'+
-          '<div style="font-size:10px;color:var(--tm)">&#x1F4B5; '+fm(rEf)+' · &#x1F4F1; '+fm(rNq)+'</div></div>'+
-        '<div class="caja-stat"><div class="lb">Base asig.</div><div class="vl">-'+fm(basesMes)+'</div>'+
-          '<div style="font-size:10px;color:var(--tm)">&#x1F4B5; '+fm(bEf)+' · &#x1F4F1; '+fm(bNq)+'</div></div>'+
-        '<div class="caja-stat '+(difMes>=0?'success':'danger')+'"><div class="lb">Dif. cierres</div><div class="vl">'+(difMes>=0?'+':'')+fm(difMes)+'</div>'+
-          '<div style="font-size:10px;color:var(--tm)">&#x1F4B5; '+fm(difEfMes)+' · &#x1F4F1; '+fm(difNqMes)+'</div></div>'+
-      '</div>'+
+      (function(){
+        var fn2=function(tipo,esNq){return ST.bases.filter(function(b){return b.rutaId===r.id&&b.fecha&&b.fecha.slice(0,7)===fcMes&&b.tipo===tipo&&(esNq?b.metodo==='nequi':b.metodo!=='nequi');}).reduce(function(s,b){return s+(b.monto||0);},0);};
+        var aEf=fn2('aporte',false),aNq=fn2('aporte',true);
+        var rEf=fn2('retiro',false),rNq=fn2('retiro',true);
+        var bEf=fn2('base',false),bNq=fn2('base',true);
+        return '<div class="caja-grid" style="margin-bottom:.75rem">'+
+          '<div class="caja-stat success"><div class="lb">Aportes</div><div class="vl">+'+fm(aportesMes)+'</div>'+
+            '<div style="font-size:10px;color:var(--tm)">&#x1F4B5; '+fm(aEf)+' · &#x1F4F1; '+fm(aNq)+'</div></div>'+
+          '<div class="caja-stat danger"><div class="lb">Retiros</div><div class="vl">-'+fm(retirosMes)+'</div>'+
+            '<div style="font-size:10px;color:var(--tm)">&#x1F4B5; '+fm(rEf)+' · &#x1F4F1; '+fm(rNq)+'</div></div>'+
+          '<div class="caja-stat"><div class="lb">Base asig.</div><div class="vl">-'+fm(basesMes)+'</div>'+
+            '<div style="font-size:10px;color:var(--tm)">&#x1F4B5; '+fm(bEf)+' · &#x1F4F1; '+fm(bNq)+'</div></div>'+
+          '<div class="caja-stat '+(difMes>=0?'success':'danger')+'"><div class="lb">Dif. cierres</div><div class="vl">'+(difMes>=0?'+':'')+fm(difMes)+'</div>'+
+            '<div style="font-size:10px;color:var(--tm)">&#x1F4B5; '+fm(difEfMes)+' · &#x1F4F1; '+fm(difNqMes)+'</div></div>'+
+        '</div>';
+      })()+
       '<div style="display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid var(--br);padding-top:.75rem">'+
         '<button class="bp bs btn-caja-mov" data-tipo="aporte" data-ruta="'+r.id+'" style="background:var(--gn)">+ Aporte</button>'+
         '<button class="bp bs btn-caja-mov" data-tipo="retiro" data-ruta="'+r.id+'" style="background:var(--rd)">- Retiro</button>'+
@@ -3160,6 +3170,114 @@ function limpiarMigracion(){
   });
 }
 
+
+// ── Ajustar discriminación ef/nq del saldo en caja ───────────────────────────
+// Graba un documento de ajuste en bases con tipo='ajuste_efnq'
+function ajustarSaldoEfNq(rutaId, totalSaldo){
+  var cen=saldoCajaEfNq(rutaId);
+  var ov=document.createElement('div');
+  ov.className='mov'; ov.style.zIndex='9200';
+  ov.innerHTML=
+    '<div class="modal" onclick="event.stopPropagation()" style="max-width:420px">'+
+      '<h3 style="font-size:13px;font-weight:700;color:var(--bd);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">'+
+        '✏️ Ajustar Ef/Nq del saldo en caja</h3>'+
+      '<div style="background:var(--bll);border-radius:8px;padding:10px;margin-bottom:14px;font-size:12px">'+
+        '<div style="font-weight:700;margin-bottom:4px">Saldo total: <span style="color:var(--gn)">'+fm(totalSaldo)+'</span></div>'+
+        '<div style="color:var(--tm)">Discriminación actual: 💵 '+fm(cen.ef)+' · 📱 '+fm(cen.nq)+'</div>'+
+        '<div style="color:var(--am);font-size:11px;margin-top:4px">Ingresa el desglose correcto. La suma debe ser igual al saldo total.</div>'+
+      '</div>'+
+      '<div class="fg2">'+
+        '<label style="font-size:11px;font-weight:700;color:#2E7D32;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px">💵 Efectivo en caja</label>'+
+        '<input type="text" inputmode="numeric" id="ASE-EF" value="'+Math.max(0,cen.ef).toLocaleString(\'es-CO\')+'" '+
+          'style="width:100%;padding:10px 12px;font-size:16px;font-weight:700;font-family:inherit;border:2px solid #2E7D32;border-radius:var(--rs);background:var(--wh);color:var(--tx)">'+
+        '<input type="hidden" id="ASE-EF-N" value="'+Math.max(0,cen.ef)+'">'+
+      '</div>'+
+      '<div class="fg2" style="margin-top:10px">'+
+        '<label style="font-size:11px;font-weight:700;color:#6A1B9A;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px">📱 Nequi en caja</label>'+
+        '<input type="text" inputmode="numeric" id="ASE-NQ" value="'+Math.max(0,cen.nq).toLocaleString(\'es-CO\')+'" '+
+          'style="width:100%;padding:10px 12px;font-size:16px;font-weight:700;font-family:inherit;border:2px solid #6A1B9A;border-radius:var(--rs);background:var(--wh);color:var(--tx)">'+
+        '<input type="hidden" id="ASE-NQ-N" value="'+Math.max(0,cen.nq)+'">'+
+      '</div>'+
+      '<div id="ASE-SUM" style="margin-top:10px;padding:10px;border-radius:8px;font-size:13px;font-weight:700;text-align:center">'+
+        'Suma: '+fm(cen.ef+cen.nq)+' / Total: '+fm(totalSaldo)+
+      '</div>'+
+      '<div style="font-size:11px;color:var(--tm);margin-top:8px;padding:0 4px">'+
+        'Este ajuste se guarda como un movimiento de corrección en bases. No modifica cierres históricos.'+
+      '</div>'+
+      '<div class="mf" style="margin-top:14px">'+
+        '<button class="bg2 bs" id="ASE-CANCEL">Cancelar</button>'+
+        '<button class="bp bs" id="ASE-OK">Guardar ajuste</button>'+
+      '</div>'+
+    '</div>';
+  document.body.appendChild(ov);
+  ov.style.display='flex';
+  setTimeout(function(){var i=document.getElementById('ASE-EF');if(i){i.focus();i.select();}},80);
+
+  function actualizar(){
+    var ef=parseFloat(document.getElementById('ASE-EF-N').value)||0;
+    var nq=parseFloat(document.getElementById('ASE-NQ-N').value)||0;
+    var suma=ef+nq;
+    var ok=Math.abs(suma-totalSaldo)<1;
+    var sumEl=document.getElementById('ASE-SUM');
+    if(sumEl){
+      sumEl.innerHTML='Suma: <strong>'+fm(suma)+'</strong> / Total: <strong>'+fm(totalSaldo)+'</strong>'+(ok?' ✓':'');
+      sumEl.style.background=ok?'#E8F5E9':'#FFF3E0';
+      sumEl.style.color=ok?'var(--gn)':'#E65100';
+    }
+  }
+  function mkIn(id){
+    var el=document.getElementById(id);
+    if(!el)return;
+    el.oninput=function(){
+      var raw=this.value.replace(/[^0-9]/g,'');
+      document.getElementById(id+'-N').value=raw;
+      if(raw) this.value=parseInt(raw,10).toLocaleString('es-CO');
+      actualizar();
+    };
+  }
+  mkIn('ASE-EF'); mkIn('ASE-NQ');
+  actualizar();
+
+  function cerrar(){document.body.removeChild(ov);}
+  ov.onclick=cerrar;
+  ov.querySelector('.modal').onclick=function(e){e.stopPropagation();};
+  document.getElementById('ASE-CANCEL').onclick=cerrar;
+  document.getElementById('ASE-OK').onclick=function(){
+    var ef=Math.round(parseFloat(document.getElementById('ASE-EF-N').value)||0);
+    var nq=Math.round(parseFloat(document.getElementById('ASE-NQ-N').value)||0);
+    // Calcular delta respecto al estado actual
+    var deltaEf=ef-Math.round(cen.ef);
+    var deltaNq=nq-Math.round(cen.nq);
+    cerrar();
+    var nowMs=Date.now();
+    // Guardar como aporte/retiro de ajuste para corregir discriminación
+    var docs=[];
+    if(deltaEf!==0) docs.push({
+      rutaId:rutaId,fecha:ISO,monto:Math.abs(deltaEf),
+      tipo:deltaEf>0?'aporte':'retiro',metodo:'efectivo',
+      descripcion:'Ajuste discriminación Ef/Nq',
+      esAjusteEfNq:true,creadoPor:{nombre:CU.nombre,rol:CU.rol},createdAt:nowMs
+    });
+    if(deltaNq!==0) docs.push({
+      rutaId:rutaId,fecha:ISO,monto:Math.abs(deltaNq),
+      tipo:deltaNq>0?'aporte':'retiro',metodo:'nequi',
+      descripcion:'Ajuste discriminación Ef/Nq',
+      esAjusteEfNq:true,creadoPor:{nombre:CU.nombre,rol:CU.rol},createdAt:nowMs+1
+    });
+    if(docs.length===0){toast('Sin cambios','ok');return;}
+    var i2=0;
+    function next(){
+      if(i2>=docs.length){
+        toast('Ajuste guardado: 💵 '+fm(ef)+' · 📱 '+fm(nq),'ok');
+        clearCache(); refSc();
+        return;
+      }
+      db.collection('bases').add(docs[i2]).then(function(){i2++;next();})
+        .catch(function(e){toast('Error','err');console.error(e);});
+    }
+    next();
+  };
+}
 
 function guardarFechaV36(){
   var fec=document.getElementById('P-V36-FEC')?document.getElementById('P-V36-FEC').value:'';
