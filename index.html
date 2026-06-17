@@ -1258,7 +1258,7 @@ function saldoCajaEfNq(rutaId, hastaFecha){
 
 // Total recaudado en una fecha por ruta
 function recaudoDia(rutaId, fecha) {
-  if(PAR.v36activo){
+  if(PAR.v36activo && fecha>=(PAR.fechaInicioV36||'2026-06-16')){
     return ST.cobros.filter(function(cb){
       if(cb.fecha!==fecha)return false;
       if(rutaId&&cb.rutaId!==rutaId)return false;
@@ -1354,25 +1354,28 @@ function difCierreEfNq(rutaId, fecha){
   // Si el cierre tiene desglose guardado, usarlo (aplica a ambos modos)
   var ci=ST.cierres.filter(function(c){return c.rutaId===rutaId&&c.fecha===fecha;})[0];
   if(ci&&ci.difEf!==undefined) return {ef:ci.difEf||0,nq:ci.difNq||0};
-  if(PAR.v36activo){
-    // v36: recaudo desde cobros
-    var recEf=0,recNq=0;
-    ST.cobros.filter(function(cb){return cb.fecha===fecha&&cb.rutaId===rutaId;}).forEach(function(cb){
-      if(cb.metodo==='nequi') recNq+=(cb.valor||0);
-      else recEf+=(cb.valor||0);
-    });
-    var b=baseDia(rutaId,fecha);
-    var baseEf=ST.bases.filter(function(x){return x.rutaId===rutaId&&x.fecha===fecha&&x.tipo==='base'&&x.metodo!=='nequi';}).reduce(function(s,x){return s+(x.monto||0);},0);
-    var baseNq=ST.bases.filter(function(x){return x.rutaId===rutaId&&x.fecha===fecha&&x.tipo==='base'&&x.metodo==='nequi';}).reduce(function(s,x){return s+(x.monto||0);},0);
-    var cIds=ST.clientes.filter(function(c){return c.rutaId===rutaId;}).map(function(c){return c.id;});
-    var preEf=0,preNq=0;
-    ST.prestamos.filter(function(p){return cIds.indexOf(p.clienteId)>=0&&p.fechaInicio===fecha;}).forEach(function(p){
-      if(p.metodoPago==='mixto'){preEf+=(p.montoEf||0);preNq+=(p.montoNq||0);}
-      else if(p.metodoPago==='nequi') preNq+=p.capital;
-      else preEf+=p.capital;
-    });
-    var gasEfNq=gastosDiaEfNq(rutaId,fecha);
-    return {ef:recEf+baseEf-preEf-gasEfNq.ef, nq:recNq+baseNq-preNq-gasEfNq.nq};
+  if(PAR.v36activo && fecha>=(PAR.fechaInicioV36||'2026-06-16')){
+    var cobsFec=ST.cobros.filter(function(cb){return cb.fecha===fecha&&cb.rutaId===rutaId;});
+    if(cobsFec.length>0){
+      var recEf=0,recNq=0;
+      cobsFec.forEach(function(cb){
+        if(cb.metodo==='nequi') recNq+=(cb.valor||0);
+        else recEf+=(cb.valor||0);
+      });
+      var b=baseDia(rutaId,fecha);
+      var baseEf=ST.bases.filter(function(x){return x.rutaId===rutaId&&x.fecha===fecha&&x.tipo==='base'&&x.metodo!=='nequi';}).reduce(function(s,x){return s+(x.monto||0);},0);
+      var baseNq=ST.bases.filter(function(x){return x.rutaId===rutaId&&x.fecha===fecha&&x.tipo==='base'&&x.metodo==='nequi';}).reduce(function(s,x){return s+(x.monto||0);},0);
+      var cIds2=ST.clientes.filter(function(c){return c.rutaId===rutaId;}).map(function(c){return c.id;});
+      var preEf=0,preNq=0;
+      ST.prestamos.filter(function(p){return cIds2.indexOf(p.clienteId)>=0&&p.fechaInicio===fecha;}).forEach(function(p){
+        if(p.metodoPago==='mixto'){preEf+=(p.montoEf||0);preNq+=(p.montoNq||0);}
+        else if(p.metodoPago==='nequi') preNq+=p.capital;
+        else preEf+=p.capital;
+      });
+      var gasEfNq=gastosDiaEfNq(rutaId,fecha);
+      return {ef:recEf+baseEf-preEf-gasEfNq.ef, nq:recNq+baseNq-preNq-gasEfNq.nq};
+    }
+    // Fallback: fecha histórica sin cobros en colección → caer a pagos{}
   }
   // v35: calcular desde los movimientos del día — MISMA lógica que rCie() y recaudoDia()
   var cIds=ST.clientes.filter(function(c){return c.rutaId===rutaId;}).map(function(c){return c.id;});
@@ -3154,6 +3157,15 @@ function limpiarMigracion(){
   });
 }
 
+
+function guardarFechaV36(){
+  var fec=document.getElementById('P-V36-FEC')?document.getElementById('P-V36-FEC').value:'';
+  if(!fec){toast('Selecciona una fecha','err');return;}
+  PAR.fechaInicioV36=fec;
+  db.collection('config').doc('params').set({fechaInicioV36:fec},{merge:true})
+    .then(function(){toast('Fecha de inicio v36: '+fec,'ok');clearCache();refSc();})
+    .catch(function(e){toast('Error al guardar','err');console.error(e);});
+}
 
 function toggleV36(){
   PAR.v36activo=!PAR.v36activo;
@@ -5115,7 +5127,7 @@ function sEditGas(){
 
 // ── Helpers método de pago ────────────────────
 function recaudoEfNq(rutaId, fecha){
-  if(PAR.v36activo){
+  if(PAR.v36activo && fecha>=(PAR.fechaInicioV36||'2026-06-16')){
     var ef=0,nq=0;
     ST.cobros.filter(function(cb){
       if(cb.fecha!==fecha)return false;
@@ -5224,7 +5236,8 @@ var PAR = {
   seguroTipo: 'porcentaje',
   seguroValor: 0,
   montoMinimo: 100000,
-  v36activo: false        // true = leer desde colección cobros
+  v36activo: false,        // true = leer desde colección cobros
+  fechaInicioV36: '2026-06-16' // fecha desde la cual leer cobros (antes → pagos{})
 };
 var _parCargado = false;
 
@@ -5408,7 +5421,14 @@ function rPar(){
       '</div>'+
     '</div>'+
     '<div class="param-row">'+
-      '<div><div class="param-label">Plantilla de migración</div>'+
+      '<div><div class="param-label">Fecha de inicio v36</div>'+
+      '<div class="param-desc">Desde esta fecha el sistema lee de <code style="background:#E3F2FD;padding:1px 5px;border-radius:3px">cobros</code>. Antes de ella siempre usa <code style="background:#f5f5f5;padding:1px 5px;border-radius:3px">pagos{}</code> histórico.</div></div>'+
+      '<div class="param-ctrl" style="flex-direction:column;align-items:flex-end;gap:6px">'+
+        '<input type="date" id="P-V36-FEC" value="'+(PAR.fechaInicioV36||'2026-06-16')+'" '+
+          'style="padding:6px 10px;font-size:13px;font-family:inherit;border:1px solid var(--br);border-radius:var(--rs);background:var(--wh);color:var(--tx)">'+
+        '<button class="bp bs" style="font-size:11px;padding:4px 12px" onclick="guardarFechaV36()">Guardar fecha</button>'+
+      '</div>'+
+    '</div>'+
       '<div class="param-desc">Descarga el formato Excel para registrar cobros históricos antes de v36.</div></div>'+
       '<div class="param-ctrl"><button class="bx bs" onclick="descargarPlantillaMigracion()">&#8681; Plantilla Excel</button></div>'+
     '</div>'+
