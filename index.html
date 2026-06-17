@@ -1252,10 +1252,11 @@ function saldoCajaEfNq(rutaId, hastaFecha){
       ef+=(ci.diferencia||0);
     }
   });
+  // Aplicar ajuste de discriminación si existe (no afecta total, solo desglose)
+  var ajuste=ST.config.find(function(x){return x.id==='ajuste_efnq_'+rutaId;});
+  if(ajuste){ef+=(ajuste.deltaEf||0);nq+=(ajuste.deltaNq||0);}
   return {ef:ef,nq:nq};
 }
-
-// Total recaudado en una fecha por ruta
 function recaudoDia(rutaId, fecha) {
   if(PAR.v36activo && fecha>=(PAR.fechaInicioV36||'2026-06-16')){
     return ST.cobros.filter(function(cb){
@@ -2861,7 +2862,11 @@ function aCob(pid,n,cuota,nomCli){
   _cobPid=pid;_cobN=n;_cobMin=cuota;_cobMp='efectivo';
   var p=gP(pid);if(!p)return;
   document.getElementById('COB-NOM').textContent=nomCli;
-  document.getElementById('COB-DET').textContent='Cuota diaria: '+fm(cuota)+' · Total: '+fm(p.capital*(1+(p.interes||0)/100));
+  var i=pI(p);
+  document.getElementById('COB-DET').innerHTML=
+    'Cuota: <strong>'+fm(cuota)+'</strong> &nbsp;·&nbsp; '+
+    'Saldo pendiente: <strong style="color:'+(i.saldoReal<=cuota?'var(--gn)':'var(--rd)')+'">'+fm(Math.round(i.saldoReal))+'</strong> &nbsp;·&nbsp; '+
+    '<span style="font-size:11px;color:var(--tm)">'+i.pag+'/'+p.dias+' cuotas</span>';
   document.getElementById('COB-VAL').value=Math.round(cuota);
   document.getElementById('COB-WARN').style.display='none';
   var btn=document.getElementById('COB-OK');btn.disabled=false;btn.style.opacity='';
@@ -3246,36 +3251,23 @@ function ajustarSaldoEfNq(rutaId, totalSaldo){
   document.getElementById('ASE-OK').onclick=function(){
     var ef=Math.round(parseFloat(document.getElementById('ASE-EF-N').value)||0);
     var nq=Math.round(parseFloat(document.getElementById('ASE-NQ-N').value)||0);
-    // Calcular delta respecto al estado actual
+    // Guardar en config — NO en bases (no afecta flujo de caja ni aportes/retiros)
     var deltaEf=ef-Math.round(cen.ef);
-    var deltaNq=nq-Math.round(cen.nq);    cerrar();
-    var nowMs=Date.now();
-    // Guardar como aporte/retiro de ajuste para corregir discriminación
-    var docs=[];
-    if(deltaEf!==0) docs.push({
-      rutaId:rutaId,fecha:ISO,monto:Math.abs(deltaEf),
-      tipo:deltaEf>0?'aporte':'retiro',metodo:'efectivo',
-      descripcion:'Ajuste discriminación Ef/Nq',
-      esAjusteEfNq:true,creadoPor:{nombre:CU.nombre,rol:CU.rol},createdAt:nowMs
-    });
-    if(deltaNq!==0) docs.push({
-      rutaId:rutaId,fecha:ISO,monto:Math.abs(deltaNq),
-      tipo:deltaNq>0?'aporte':'retiro',metodo:'nequi',
-      descripcion:'Ajuste discriminación Ef/Nq',
-      esAjusteEfNq:true,creadoPor:{nombre:CU.nombre,rol:CU.rol},createdAt:nowMs+1
-    });
-    if(docs.length===0){toast('Sin cambios','ok');return;}
-    var i2=0;
-    function next(){
-      if(i2>=docs.length){
-        toast('Ajuste guardado: 💵 '+fm(ef)+' · 📱 '+fm(nq),'ok');
-        clearCache(); refSc();
-        return;
-      }
-      db.collection('bases').add(docs[i2]).then(function(){i2++;next();})
-        .catch(function(e){toast('Error','err');console.error(e);});
-    }
-    next();
+    var deltaNq=nq-Math.round(cen.nq);
+    cerrar();
+    if(deltaEf===0&&deltaNq===0){toast('Sin cambios','ok');return;}
+    var docId='ajuste_efnq_'+rutaId;
+    var ajusteActual=ST.config.find(function(x){return x.id===docId;})||{};
+    db.collection('config').doc(docId).set({
+      rutaId:rutaId,
+      deltaEf:(ajusteActual.deltaEf||0)+deltaEf,
+      deltaNq:(ajusteActual.deltaNq||0)+deltaNq,
+      efFinal:ef, nqFinal:nq,
+      ajustadoPor:CU.nombre, ajustadoAt:Date.now()
+    }).then(function(){
+      toast('Ajuste Ef/Nq guardado: 💵 '+fm(ef)+' · 📱 '+fm(nq),'ok');
+      clearCache(); refSc();
+    }).catch(function(e){toast('Error al guardar','err');console.error(e);});
   };
 }
 
