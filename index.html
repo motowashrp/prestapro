@@ -2998,8 +2998,17 @@ function pI_v36(p){
 
   var cobros_p=ST.cobros.filter(function(cb){return cb.prestamoId===p.id;});
 
-  // ── Fallback: sin cobros en colección → usar pagos{} (préstamos cancelados antes de migración)
-  if(cobros_p.length===0){
+  // ── Fallback robusto: usar pagos{} cuando:
+  // a) No hay cobros en colección (préstamo pre-migración), O
+  // b) pagos{} ya dice que está cancelado (más confiable para datos históricos)
+  var pg_chk=p.pagos||{};
+  var tot_chk=Math.round(p.capital*(1+(p.interes||0)/100));
+  var pagado_chk=Object.keys(pg_chk).reduce(function(s,k){
+    var pg=pg_chk[k]; if(!pg||pg.esAdicional||pg.esHistorial) return s; return s+(pg.valor||0);
+  },0);
+  var completadoEnPagos=pagado_chk>=tot_chk;
+
+  if(cobros_p.length===0||completadoEnPagos){
     var tot0=Math.round(p.capital*(1+(p.interes||0)/100));
     var c0=Math.round(tot0/p.dias);
     var frecuencia0=p.frecuencia||'diario';
