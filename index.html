@@ -2995,7 +2995,37 @@ function getMarcacion(prestamoId){
 function pI_v36(p){
   var ckey='pI_v36_'+p.id+'_'+(p.updatedAt||p.createdAt||0)+'_'+ST.cobros.length;
   if(_cache[ckey]) return _cache[ckey];
-  var tot=Math.round(p.capital*(1+(p.interes||0)/100));
+
+  var cobros_p=ST.cobros.filter(function(cb){return cb.prestamoId===p.id;});
+
+  // ── Fallback: sin cobros en colección → usar pagos{} (préstamos cancelados antes de migración)
+  if(cobros_p.length===0){
+    var tot0=Math.round(p.capital*(1+(p.interes||0)/100));
+    var c0=Math.round(tot0/p.dias);
+    var frecuencia0=p.frecuencia||'diario';
+    var fechas0=calcFechasCuotas(p.fechaInicio,p.dias,frecuencia0);
+    var pg0=p.pagos||{};
+    var valorCobrado0=Object.keys(pg0).reduce(function(s,k){
+      var pago=pg0[k];
+      if(!pago||pago.esAdicional||pago.esHistorial) return s;
+      return s+(pago.valor||0);
+    },0);
+    var pag0=Object.keys(pg0).filter(function(k){
+      var pago=pg0[k];
+      return pago&&pago.esPrincipal&&!pago.esAdicional&&!pago.esParcial;
+    }).length;
+    var saldoReal0=Math.max(0,tot0-valorCobrado0);
+    var venc0=cuotasVencidas(p);
+    var est0='activo';
+    if(pag0>=p.dias||saldoReal0<=0) est0='completado';
+    else if(venc0.length>=(frecuencia0==='semanal'?1:PAR.cuotasMoroso)) est0='moroso';
+    else if(venc0.length>0) est0='atraso';
+    var res0={tot:tot0,c:c0,pag:pag0,venc:venc0,prog:Math.min(100,(pag0/p.dias)*100),
+              est:est0,fechas:fechas0,valorCobrado:valorCobrado0,saldoReal:saldoReal0,
+              _fallback:true}; // marca para debug
+    _cache[ckey]=res0;
+    return res0;
+  }
   var c=Math.round(tot/p.dias);
   var frecuencia=p.frecuencia||'diario';
   var fechas=calcFechasCuotas(p.fechaInicio, p.dias, frecuencia);
@@ -3004,14 +3034,15 @@ function pI_v36(p){
   var valorCobrado=cobros_p.reduce(function(s,cb){return s+(cb.valor||0);},0);
   var pag=cobros_p.filter(function(cb){return cb.tipo==='cobro';}).length;
   var saldoReal=Math.max(0,tot-valorCobrado);
-  // Vencidas: fechas programadas pasadas sin cobro
-  var fechasCobradas=cobros_p.map(function(cb){return cb.fecha;});
+  // Vencidas: por CONTEO (no por fecha exacta)
+  // El cobro #1 cubre cuota #1, cobro #2 cubre cuota #2, etc.
+  // Así funciona correctamente aunque el pago sea en fecha distinta a la programada
   var venc=[];
   for(var n=1;n<=p.dias;n++){
     var iso=fechas[n];
     if(!iso) continue;
-    if(iso>=ISO) break;
-    if(fechasCobradas.indexOf(iso)===-1) venc.push({n:n,fecha:iso});
+    if(iso>=ISO) break; // solo cuotas cuya fecha ya pasó
+    if(n>pag) venc.push({n:n,fecha:iso}); // cuota n no cubierta por conteo
   }
   var est='activo';
   if(pag>=p.dias||saldoReal<=0) est='completado';
@@ -4024,23 +4055,25 @@ function verCli(id){
       pagosPorFecha[pago.fecha].total+=(pago.valor||0);
       pagosPorFecha[pago.fecha].cuotas.push(parseInt(k));
     });
-    // v36: marcacion desde colección cobros
-    var marcaMap={};
+    // v36: marcacion desde colección cobros — por CONTEO, no por fecha exacta
+    var cobrosOrdenados=[];
     if(PAR.v36activo){
-      getMarcacion(p.id).forEach(function(m){marcaMap[m.fecha]=m;});
+      cobrosOrdenados=getMarcacion(p.id); // ya ordenados por fecha asc
     }
     var calH='';
     for(var n=1;n<=p.dias;n++){
       var paid=pgObj[n],fq=i.fechas[n]||'';
       var cls='ppend',ico='○',metStr='',extraInfo='',valorMostrar=i.c;
       if(PAR.v36activo){
-        // v36: usar marcacion desde cobros
-        var cobMarca=marcaMap[fq];
+        // Cobro #n-1 (0-indexed) cubre cuota #n
+        var cobMarca=cobrosOrdenados[n-1]||null;
         if(cobMarca){
           cls='pok';ico='✓';
           valorMostrar=cobMarca.valor||i.c;
           metStr=cobMarca.metodo==='nequi'?' 📱':' 💵';
-          extraInfo=' · '+fd(cobMarca.fecha)+metStr+(cobMarca.cobrador?' · '+cobMarca.cobrador:'');
+          var fechaPago=cobMarca.fecha;
+          var mismoDia=fechaPago===fq;
+          extraInfo=' · '+(mismoDia?fd(fechaPago):'pagada '+fd(fechaPago)+' (prog. '+fd(fq)+')')+metStr+(cobMarca.cobrador?' · '+cobMarca.cobrador:'');
         } else if(fq&&fq<ISO){cls='pvec';ico='!';}
         else if(fq===ISO){cls='phoy';ico='◉';}
       } else {
