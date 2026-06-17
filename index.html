@@ -2212,13 +2212,17 @@ function rFlujo(){
       totBase+=aporte; totRec+=rec; totPre+=pre; totGas+=gas;
       totDif+=difVal; totRet+=retE; totSeg+=seg;
 
+      var cieRow=ST.cierres.find(function(ci){return ci.rutaId===ruta.id&&ci.fecha===fecha;});
       rows.push({
         fecha:fecha, ruta:ruta,
         aporte:aporte, retE:retE, baseAsig:baseAsig,
         rec:rec, pre:pre, gas:gas,
         dif:dif, difVal:difVal, seg:seg,
         saldo:saldoAcum, esHoy:fecha===ISO,
-        tieneMovs:!!(aporte||retE||baseAsig||rec||pre||gas||dif!==null||seg)
+        tieneMovs:!!(aporte||retE||baseAsig||rec||pre||gas||dif!==null||seg),
+        cieId:cieRow?cieRow.id:null,
+        cieEf:cieRow&&cieRow.difEf!==undefined?cieRow.difEf:null,
+        cieNq:cieRow&&cieRow.difNq!==undefined?cieRow.difNq:null
       });
     });
   });
@@ -2236,7 +2240,20 @@ function rFlujo(){
       '<td>'+(r.rec?'<span class="flujo-entry">+'+fm(r.rec)+'</span>':'—')+'</td>'+
       '<td>'+(r.pre?'<span class="flujo-exit">-'+fm(r.pre)+'</span>':'—')+'</td>'+
       '<td>'+(r.gas?'<span class="flujo-exit">-'+fm(r.gas)+'</span>':'—')+'</td>'+
-      '<td>'+(r.dif!==null?'<span class="'+(r.difVal>=0?'flujo-entry':'flujo-exit')+'">'+(r.difVal>=0?'+':'-')+fm(Math.abs(r.difVal))+'</span>':'—')+'</td>'+
+      '<td>'+(r.dif!==null?
+        '<div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px">'+
+          '<span class="'+(r.difVal>=0?'flujo-entry':'flujo-exit')+'">'+(r.difVal>=0?'+':'-')+fm(Math.abs(r.difVal))+'</span>'+
+          (r.cieId?
+            '<div style="display:flex;align-items:center;gap:4px">'+
+              (r.cieEf!==null?
+                '<span style="font-size:9px;color:var(--tm)">💵'+fm(r.cieEf)+' 📱'+fm(r.cieNq)+'</span>':
+                '<span style="font-size:9px;color:var(--am)">⚠ sin discriminar</span>')+
+              (CU.rol==='admin'?
+                '<button onclick="ajustarDiscriminacionCierre(\''+r.cieId+'\')" title="Ajustar discriminación Ef/Nq" '+
+                  'style="padding:0 5px;font-size:10px;border:1px solid var(--br);border-radius:4px;background:var(--bll);cursor:pointer;font-family:inherit;line-height:16px">✏️</button>':'')+
+            '</div>':'')+
+        '</div>':'—')+
+      '</td>'+
       '<td>'+(r.retE?'<span class="flujo-exit">-'+fm(r.retE)+'</span>':'—')+'</td>'+
       '<td>'+(r.baseAsig?'<span style="color:var(--bl);font-weight:700">-'+fm(r.baseAsig)+'</span>':'—')+'</td>'+
       '<td class="'+(r.saldo>=0?'flujo-saldo-pos':'flujo-saldo-neg')+'"><strong>'+fm(r.saldo)+'</strong></td>'+
@@ -2438,7 +2455,27 @@ function rCie(){
     }
 
         if(yaC){
-      html+='<div class="cie-cuadre cie-ok" style="margin-top:1rem">&#10003; Cierre registrado — '+fd(yaC.fecha)+' a las '+yaC.hora+'</div>';
+      // Discriminación ef/nq: guardada en el doc o estimada desde movimientos
+      var tieneDisc=yaC.difEf!==undefined;
+      var discCalc=difCierreEfNq(ruta.id,yaC.fecha);
+      var efDis=tieneDisc?yaC.difEf:Math.round(discCalc.ef);
+      var nqDis=tieneDisc?yaC.difNq:Math.round(discCalc.nq);
+      html+=
+        '<div class="cie-cuadre cie-ok" style="margin-top:1rem">'+
+          '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">'+
+            '<span>&#10003; Cierre registrado — '+fd(yaC.fecha)+' a las '+yaC.hora+'</span>'+
+            (CU.rol==='admin'?
+              '<button onclick="ajustarDiscriminacionCierre(\''+yaC.id+'\')" '+
+                'style="padding:3px 10px;font-size:11px;border:1px solid var(--br);border-radius:var(--rs);background:var(--bll);cursor:pointer;font-family:inherit">'+
+                '✏️ Ajustar Ef/Nq</button>':'')+
+          '</div>'+
+          '<div style="display:flex;align-items:center;gap:14px;margin-top:8px;font-size:12px;flex-wrap:wrap">'+
+            '<span>💵 <strong>'+fm(efDis)+'</strong></span>'+
+            '<span>📱 <strong>'+fm(nqDis)+'</strong></span>'+
+            '<span style="font-size:10px;padding:1px 6px;border-radius:20px;background:'+(tieneDisc?'#E8F5E9':'#FFF3E0')+';color:'+(tieneDisc?'var(--gn)':'#E65100')+'">'+
+              (tieneDisc?'✓ guardado':'⚠ estimado')+'</span>'+
+          '</div>'+
+        '</div>';
     }else{
       html+='<div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-top:1rem">'+
         '<div style="flex:1;min-width:180px"><label style="font-size:11px;font-weight:700;color:var(--bl);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px">Notas</label>'+
@@ -2501,7 +2538,7 @@ function rRec(){
           '<td><span class="badge '+(cob.metodo==='nequi'?'bnq':'bef')+'">'+(cob.metodo==='nequi'?'📱 Nequi':'💵 Ef.')+'</span>'+
             (porAdmin?'<span class="badge" style="background:#1565C0;color:#fff;margin-left:3px">Admin</span>':'')+
           '</td>'+
-          '<td><button onclick="editarPago(''+p.id+'',0,''+ISO+'')" style="padding:3px 10px;border:1px solid var(--br);border-radius:var(--rs);background:var(--bll);font-size:11px;cursor:pointer;font-family:inherit">✏️ Editar</button></td>'+
+          '<td><button onclick="editarPago(\''+p.id+'\',0,\''+ISO+'\')" style="padding:3px 10px;border:1px solid var(--br);border-radius:var(--rs);background:var(--bll);font-size:11px;cursor:pointer;font-family:inherit">✏️ Editar</button></td>'+
         '</tr>'
       });
     });
@@ -3238,13 +3275,109 @@ function sCierre(rutaId,rec,base,pre,gas,dif){
   actualizarFecha(); // asegurar fecha correcta antes de registrar cierre
   var nota=document.getElementById('CIE-NOTA-'+rutaId)?document.getElementById('CIE-NOTA-'+rutaId).value:'';
   var ckey=rutaId+'_'+ISO;
+  // Guardar discriminación ef/nq en el momento del cierre
+  var efNq=difCierreEfNq(rutaId,ISO);
   db.collection('cierres').doc(ckey).set({
     ckey:ckey,rutaId:rutaId,fecha:ISO,
     hora:new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),
     recaudo:rec,base:base,prestamos:pre,gastos:gas,diferencia:dif,
+    difEf:Math.round(efNq.ef), difNq:Math.round(efNq.nq), // discriminación por método
     nota:nota,user:CU.nombre,createdAt:Date.now()
   }).then(function(){toast('Cierre registrado','ok');rCie();})
     .catch(function(e){toast('Error','err');console.error(e);});
+}
+
+// ── Ajustar discriminación ef/nq de un cierre existente ──────────────────────
+// Cubre cierres históricos que no tienen esos campos guardados
+function ajustarDiscriminacionCierre(cieId){
+  var ci=ST.cierres.find(function(c){return c.id===cieId||c.ckey===cieId;});
+  if(!ci){toast('Cierre no encontrado','err');return;}
+  var r=gR(ci.rutaId);
+  var difTot=ci.diferencia||0;
+  // Valores actuales: guardados o estimados desde movimientos
+  var calc=difCierreEfNq(ci.rutaId,ci.fecha);
+  var efIni=ci.difEf!==undefined?ci.difEf:Math.round(calc.ef);
+  var nqIni=ci.difNq!==undefined?ci.difNq:Math.round(calc.nq);
+  var tieneGuardado=ci.difEf!==undefined;
+
+  var ov=document.createElement('div');
+  ov.className='mov'; ov.style.zIndex='9100';
+  ov.innerHTML=
+    '<div class="modal" onclick="event.stopPropagation()" style="max-width:420px">'+
+      '<h3 style="font-size:13px;font-weight:700;color:var(--bd);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">'+
+        '✏️ Ajustar discriminación de cierre</h3>'+
+      '<div style="background:var(--bll);border-radius:8px;padding:10px;margin-bottom:14px;font-size:12px">'+
+        '<div style="font-weight:700;color:var(--bd);margin-bottom:2px">'+fd(ci.fecha)+' — '+(r?r.nombre:ci.rutaId)+'</div>'+
+        '<div style="color:var(--tm)">Diferencia total registrada: <strong style="color:var(--bd)">'+fm(difTot)+'</strong></div>'+
+        (tieneGuardado?
+          '<div style="color:var(--gn);font-size:11px;margin-top:4px">✓ Ya tiene discriminación guardada — puedes corregirla</div>':
+          '<div style="color:var(--am);font-size:11px;margin-top:4px">⚠ Sin discriminación guardada — los valores abajo son estimados</div>')+
+      '</div>'+
+      '<div class="fg2">'+
+        '<label style="font-size:11px;font-weight:700;color:#2E7D32;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px">💵 Efectivo</label>'+
+        '<input type="text" inputmode="numeric" id="ADC-EF" value="'+efIni.toLocaleString('es-CO')+'" '+
+          'style="width:100%;padding:10px 12px;font-size:16px;font-weight:700;font-family:inherit;border:2px solid #2E7D32;border-radius:var(--rs);background:var(--wh);color:var(--tx)">'+
+        '<input type="hidden" id="ADC-EF-N" value="'+efIni+'">'+
+      '</div>'+
+      '<div class="fg2" style="margin-top:10px">'+
+        '<label style="font-size:11px;font-weight:700;color:#6A1B9A;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px">📱 Nequi</label>'+
+        '<input type="text" inputmode="numeric" id="ADC-NQ" value="'+nqIni.toLocaleString('es-CO')+'" '+
+          'style="width:100%;padding:10px 12px;font-size:16px;font-weight:700;font-family:inherit;border:2px solid #6A1B9A;border-radius:var(--rs);background:var(--wh);color:var(--tx)">'+
+        '<input type="hidden" id="ADC-NQ-N" value="'+nqIni+'">'+
+      '</div>'+
+      '<div id="ADC-SUM" style="margin-top:10px;padding:10px;border-radius:8px;font-size:13px;font-weight:700;text-align:center;background:#E8F5E9;color:var(--gn)">'+
+        'Suma: '+fm(efIni+nqIni)+' / Total cierre: '+fm(difTot)+
+      '</div>'+
+      '<div class="mf" style="margin-top:14px">'+
+        '<button class="bg2 bs" id="ADC-CANCEL">Cancelar</button>'+
+        '<button class="bp bs" id="ADC-OK">Guardar discriminación</button>'+
+      '</div>'+
+    '</div>';
+  document.body.appendChild(ov);
+  ov.style.display='flex';
+  setTimeout(function(){var i=document.getElementById('ADC-EF');if(i){i.focus();i.select();}},80);
+
+  function actualizarSuma(){
+    var ef=parseFloat(document.getElementById('ADC-EF-N').value)||0;
+    var nq=parseFloat(document.getElementById('ADC-NQ-N').value)||0;
+    var suma=ef+nq;
+    var sumEl=document.getElementById('ADC-SUM');
+    if(!sumEl) return;
+    var ok=Math.abs(suma-difTot)<1;
+    sumEl.innerHTML='Suma: <strong>'+fm(suma)+'</strong> / Total cierre: <strong>'+fm(difTot)+'</strong>'+(ok?' ✓':'');
+    sumEl.style.background=ok?'#E8F5E9':'#FFF3E0';
+    sumEl.style.color=ok?'var(--gn)':'#E65100';
+  }
+  function mkInput(id){
+    var el=document.getElementById(id);
+    var hidId=id+'-N';
+    if(!el)return;
+    el.oninput=function(){
+      var raw=this.value.replace(/[^0-9\-]/g,'');
+      document.getElementById(hidId).value=raw;
+      var n=parseInt(raw,10);
+      if(!isNaN(n)) this.value=n.toLocaleString('es-CO');
+      actualizarSuma();
+    };
+  }
+  mkInput('ADC-EF'); mkInput('ADC-NQ');
+
+  function cerrar(){document.body.removeChild(ov);}
+  ov.onclick=cerrar;
+  ov.querySelector('.modal').onclick=function(e){e.stopPropagation();};
+  document.getElementById('ADC-CANCEL').onclick=cerrar;
+  document.getElementById('ADC-OK').onclick=function(){
+    var ef=Math.round(parseFloat(document.getElementById('ADC-EF-N').value)||0);
+    var nq=Math.round(parseFloat(document.getElementById('ADC-NQ-N').value)||0);
+    cerrar();
+    db.collection('cierres').doc(ci.id).update({
+      difEf:ef, difNq:nq,
+      ajustadoPor:CU.nombre, ajustadoAt:Date.now()
+    }).then(function(){
+      toast('Discriminación guardada: 💵 '+fm(ef)+' | 📱 '+fm(nq),'ok');
+      clearCache(); refSc();
+    }).catch(function(e){toast('Error al guardar','err');console.error(e);});
+  };
 }
 
 // BASE / RETIRO
