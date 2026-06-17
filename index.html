@@ -3188,13 +3188,13 @@ function ajustarSaldoEfNq(rutaId, totalSaldo){
       '</div>'+
       '<div class="fg2">'+
         '<label style="font-size:11px;font-weight:700;color:#2E7D32;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px">💵 Efectivo en caja</label>'+
-        '<input type="text" inputmode="numeric" id="ASE-EF" value="'+Math.max(0,cen.ef).toLocaleString('es-CO')+'" '+
+        '<input type="text" inputmode="numeric" id="ASE-EF" value="'+Math.round(cen.ef).toLocaleString('es-CO')+'" '+
           'style="width:100%;padding:10px 12px;font-size:16px;font-weight:700;font-family:inherit;border:2px solid #2E7D32;border-radius:var(--rs);background:var(--wh);color:var(--tx)">'+
-        '<input type="hidden" id="ASE-EF-N" value="'+Math.max(0,cen.ef)+'">'+
+        '<input type="hidden" id="ASE-EF-N" value="'+Math.round(cen.ef)+'">'+
       '</div>'+
       '<div class="fg2" style="margin-top:10px">'+
         '<label style="font-size:11px;font-weight:700;color:#6A1B9A;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px">📱 Nequi en caja</label>'+
-        '<input type="text" inputmode="numeric" id="ASE-NQ" value="'+Math.max(0,cen.nq).toLocaleString('es-CO')+'" '+
+        '<input type="text" inputmode="numeric" id="ASE-NQ" value="'+Math.round(cen.nq).toLocaleString('es-CO')+'" '+
           'style="width:100%;padding:10px 12px;font-size:16px;font-weight:700;font-family:inherit;border:2px solid #6A1B9A;border-radius:var(--rs);background:var(--wh);color:var(--tx)">'+
         '<input type="hidden" id="ASE-NQ-N" value="'+Math.max(0,cen.nq)+'">'+
       '</div>'+
@@ -3229,9 +3229,10 @@ function ajustarSaldoEfNq(rutaId, totalSaldo){
     var el=document.getElementById(id);
     if(!el)return;
     el.oninput=function(){
-      var raw=this.value.replace(/[^0-9]/g,'');
+      var raw=this.value.replace(/[^0-9\-]/g,'');
       document.getElementById(id+'-N').value=raw;
-      if(raw) this.value=parseInt(raw,10).toLocaleString('es-CO');
+      var n=parseInt(raw,10);
+      if(!isNaN(n)) this.value=n.toLocaleString('es-CO');
       actualizar();
     };
   }
@@ -3247,8 +3248,7 @@ function ajustarSaldoEfNq(rutaId, totalSaldo){
     var nq=Math.round(parseFloat(document.getElementById('ASE-NQ-N').value)||0);
     // Calcular delta respecto al estado actual
     var deltaEf=ef-Math.round(cen.ef);
-    var deltaNq=nq-Math.round(cen.nq);
-    cerrar();
+    var deltaNq=nq-Math.round(cen.nq);    cerrar();
     var nowMs=Date.now();
     // Guardar como aporte/retiro de ajuste para corregir discriminación
     var docs=[];
