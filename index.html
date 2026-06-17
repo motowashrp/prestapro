@@ -3026,6 +3026,7 @@ function pI_v36(p){
     _cache[ckey]=res0;
     return res0;
   }
+  var tot=Math.round(p.capital*(1+(p.interes||0)/100));
   var c=Math.round(tot/p.dias);
   var frecuencia=p.frecuencia||'diario';
   var fechas=calcFechasCuotas(p.fechaInicio, p.dias, frecuencia);
