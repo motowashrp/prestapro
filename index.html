@@ -3135,9 +3135,15 @@ function cargarExcelMigracion(file){
         if(!ced||!fecha||valor<=0){skip++;errores.push('Fila '+(idx+2)+': datos incompletos (ced/fecha/valor)');return;}
         if(!['efectivo','nequi'].includes(metodo)) metodo='efectivo';
         if(!['cobro','abono'].includes(tipo)) tipo='cobro';
-        // Buscar cliente por cédula
-        var cliObj=ST.clientes.find(function(x){return String(x.cedula||'').trim()===ced;});
-        if(!cliObj){skip++;errores.push('Fila '+(idx+2)+': cédula '+ced+' no encontrada');return;}
+        // Buscar cliente: primero por cédula, luego por nombre exacto (para clientes sin cédula)
+        var cliObj=ST.clientes.find(function(x){return ced&&String(x.cedula||'').trim()===ced;});
+        if(!cliObj&&nom){
+          // Fallback: buscar por nombre (normalizado)
+          var nomNorm=nom.trim().toUpperCase();
+          cliObj=ST.clientes.find(function(x){return (x.nombre||'').trim().toUpperCase()===nomNorm;});
+          if(cliObj) errores.push('Fila '+(idx+2)+': cédula '+ced+' no encontrada → coincidencia por nombre "'+cliObj.nombre+'"');
+        }
+        if(!cliObj){skip++;errores.push('Fila '+(idx+2)+': cédula '+ced+' / nombre "'+nom+'" no encontrados');return;}
         // Buscar préstamo por #crédito (orden cronológico)
         var prests=ST.prestamos.filter(function(p){return p.clienteId===cliObj.id;})
           .sort(function(a,b){return (a.createdAt||0)-(b.createdAt||0);});
@@ -4046,13 +4052,20 @@ function verCli(id){
     '<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:1rem;flex-wrap:wrap;gap:8px">'+
       '<div>'+
         '<div style="font-size:18px;font-weight:700;color:var(--bd)">'+c.nombre+'</div>'+
-        '<div class="ts">'+(c.cedula?'CC: '+c.cedula+' · ':'')+(c.tel||'')+(c.ciudad?' · '+c.ciudad:'')+(r?' · Ruta '+r.nombre:'')+'</div>'+
+        '<div class="ts">'+(c.cedula?'CC: '+c.cedula+' · ':'<span style="color:var(--am)">Sin cédula · </span>')+(c.tel||'')+(c.ciudad?' · '+c.ciudad:'')+(r?' · Ruta '+r.nombre:'')+'</div>'+
       '</div>'+
-      '<button class="bp bs" id="BTN-NUEVA-CRED" style="font-size:12px;padding:6px 14px">+ Nuevo crédito</button>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+        (CU.rol==='admin'?'<button class="bg2 bs" id="BTN-EDIT-CLI" style="font-size:12px;padding:6px 14px">✏️ Editar</button>':'')+
+        '<button class="bp bs" id="BTN-NUEVA-CRED" style="font-size:12px;padding:6px 14px">+ Nuevo crédito</button>'+
+      '</div>'+
     '</div>'+
     '<div style="font-size:11px;font-weight:700;color:var(--tm);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">'+
       'Créditos ('+pres.length+')</div>'+
     (credHtml||'<div class="empty">Sin créditos</div>');
+
+  // Botón editar cliente
+  var btnEC=document.getElementById('BTN-EDIT-CLI');
+  if(btnEC) btnEC.onclick=function(){ editarCli(id); };
 
   // Botón nuevo crédito
   var btnNC=document.getElementById('BTN-NUEVA-CRED');
@@ -4066,7 +4079,94 @@ function verCli(id){
 
 
 
-// EXPORTAR FLUJO
+// ── EDITAR CLIENTE ───────────────────────────────────────────────────────────
+function editarCli(cliId){
+  var c=gC(cliId); if(!c) return;
+  var ov=document.createElement('div');
+  ov.className='mov'; ov.style.zIndex='9200';
+  var rutsOpts=ST.rutas.map(function(r){
+    return '<option value="'+r.id+'"'+(r.id===c.rutaId?' selected':'')+'>'+r.nombre+'</option>';
+  }).join('');
+  ov.innerHTML=
+    '<div class="modal" onclick="event.stopPropagation()" style="max-width:440px">'+
+      '<h3 style="font-size:13px;font-weight:700;color:var(--bd);text-transform:uppercase;letter-spacing:.05em;margin-bottom:14px">'+
+        '✏️ Editar cliente</h3>'+
+      '<div class="fg2">'+
+        '<label style="font-size:11px;font-weight:700;color:var(--bl);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px">Nombre *</label>'+
+        '<input type="text" id="EC-NOM" value="'+c.nombre.replace(/"/g,'&quot;')+'" placeholder="NOMBRE COMPLETO" '+
+          'style="width:100%;padding:9px 12px;font-size:14px;font-weight:700;font-family:inherit;border:1px solid var(--br);border-radius:var(--rs);background:var(--wh);color:var(--tx);text-transform:uppercase">'+
+      '</div>'+
+      '<div class="fg2" style="margin-top:10px">'+
+        '<label style="font-size:11px;font-weight:700;color:var(--bl);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px">Cédula / Documento</label>'+
+        '<input type="text" inputmode="numeric" id="EC-CED" value="'+(c.cedula||'')+'" placeholder="Número de documento" '+
+          'style="width:100%;padding:9px 12px;font-size:14px;font-family:inherit;border:1px solid var(--br);border-radius:var(--rs);background:var(--wh);color:var(--tx)">'+
+      '</div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">'+
+        '<div class="fg2">'+
+          '<label style="font-size:11px;font-weight:700;color:var(--bl);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px">Teléfono</label>'+
+          '<input type="tel" inputmode="numeric" id="EC-TEL" value="'+(c.tel||'')+'" placeholder="300 000 0000" '+
+            'style="width:100%;padding:9px 12px;font-size:13px;font-family:inherit;border:1px solid var(--br);border-radius:var(--rs);background:var(--wh);color:var(--tx)">'+
+        '</div>'+
+        '<div class="fg2">'+
+          '<label style="font-size:11px;font-weight:700;color:var(--bl);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px">Ciudad</label>'+
+          '<input type="text" id="EC-CIU" value="'+(c.ciudad||'')+'" placeholder="Ciudad" '+
+            'style="width:100%;padding:9px 12px;font-size:13px;font-family:inherit;border:1px solid var(--br);border-radius:var(--rs);background:var(--wh);color:var(--tx)">'+
+        '</div>'+
+      '</div>'+
+      '<div class="fg2" style="margin-top:10px">'+
+        '<label style="font-size:11px;font-weight:700;color:var(--bl);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px">Dirección</label>'+
+        '<input type="text" id="EC-DIR" value="'+(c.dir||'')+'" placeholder="Dirección" '+
+          'style="width:100%;padding:9px 12px;font-size:13px;font-family:inherit;border:1px solid var(--br);border-radius:var(--rs);background:var(--wh);color:var(--tx)">'+
+      '</div>'+
+      (ST.rutas.length>1?
+        '<div class="fg2" style="margin-top:10px">'+
+          '<label style="font-size:11px;font-weight:700;color:var(--bl);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px">Ruta</label>'+
+          '<select id="EC-RUT" style="width:100%;padding:9px 12px;font-size:13px;font-family:inherit;border:1px solid var(--br);border-radius:var(--rs);background:var(--wh);color:var(--tx)">'+
+            rutsOpts+'</select>'+
+        '</div>':'<input type="hidden" id="EC-RUT" value="'+c.rutaId+'">')+
+      '<div class="mf" style="margin-top:16px">'+
+        '<button class="bg2 bs" id="EC-CANCEL">Cancelar</button>'+
+        '<button class="bp bs" id="EC-OK">Guardar cambios</button>'+
+      '</div>'+
+    '</div>';
+  document.body.appendChild(ov);
+  ov.style.display='flex';
+  setTimeout(function(){var i=document.getElementById('EC-NOM');if(i){i.focus();}},80);
+
+  // Mayúsculas en nombre
+  var nomEl=document.getElementById('EC-NOM');
+  if(nomEl) nomEl.oninput=function(){ this.value=this.value.toUpperCase(); };
+
+  function cerrar(){ document.body.removeChild(ov); }
+  ov.onclick=cerrar;
+  ov.querySelector('.modal').onclick=function(e){e.stopPropagation();};
+  document.getElementById('EC-CANCEL').onclick=cerrar;
+  document.getElementById('EC-OK').onclick=function(){
+    var nom=document.getElementById('EC-NOM').value.trim().toUpperCase();
+    var ced=document.getElementById('EC-CED').value.trim();
+    var tel=document.getElementById('EC-TEL').value.trim();
+    var ciu=document.getElementById('EC-CIU').value.trim();
+    var dir=document.getElementById('EC-DIR').value.trim();
+    var rut=document.getElementById('EC-RUT').value;
+    if(!nom){ toast('El nombre es obligatorio','err'); return; }
+    // Verificar cédula duplicada (otro cliente distinto)
+    if(ced){
+      var dup=ST.clientes.find(function(x){return x.id!==cliId&&x.cedula&&x.cedula===ced;});
+      if(dup){ toast('Ya existe otro cliente con esa cédula: '+dup.nombre,'err'); return; }
+    }
+    cerrar();
+    db.collection('clientes').doc(cliId).update({
+      nombre:nom, cedula:ced, tel:tel, ciudad:ciu, dir:dir, rutaId:rut,
+      editadoPor:{nombre:CU.nombre,rol:CU.rol}, updatedAt:Date.now()
+    }).then(function(){
+      toast('Cliente actualizado','ok');
+      clearCache(); refSc();
+      setTimeout(function(){ verCli(cliId); },300);
+    }).catch(function(e){ toast('Error al guardar: '+e.message,'err'); console.error(e); });
+  };
+}
+
+
 function expFlujo(){
   var XLSX=window.XLSX;
   var wb=XLSX.utils.book_new();
