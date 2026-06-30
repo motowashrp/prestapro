@@ -5515,6 +5515,13 @@ function rPar(){
         '<button class="bp bs" style="font-size:11px;padding:4px 12px" onclick="guardarFechaV36()">Guardar fecha</button>'+
       '</div>'+
     '</div>'+
+    '<div class="param-row">'+
+      '<div><div class="param-label">Revisar cierres faltantes</div>'+
+      '<div class="param-desc">Busca huecos en los últimos 7 días (ej: nadie entró un domingo y quedó sin cerrar el sábado) y los genera automáticamente con los datos reales de cada fecha.</div></div>'+
+      '<div class="param-ctrl"><button class="bp bs" onclick="cierreAutomatico();setTimeout(function(){toast(\'Revisión ejecutada — revisa Flujo de caja\',\'ok\')},800)">🔍 Revisar y corregir</button></div>'+
+    '</div>'+
+    '<div class="param-row">'+
+      '<div><div class="param-label">Plantilla de migración</div>'+
       '<div class="param-desc">Descarga el formato Excel para registrar cobros históricos antes de v36.</div></div>'+
       '<div class="param-ctrl"><button class="bx bs" onclick="descargarPlantillaMigracion()">&#8681; Plantilla Excel</button></div>'+
     '</div>'+
@@ -5685,8 +5692,6 @@ function iniciarWatchMedianoche(){
 
 function cierreAutomatico(){
   if(!CU||!ST.rutas||ST.rutas.length===0) return;
-  var ayer=new Date(HOY); ayer.setDate(ayer.getDate()-1);
-  var fechaAyer=fechaLocal(ayer);
 
   // Admin registra cierres de todas las rutas
   // Cobrador solo registra el cierre de su propia ruta
@@ -5694,46 +5699,56 @@ function cierreAutomatico(){
     ? ST.rutas
     : ST.rutas.filter(function(r){return r.id===CU.rutaId;});
 
-  // Filtro inicial rápido en memoria local
-  var rutasCandidatas=rutasAplicables.filter(function(ruta){
-    return !ST.cierres.find(function(c){
-      return c.rutaId===ruta.id&&c.fecha===fechaAyer;
+  // Revisar hasta 7 días atrás (no solo "ayer") para detectar huecos
+  // por días sin actividad en la app (ej: nadie entró el domingo)
+  var fechasARevisar=[];
+  for(var d=1; d<=7; d++){
+    var fd=new Date(HOY); fd.setDate(fd.getDate()-d);
+    fechasARevisar.push(fechaLocal(fd));
+  }
+
+  // Combinaciones ruta+fecha candidatas (sin cierre en memoria local)
+  var candidatas=[];
+  rutasAplicables.forEach(function(ruta){
+    fechasARevisar.forEach(function(fecha){
+      var yaEnMemoria=ST.cierres.some(function(c){return c.rutaId===ruta.id&&c.fecha===fecha;});
+      if(!yaEnMemoria) candidatas.push({ruta:ruta,fecha:fecha});
     });
   });
 
-  if(rutasCandidatas.length===0) return;
+  if(candidatas.length===0) return;
 
   // VERIFICACIÓN REAL EN FIREBASE antes de escribir:
   // Aunque ST.cierres no tenga el documento (puede estar desincronizado),
   // consultamos Firebase directamente para no sobreescribir un cierre manual.
-  var promesas=rutasCandidatas.map(function(ruta){
-    var ckey=ruta.id+'_'+fechaAyer;
+  var promesas=candidatas.map(function(cand){
+    var ruta=cand.ruta, fecha=cand.fecha;
+    var ckey=ruta.id+'_'+fecha;
     return db.collection('cierres').doc(ckey).get()
       .then(function(docSnap){
-        // Si ya existe en Firebase (manual o automático), NO tocar
         if(docSnap.exists){
-          console.log('Cierre automático omitido — ya existe para: '+ruta.nombre+' '+fechaAyer);
-          return; // salir sin escribir
+          return; // ya existe (manual o automático previo) → no tocar
         }
-        // Solo crear si realmente no existe
-        var rec=recaudoDia(ruta.id,fechaAyer);
-        var b=baseDia(ruta.id,fechaAyer);
-        var pre=prestamosDia(ruta.id,fechaAyer);
-        var gas=gastosDia(ruta.id,fechaAyer);
+        var rec=recaudoDia(ruta.id,fecha);
+        var b=baseDia(ruta.id,fecha);
+        var pre=prestamosDia(ruta.id,fecha);
+        var gas=gastosDia(ruta.id,fecha);
         var dif=rec+b.base-pre-gas;
+        var efNq=difCierreEfNq(ruta.id,fecha);
         return db.collection('cierres').doc(ckey).set({
-          ckey:ckey, rutaId:ruta.id, fecha:fechaAyer,
+          ckey:ckey, rutaId:ruta.id, fecha:fecha,
           hora:'23:59',
           recaudo:rec, base:b.base, prestamos:pre, gastos:gas,
           diferencia:dif,
-          nota:'Cierre automático',
+          difEf:Math.round(efNq.ef), difNq:Math.round(efNq.nq),
+          nota:'Cierre automático (retroactivo)',
           user:'Sistema', createdAt:Date.now()
         }).then(function(){
-          console.log('Cierre automático creado: '+ruta.nombre+' — '+fechaAyer+' dif:'+dif);
+          console.log('Cierre automático creado: '+ruta.nombre+' — '+fecha+' dif:'+dif);
         });
       })
       .catch(function(e){
-        console.error('Error cierre auto:', ruta.nombre, e);
+        console.error('Error cierre auto:', ruta.nombre, fecha, e);
       });
   });
 
@@ -5948,7 +5963,7 @@ function validarDisponibleMixto(rutaId, mixto){
 function subAll(){
   if(!auth.currentUser){console.warn('subAll: sin auth');return;}
   setSy('cn');
-  var cols=['rutas','clientes','prestamos','gastos','cierres','bases','seguros','reembolsos','cobros'];
+  var cols=['rutas','clientes','prestamos','gastos','cierres','bases','seguros','reembolsos','cobros','config'];
   var loaded=0;
 
   // Detecta si el error es por sesión expirada y cierra automáticamente
