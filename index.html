@@ -1134,16 +1134,15 @@ function cuotasVencidas(p) {
 // Info de préstamo sin mora
 function pI(p) {
   if(PAR.v36activo) return pI_v36(p);
-  var ckey='pI_'+p.id+'_'+(p.updatedAt||p.createdAt||0);
-  if(_cache[ckey]) return _cache[ckey];
-  // Campo cancelado:true → forzar completado sin calcular
+  // Campo cancelado:true → forzar completado SIN cache (puede venir de Firebase sin updatedAt)
   if(p.cancelado===true){
     var totC=Math.round(p.capital*(1+(p.interes||0)/100));
-    var resC={tot:totC,c:Math.round(totC/p.dias),pag:p.dias,venc:[],prog:100,
-              est:'completado',fechas:calcFechasCuotas(p.fechaInicio,p.dias,p.frecuencia||'diario'),
-              valorCobrado:totC,saldoReal:0};
-    _cache[ckey]=resC; return resC;
+    return {tot:totC,c:Math.round(totC/p.dias),pag:p.dias,venc:[],prog:100,
+            est:'completado',fechas:calcFechasCuotas(p.fechaInicio,p.dias,p.frecuencia||'diario'),
+            valorCobrado:totC,saldoReal:0};
   }
+  var ckey='pI_'+p.id+'_'+(p.updatedAt||p.createdAt||0);
+  if(_cache[ckey]) return _cache[ckey];
   var tot=Math.round(p.capital*(1+(p.interes||0)/100));
   var c=Math.round(tot/p.dias);
   var ini=new Date(p.fechaInicio+'T12:00:00');
@@ -2988,6 +2987,13 @@ function getMarcacion(prestamoId){
 
 // pI versión v36 — lee saldo y pagos desde colección cobros
 function pI_v36(p){
+  // Campo cancelado:true → forzar completado SIN cache
+  if(p.cancelado===true){
+    var totCC=Math.round(p.capital*(1+(p.interes||0)/100));
+    return {tot:totCC,c:Math.round(totCC/p.dias),pag:p.dias,venc:[],prog:100,
+            est:'completado',fechas:calcFechasCuotas(p.fechaInicio,p.dias,p.frecuencia||'diario'),
+            valorCobrado:totCC,saldoReal:0};
+  }
   var ckey='pI_v36_'+p.id+'_'+(p.updatedAt||p.createdAt||0)+'_'+ST.cobros.length;
   if(_cache[ckey]) return _cache[ckey];
 
@@ -4321,34 +4327,6 @@ function verCli(id){
       '<span class="badge '+B[i.est]+'">'+T[i.est]+'</span>';
     var numCredV=_numeroCreditoCliente(c.id,p.id);
     var numTagV=pres.length>1?'<span style="background:#1976D2;color:#fff;border-radius:20px;padding:1px 8px;font-size:10px;margin-left:6px">Crédito #'+numCredV+'</span>':'';
-    // ── Diagnóstico v36 ──
-    var diagH='';
-    if(PAR.v36activo){
-      var cobros_diag=ST.cobros.filter(function(cb){return cb.prestamoId===p.id;});
-      var sumCobros=cobros_diag.reduce(function(s,cb){return s+(cb.valor||0);},0);
-      var pg_diag=p.pagos||{};
-      var sumPagos=Object.keys(pg_diag).reduce(function(s,k){
-        var pg=pg_diag[k]; if(!pg||pg.esAdicional||pg.esHistorial) return s; return s+(pg.valor||0);},0);
-      var tot_diag=Math.round(p.capital*(1+(p.interes||0)/100));
-      var saldoCobros=Math.max(0,tot_diag-sumCobros);
-      var saldoPagos=Math.max(0,tot_diag-sumPagos);
-      diagH='<div style="margin-top:8px;padding:8px 10px;background:#F3F4F6;border-radius:8px;font-size:11px">'+
-        '<div style="font-weight:700;color:var(--tm);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em">📊 Diagnóstico v36</div>'+
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">'+
-          '<div style="background:var(--wh);padding:6px 8px;border-radius:6px;border:1px solid var(--br)">'+
-            '<div style="color:var(--tm);font-size:10px">Colección cobros ('+cobros_diag.length+' docs)</div>'+
-            '<div style="font-weight:700;color:var(--bd)">Cobrado: '+fm(sumCobros)+'</div>'+
-            '<div style="color:'+(saldoCobros===0?'var(--gn)':'var(--rd)')+'">Saldo: '+fm(saldoCobros)+'</div>'+
-          '</div>'+
-          '<div style="background:var(--wh);padding:6px 8px;border-radius:6px;border:1px solid var(--br)">'+
-            '<div style="color:var(--tm);font-size:10px">pagos{} ('+Object.keys(pg_diag).length+' entradas)</div>'+
-            '<div style="font-weight:700;color:var(--bd)">Cobrado: '+fm(sumPagos)+'</div>'+
-            '<div style="color:'+(saldoPagos===0?'var(--gn)':'var(--rd)')+'">Saldo: '+fm(saldoPagos)+'</div>'+
-          '</div>'+
-        '</div>'+
-        '<div style="margin-top:6px;color:var(--tm)">Total crédito: <strong>'+fm(tot_diag)+'</strong> · Sistema usa: <strong>'+(cobros_diag.length>0&&!( Object.keys(pg_diag).reduce(function(s,k){var pg=pg_diag[k];if(!pg||pg.esAdicional||pg.esHistorial)return s;return s+(pg.valor||0);},0)>=tot_diag)?'cobros':'pagos{}')+'</strong></div>'+
-      '</div>';
-    }
     return '<div style="background:var(--bll);border-radius:var(--rs);padding:12px;margin-bottom:10px;border:1px solid '+(esHoy?'var(--bl)':'var(--br)')+'">'+
       '<div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:6px;margin-bottom:8px">'+
         '<div>'+
@@ -4369,7 +4347,6 @@ function verCli(id){
       '</div>'+
       '<div class="pb"><div class="pf" style="width:'+i.prog.toFixed(0)+'%"></div></div>'+
       '<div class="ts" style="margin-bottom:8px">'+i.pag+' pagadas · '+i.venc.length+' vencidas · '+(p.dias-i.pag)+' restantes</div>'+
-      diagH+
       '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:5px">'+calH+'</div>'+
     '</div>';
   }).join('');
