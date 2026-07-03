@@ -3058,19 +3058,27 @@ function autoEliminarSaldados(){
   var hoy=ISO;
   var eliminados=0;
   ST.prestamos.forEach(function(p){
-    var i=pI(p); // usa v36 si activo
+    var i=pI(p); // usa v36 si activo (con fallback a pagos{})
     if(i.saldoReal>0) return; // no saldado
-    // Verificar que el último cobro fue ANTES de hoy
+    // Determinar fecha del último cobro (desde cobros o desde pagos{})
     var ultimaFecha='';
     if(PAR.v36activo){
       var cobros_p=ST.cobros.filter(function(cb){return cb.prestamoId===p.id;});
-      if(cobros_p.length===0) return; // sin cobros → no eliminar
-      ultimaFecha=cobros_p.map(function(cb){return cb.fecha||'';}).filter(Boolean).sort().pop()||'';
+      if(cobros_p.length>0){
+        // Tiene cobros en colección → usar la fecha más reciente
+        ultimaFecha=cobros_p.map(function(cb){return cb.fecha||'';}).filter(Boolean).sort().pop()||'';
+      } else {
+        // Fallback: préstamo cancelado vía pagos{} → buscar fecha ahí
+        var pg=p.pagos||{};
+        var fechasPg=Object.keys(pg).map(function(k){return (pg[k]&&pg[k].fecha)||'';}).filter(Boolean);
+        if(fechasPg.length===0) return; // sin pagos de ningún tipo → no tocar
+        ultimaFecha=fechasPg.slice().sort().pop()||'';
+      }
     } else {
-      var pg=p.pagos||{};
-      var fechasPg=Object.keys(pg).map(function(k){return (pg[k]&&pg[k].fecha)||'';}).filter(Boolean);
-      if(fechasPg.length===0) return;
-      ultimaFecha=fechasPg.slice().sort().pop()||'';
+      var pg2=p.pagos||{};
+      var fechasPg2=Object.keys(pg2).map(function(k){return (pg2[k]&&pg2[k].fecha)||'';}).filter(Boolean);
+      if(fechasPg2.length===0) return;
+      ultimaFecha=fechasPg2.slice().sort().pop()||'';
     }
     if(ultimaFecha>=hoy) return; // completado hoy → no tocar todavía
     eliminados++;
@@ -3080,6 +3088,7 @@ function autoEliminarSaldados(){
   });
   if(eliminados>0){
     console.log('[v36] autoEliminarSaldados: '+eliminados+' préstamos eliminados');
+    clearCache(); refSc();
   }
 }
 
@@ -3238,6 +3247,90 @@ function ajustarSaldoEfNq(rutaId, totalSaldo){
     // Persistir en Firestore en paralelo
     db.collection('config').doc(docId).set(docData)
       .catch(function(e){toast('Error al guardar en Firestore','err');console.error(e);});
+  };
+}
+
+function verSaldadosPendientes(){
+  var hoy=ISO;
+  var lista=[];
+  ST.prestamos.forEach(function(p){
+    var i=pI(p);
+    if(i.saldoReal>0) return; // activo
+    var cobros_p=PAR.v36activo?ST.cobros.filter(function(cb){return cb.prestamoId===p.id;}):[];
+    var ultimaFecha='';
+    if(PAR.v36activo&&cobros_p.length>0){
+      ultimaFecha=cobros_p.map(function(cb){return cb.fecha||'';}).filter(Boolean).sort().pop()||'';
+    } else {
+      var pg=p.pagos||{};
+      var fp=Object.keys(pg).map(function(k){return (pg[k]&&pg[k].fecha)||'';}).filter(Boolean);
+      ultimaFecha=fp.length?fp.slice().sort().pop():'';
+    }
+    var c=gC(p.clienteId);
+    lista.push({
+      nombre:c?c.nombre:'?',
+      capital:p.capital,
+      dias:p.dias,
+      ultimaFecha:ultimaFecha,
+      eliMinable:ultimaFecha&&ultimaFecha<hoy,
+      fuente:cobros_p.length>0?'cobros':'pagos{}',
+      id:p.id
+    });
+  });
+  if(lista.length===0){
+    toast('No hay préstamos saldados pendientes de eliminar','ok');
+    return;
+  }
+  var rows=lista.map(function(x){
+    return '<tr style="border-bottom:1px solid var(--br)">'+
+      '<td style="padding:8px 6px;font-weight:700">'+x.nombre+'</td>'+
+      '<td style="padding:8px 6px;text-align:right">'+fm(x.capital)+'/'+x.dias+'d</td>'+
+      '<td style="padding:8px 6px;text-align:center">'+(x.ultimaFecha?fd(x.ultimaFecha):'—')+'</td>'+
+      '<td style="padding:8px 6px;text-align:center">'+
+        '<span style="font-size:10px;background:#E3F2FD;padding:1px 6px;border-radius:20px">'+x.fuente+'</span>'+
+      '</td>'+
+      '<td style="padding:8px 6px;text-align:center">'+
+        (x.eliMinable?
+          '<span style="color:var(--am);font-size:11px;font-weight:700">⏳ Pendiente</span>':
+          '<span style="color:var(--gn);font-size:11px">✓ Saldado hoy</span>')+
+      '</td>'+
+    '</tr>';
+  }).join('');
+  var pendientes=lista.filter(function(x){return x.eliMinable;}).length;
+  var ov=document.createElement('div');
+  ov.className='mov'; ov.style.zIndex='9200';
+  ov.innerHTML=
+    '<div class="modal" onclick="event.stopPropagation()" style="max-width:600px;max-height:80vh;overflow-y:auto">'+
+      '<h3 style="font-size:13px;font-weight:700;color:var(--bd);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">'+
+        '🔍 Préstamos con saldo $0</h3>'+
+      '<div style="font-size:12px;color:var(--tm);margin-bottom:12px">'+
+        lista.length+' encontrados · '+pendientes+' pendientes de eliminar (último cobro antes de hoy)'+
+      '</div>'+
+      '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
+        '<thead><tr style="background:var(--bll);font-size:10px;text-transform:uppercase;color:var(--tm)">'+
+          '<th style="padding:6px;text-align:left">Cliente</th>'+
+          '<th style="padding:6px;text-align:right">Crédito</th>'+
+          '<th style="padding:6px;text-align:center">Último pago</th>'+
+          '<th style="padding:6px;text-align:center">Fuente</th>'+
+          '<th style="padding:6px;text-align:center">Estado</th>'+
+        '</tr></thead>'+
+        '<tbody>'+rows+'</tbody>'+
+      '</table>'+
+      '<div class="mf" style="margin-top:14px;flex-wrap:wrap;gap:8px">'+
+        '<button class="bg2 bs" id="VSP-CANCEL">Cerrar</button>'+
+        (pendientes>0?'<button class="bd2 bs" id="VSP-ELIM">🗑 Eliminar los '+pendientes+' pendientes</button>':'')+ 
+      '</div>'+
+    '</div>';
+  document.body.appendChild(ov);
+  ov.style.display='flex';
+  function cerrar(){document.body.removeChild(ov);}
+  ov.onclick=cerrar;
+  ov.querySelector('.modal').onclick=function(e){e.stopPropagation();};
+  document.getElementById('VSP-CANCEL').onclick=cerrar;
+  var btnElim=document.getElementById('VSP-ELIM');
+  if(btnElim) btnElim.onclick=function(){
+    cerrar();
+    autoEliminarSaldados();
+    setTimeout(function(){toast('Eliminación ejecutada — recargando...','ok');},300);
   };
 }
 
@@ -5516,7 +5609,10 @@ function rPar(){
       '</div>'+
     '</div>'+
     '<div class="param-row">'+
-      '<div><div class="param-label">Revisar cierres faltantes</div>'+
+      '<div><div class="param-label">Préstamos saldados pendientes</div>'+
+      '<div class="param-desc">Muestra todos los créditos con saldo $0 que aún no han sido eliminados del sistema. Incluye los que están cancelados en <code style="background:#f5f5f5;padding:1px 5px;border-radius:3px">pagos{}</code> pero sin registros en la colección cobros.</div></div>'+
+      '<div class="param-ctrl"><button class="bx bs" onclick="verSaldadosPendientes()">🔍 Ver lista</button></div>'+
+    '</div>'+
       '<div class="param-desc">Busca huecos en los últimos 7 días (ej: nadie entró un domingo y quedó sin cerrar el sábado) y los genera automáticamente con los datos reales de cada fecha.</div></div>'+
       '<div class="param-ctrl"><button class="bp bs" onclick="cierreAutomatico();setTimeout(function(){toast(\'Revisión ejecutada — revisa Flujo de caja\',\'ok\')},800)">🔍 Revisar y corregir</button></div>'+
     '</div>'+
