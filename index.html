@@ -2999,19 +2999,12 @@ function pI_v36(p){
 
   var cobros_p=ST.cobros.filter(function(cb){return cb.prestamoId===p.id;});
 
-  // ── Fallback robusto: usar pagos{} cuando:
-  // a) No hay cobros en colección (préstamo pre-migración)
-  // b) pagos{} ya dice que está cancelado
-  // c) Campo cancelado:true fue marcado manualmente en Firebase
-  var pg_chk=p.pagos||{};
-  var tot_chk=Math.round(p.capital*(1+(p.interes||0)/100));
-  var pagado_chk=Object.keys(pg_chk).reduce(function(s,k){
-    var pg=pg_chk[k]; if(!pg||pg.esAdicional||pg.esHistorial) return s; return s+(pg.valor||0);
-  },0);
-  var completadoEnPagos=pagado_chk>=tot_chk;
+  // ── Fallback: usar pagos{} SOLO cuando no hay cobros en colección
+  // (préstamos cancelados antes de Fase 1 / antes de migración)
+  // Si tiene cobros en colección → SIEMPRE usar cobros (fuente de verdad v36)
   var canceladoManual=p.cancelado===true;
 
-  if(cobros_p.length===0||completadoEnPagos||canceladoManual){
+  if(cobros_p.length===0||canceladoManual){
     var tot0=Math.round(p.capital*(1+(p.interes||0)/100));
     var c0=Math.round(tot0/p.dias);
     var frecuencia0=p.frecuencia||'diario';
@@ -3042,10 +3035,30 @@ function pI_v36(p){
   var c=Math.round(tot/p.dias);
   var frecuencia=p.frecuencia||'diario';
   var fechas=calcFechasCuotas(p.fechaInicio, p.dias, frecuencia);
-  // Leer cobros de este préstamo
-  var cobros_p=ST.cobros.filter(function(cb){return cb.prestamoId===p.id;});
-  var valorCobrado=cobros_p.reduce(function(s,cb){return s+(cb.valor||0);},0);
-  var pag=cobros_p.filter(function(cb){return cb.tipo==='cobro';}).length;
+  var cutoff=PAR.fechaInicioV36||'2026-06-16';
+
+  // ── Cálculo híbrido: pagos{} para pre-cutoff + cobros para post-cutoff ──
+  // pagos{} es confiable para fechas históricas (sin duplicados en fechas antiguas)
+  // cobros es la fuente de verdad para Fase 1 (evita inflación de marcaCuotas)
+  var pg=p.pagos||{};
+  var sumPagosAntiguos=Object.keys(pg).reduce(function(s,k){
+    var pago=pg[k];
+    if(!pago||pago.esAdicional||pago.esHistorial) return s;
+    if(!pago.fecha||pago.fecha>=cutoff) return s; // solo pre-cutoff
+    return s+(pago.valor||0);
+  },0);
+  var pagAntiguos=Object.keys(pg).filter(function(k){
+    var pago=pg[k];
+    return pago&&pago.esPrincipal&&!pago.esAdicional&&!pago.esParcial&&!pago.esHistorial&&
+           pago.fecha&&pago.fecha<cutoff;
+  }).length;
+
+  var cobrosRecientes=cobros_p.filter(function(cb){return (cb.fecha||'')>=cutoff;});
+  var sumCobrosRecientes=cobrosRecientes.reduce(function(s,cb){return s+(cb.valor||0);},0);
+  var pagRecientes=cobrosRecientes.filter(function(cb){return cb.tipo==='cobro';}).length;
+
+  var valorCobrado=sumPagosAntiguos+sumCobrosRecientes;
+  var pag=pagAntiguos+pagRecientes;
   var saldoReal=Math.max(0,tot-valorCobrado);
   // Vencidas: por CONTEO (no por fecha exacta)
   // El cobro #1 cubre cuota #1, cobro #2 cubre cuota #2, etc.
@@ -3348,6 +3361,94 @@ function verSaldadosPendientes(){
     autoEliminarSaldados();
     setTimeout(function(){toast('Eliminación ejecutada — recargando...','ok');},300);
   };
+}
+
+// ── Diagnóstico: cobros colección vs pagos{} ─────────────────────────────────
+function diagnosticoCobrosPagos(){
+  if(!PAR.v36activo){toast('Activa el modo v36 para ejecutar este diagnóstico','err');return;}
+  var discrepancias=[];
+  var ok=0;
+  ST.prestamos.forEach(function(p){
+    var cobros_p=ST.cobros.filter(function(cb){return cb.prestamoId===p.id;});
+    if(cobros_p.length===0) return; // sin cobros → fallback a pagos{}, no aplica
+    var c=gC(p.clienteId);
+    var tot=Math.round(p.capital*(1+(p.interes||0)/100));
+    // Saldo según cobros (v36)
+    var sumCobros=cobros_p.reduce(function(s,cb){return s+(cb.valor||0);},0);
+    var saldoCobros=Math.max(0,tot-sumCobros);
+    // Saldo según pagos{} (v35)
+    var pg=p.pagos||{};
+    var sumPagos=Object.keys(pg).reduce(function(s,k){
+      var pago=pg[k]; if(!pago||pago.esAdicional||pago.esHistorial) return s;
+      return s+(pago.valor||0);
+    },0);
+    var saldoPagos=Math.max(0,tot-sumPagos);
+    // Detectar discrepancia: pagos{} dice cancelado pero cobros dice pendiente
+    var diff=Math.abs(saldoCobros-saldoPagos);
+    if(diff>=1000){ // diferencia significativa (>= $1.000)
+      discrepancias.push({
+        nombre:c?c.nombre:'?',
+        capital:p.capital, dias:p.dias,
+        tot:tot, sumCobros:sumCobros, sumPagos:sumPagos,
+        saldoCobros:saldoCobros, saldoPagos:saldoPagos,
+        diff:diff, cobrosN:cobros_p.length
+      });
+    } else { ok++; }
+  });
+
+  if(discrepancias.length===0){
+    showModal({title:'✅ Sin discrepancias',icon:'✅',iconColor:'#E8F5E9',
+      body:'Los '+ok+' préstamos con cobros en la colección cuadran correctamente.',
+      btnOk:'Cerrar'});
+    return;
+  }
+
+  discrepancias.sort(function(a,b){return b.diff-a.diff;});
+  var rows=discrepancias.map(function(x){
+    return '<tr style="border-bottom:1px solid var(--br)">'+
+      '<td style="padding:7px 6px;font-weight:700">'+x.nombre+'</td>'+
+      '<td style="padding:7px 6px;text-align:right;font-size:11px">'+fm(x.capital)+'/'+x.dias+'d</td>'+
+      '<td style="padding:7px 6px;text-align:right">'+
+        '<span style="color:'+(x.saldoCobros===0?'var(--gn)':'var(--rd)')+'">'+fm(x.saldoCobros)+'</span>'+
+        '<div style="font-size:9px;color:var(--tm)">'+x.cobrosN+' cobros = '+fm(x.sumCobros)+'</div>'+
+      '</td>'+
+      '<td style="padding:7px 6px;text-align:right">'+
+        '<span style="color:'+(x.saldoPagos===0?'var(--gn)':'var(--rd)')+'">'+fm(x.saldoPagos)+'</span>'+
+        '<div style="font-size:9px;color:var(--tm)">pagos = '+fm(x.sumPagos)+'</div>'+
+      '</td>'+
+      '<td style="padding:7px 6px;text-align:right;font-weight:700;color:var(--am)">'+fm(x.diff)+'</td>'+
+    '</tr>';
+  }).join('');
+
+  var ov=document.createElement('div');
+  ov.className='mov'; ov.style.zIndex='9200';
+  ov.innerHTML=
+    '<div class="modal" onclick="event.stopPropagation()" style="max-width:680px;max-height:80vh;overflow-y:auto">'+
+      '<h3 style="font-size:13px;font-weight:700;color:var(--bd);text-transform:uppercase;margin-bottom:4px">'+
+        '⚠ Discrepancias cobros vs pagos{}</h3>'+
+      '<div style="font-size:12px;color:var(--tm);margin-bottom:12px">'+
+        discrepancias.length+' préstamos con diferencia ≥ $1.000 · '+ok+' sin discrepancia'+
+        '<div style="margin-top:4px;color:var(--am)">El sistema ya usa la columna "Saldo cobros" (v36). La columna pagos{} es solo referencia.</div>'+
+      '</div>'+
+      '<table style="width:100%;border-collapse:collapse;font-size:12px">'+
+        '<thead><tr style="background:var(--bll);font-size:10px;text-transform:uppercase;color:var(--tm)">'+
+          '<th style="padding:6px;text-align:left">Cliente</th>'+
+          '<th style="padding:6px;text-align:right">Crédito</th>'+
+          '<th style="padding:6px;text-align:right">Saldo cobros ✓</th>'+
+          '<th style="padding:6px;text-align:right">Saldo pagos{}</th>'+
+          '<th style="padding:6px;text-align:right">Diferencia</th>'+
+        '</tr></thead>'+
+        '<tbody>'+rows+'</tbody>'+
+      '</table>'+
+      '<div class="mf" style="margin-top:12px">'+
+        '<button class="bp bs" id="DCP-OK">Cerrar</button>'+
+      '</div>'+
+    '</div>';
+  document.body.appendChild(ov);
+  ov.style.display='flex';
+  ov.onclick=function(){document.body.removeChild(ov);};
+  ov.querySelector('.modal').onclick=function(e){e.stopPropagation();};
+  document.getElementById('DCP-OK').onclick=function(){document.body.removeChild(ov);};
 }
 
 function guardarFechaV36(){
@@ -5677,11 +5778,18 @@ function rPar(){
     '</div>'+
     '<div class="param-row">'+
       '<div><div class="param-label">Préstamos saldados pendientes</div>'+
-      '<div class="param-desc">Muestra todos los créditos con saldo $0 que aún no han sido eliminados del sistema. Incluye los que están cancelados en <code style="background:#f5f5f5;padding:1px 5px;border-radius:3px">pagos{}</code> pero sin registros en la colección cobros.</div></div>'+
+      '<div class="param-desc">Muestra todos los créditos con saldo $0 que aún no han sido eliminados del sistema.</div></div>'+
       '<div class="param-ctrl"><button class="bx bs" onclick="verSaldadosPendientes()">🔍 Ver lista</button></div>'+
     '</div>'+
-      '<div class="param-desc">Busca huecos en los últimos 7 días (ej: nadie entró un domingo y quedó sin cerrar el sábado) y los genera automáticamente con los datos reales de cada fecha.</div></div>'+
+    '<div class="param-row">'+
+      '<div><div class="param-label">Revisar cierres faltantes</div>'+
+      '<div class="param-desc">Busca huecos en los últimos 7 días y los genera automáticamente con los datos reales de cada fecha.</div></div>'+
       '<div class="param-ctrl"><button class="bp bs" onclick="cierreAutomatico();setTimeout(function(){toast(\'Revisión ejecutada — revisa Flujo de caja\',\'ok\')},800)">🔍 Revisar y corregir</button></div>'+
+    '</div>'+
+    '<div class="param-row">'+
+      '<div><div class="param-label">Diagnóstico cobros vs pagos{}</div>'+
+      '<div class="param-desc">Detecta préstamos donde <code style="background:#f5f5f5;padding:1px 5px;border-radius:3px">pagos{}</code> dice saldo $0 pero la colección <code style="background:#E3F2FD;padding:1px 5px;border-radius:3px">cobros</code> muestra saldo pendiente (caso Luz Edi).</div></div>'+
+      '<div class="param-ctrl"><button class="bx bs" onclick="diagnosticoCobrosPagos()">🔍 Diagnosticar</button></div>'+
     '</div>'+
     '<div class="param-row">'+
       '<div><div class="param-label">Plantilla de migración</div>'+
