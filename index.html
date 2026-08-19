@@ -2528,7 +2528,10 @@ function rRec(){
           '<td><span class="badge '+(cob.metodo==='nequi'?'bnq':'bef')+'">'+(cob.metodo==='nequi'?'📱 Nequi':'💵 Ef.')+'</span>'+
             (porAdmin?'<span class="badge" style="background:#1565C0;color:#fff;margin-left:3px">Admin</span>':'')+
           '</td>'+
-          '<td><button onclick="editarPago(\''+p.id+'\',0,\''+ISO+'\')" style="padding:3px 10px;border:1px solid var(--br);border-radius:var(--rs);background:var(--bll);font-size:11px;cursor:pointer;font-family:inherit">✏️ Editar</button></td>'+
+          '<td style="white-space:nowrap">'+
+            '<button onclick="editarPago(\''+p.id+'\',0,\''+ISO+'\')" style="padding:3px 10px;border:1px solid var(--br);border-radius:var(--rs);background:var(--bll);font-size:11px;cursor:pointer;font-family:inherit">✏️</button>'+
+            (CU.rol==='admin'?'<button onclick="eliminarCobro(\''+cob.id+'\')" style="padding:3px 10px;border:1px solid #FFCDD2;border-radius:var(--rs);background:#FFEBEE;color:#C62828;font-size:11px;cursor:pointer;font-family:inherit;margin-left:4px">🗑</button>':'')+
+          '</td>'+
         '</tr>'
       });
     });
@@ -2620,7 +2623,10 @@ function rRec(){
         '<td><span class="badge '+(metodoDia==='nequi'?'bnq':'bef')+'">'+(metodoDia==='nequi'?'📱 Nequi':'💵 Ef.')+'</span>'+
           (porAdmin?'<span class="badge" style="background:#1565C0;color:#fff;margin-left:3px">Admin</span>':'')+
         '</td>'+
-        '<td><button onclick="editarPago(\''+p.id+'\','+(primeraCuota||0)+',\''+ISO+'\')" style="padding:3px 10px;border:1px solid var(--br);border-radius:var(--rs);background:var(--bll);font-size:11px;cursor:pointer;font-family:inherit">✏️ Editar</button></td>'+
+        '<td style="white-space:nowrap">'+
+          '<button onclick="editarPago(\''+p.id+'\','+(primeraCuota||0)+',\''+ISO+'\')" style="padding:3px 10px;border:1px solid var(--br);border-radius:var(--rs);background:var(--bll);font-size:11px;cursor:pointer;font-family:inherit">✏️</button>'+
+          (CU.rol==='admin'&&PAR.v36activo?'<button onclick="eliminarCobroPorFecha(\''+p.id+'\',\''+ISO+'\')" style="padding:3px 10px;border:1px solid #FFCDD2;border-radius:var(--rs);background:#FFEBEE;color:#C62828;font-size:11px;cursor:pointer;font-family:inherit;margin-left:4px">🗑</button>':'')+
+        '</td>'+
       '</tr>'
     });
   });
@@ -4422,6 +4428,9 @@ function verCli(id){
         '<div style="flex:1;min-width:0">'+
           '<div style="font-size:11px;font-weight:600;color:var(--bd)">Cuota '+n+(fq?' — '+fd(fq):'')+'</div>'+
           '<div style="font-size:10px;color:var(--tm)">'+((cls==='pok'||cls==='pparcial')?(valorMostrar>0?fm(valorMostrar):'')+extraInfo:fm(i.c))+'</div>'+
+          (PAR.v36activo&&cls==='pok'&&cobMarca&&CU.rol==='admin'?
+            '<div onclick="event.stopPropagation();eliminarCobro(\''+cobMarca.id+'\')" '+
+            'style="font-size:9px;color:#C62828;cursor:pointer;margin-top:2px;display:inline-block">🗑 eliminar</div>':'')+
         '</div></div>';
     }
     var estadoBadge=i.est==='completado'?
@@ -4577,7 +4586,65 @@ function editarCli(cliId){
   };
 }
 
-// ── ELIMINAR CLIENTE ─────────────────────────────────────────────────────────
+// ── Eliminar cobro por ID (colección cobros) ─────────────────────────────────
+function eliminarCobro(cobroId){
+  var cob=ST.cobros.find(function(cb){return cb.id===cobroId;});
+  if(!cob){toast('Cobro no encontrado','err');return;}
+  var p=gP(cob.prestamoId);
+  var c=p?gC(p.clienteId):null;
+  showModal({
+    title:'Eliminar cobro',
+    icon:'🗑️', iconColor:'#FFEBEE',
+    body:'¿Eliminar el cobro de <strong>'+(c?c.nombre:'?')+'</strong>?',
+    detail:'Fecha: '+fd(cob.fecha)+' · Valor: '+fm(cob.valor||0)+' · '+( cob.metodo==='nequi'?'📱 Nequi':'💵 Efectivo')+
+           '\n\nEsta acción no se puede deshacer. El saldo del préstamo se recalculará automáticamente.',
+    btnOk:'Sí, eliminar', danger:true,
+    onOk:function(){
+      db.collection('cobros').doc(cobroId).delete()
+        .then(function(){
+          toast('Cobro eliminado','ok');
+          clearCache(); refSc();
+        })
+        .catch(function(e){toast('Error: '+e.message,'err');console.error(e);});
+    }
+  });
+}
+
+// Eliminar cobro por prestamoId + fecha (desde rRec v35 donde no tenemos el cobroId)
+function eliminarCobroPorFecha(prestamoId, fecha){
+  var cobros_p=ST.cobros.filter(function(cb){return cb.prestamoId===prestamoId&&cb.fecha===fecha;});
+  if(cobros_p.length===0){toast('No hay cobros en colección para esta fecha','err');return;}
+  if(cobros_p.length===1){
+    eliminarCobro(cobros_p[0].id);
+    return;
+  }
+  // Múltiples cobros el mismo día → mostrar lista para elegir
+  var p=gP(prestamoId);
+  var c=p?gC(p.clienteId):null;
+  var items=cobros_p.map(function(cb,i){
+    return '<div onclick="document.body.removeChild(document.getElementById(\'MCOB-OV\'));eliminarCobro(\''+cb.id+'\')" '+
+      'style="padding:10px;border:1px solid var(--br);border-radius:8px;cursor:pointer;margin-bottom:6px;background:var(--bll)">'+
+      '<strong>'+fm(cb.valor||0)+'</strong> · '+(cb.metodo==='nequi'?'📱 Nequi':'💵 Ef.')+
+      ' · '+(cb.tipo==='abono'?'Abono':'Cobro')+
+      ' · '+fd(cb.fecha)+(cb.hora?' '+cb.hora:'')+
+    '</div>';
+  }).join('');
+  var ov=document.createElement('div');
+  ov.id='MCOB-OV'; ov.className='mov'; ov.style.zIndex='9200';
+  ov.innerHTML=
+    '<div class="modal" onclick="event.stopPropagation()" style="max-width:380px">'+
+      '<h3 style="font-size:13px;font-weight:700;margin-bottom:8px">¿Cuál cobro eliminar?</h3>'+
+      '<div style="font-size:12px;color:var(--tm);margin-bottom:12px">'+(c?c.nombre:'?')+' · '+fd(fecha)+'</div>'+
+      items+
+      '<button class="bg2 bs" style="margin-top:8px;width:100%" onclick="document.body.removeChild(document.getElementById(\'MCOB-OV\'))">Cancelar</button>'+
+    '</div>';
+  document.body.appendChild(ov);
+  ov.style.display='flex';
+  ov.onclick=function(){if(document.getElementById('MCOB-OV'))document.body.removeChild(ov);};
+  ov.querySelector('.modal').onclick=function(e){e.stopPropagation();};
+}
+
+
 function eliminarCli(cliId){
   var c=gC(cliId); if(!c) return;
   // Bloquear si tiene créditos activos
